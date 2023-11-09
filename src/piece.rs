@@ -1,6 +1,6 @@
 pub const PROMOTABLE_PIECES: [PieceType; 4] = [PieceType::Bishop, PieceType::Knight, PieceType::Rook, PieceType::Queen];
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum PieceType {
 	Pawn,
 	Bishop,
@@ -11,7 +11,7 @@ pub enum PieceType {
 	None,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Piece {
 	pub piece_type: PieceType,
 	pub is_white: bool,
@@ -33,10 +33,12 @@ impl Piece {
 	}
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct PieceMove {
 	pub from: usize,
 	pub to: usize,
+
+	pub capture: Option<Piece>,
 
 	pub promotion_type: PieceType,
 	pub pawn_moving_twice: bool,
@@ -51,6 +53,8 @@ impl Default for PieceMove {
 		Self {
 			from: 0,
 			to: 0,
+
+			capture: None,
 
 			promotion_type: PieceType::None,
 			pawn_moving_twice: false,

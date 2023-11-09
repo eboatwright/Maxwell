@@ -1,9 +1,5 @@
 /* TODO
 no castling through check
-
-check:
-	if the move leaves the king in check it's invalid
-	if no moves get the king out of check it's checkmate
 */
 
 #![allow(dead_code)]
@@ -45,10 +41,16 @@ async fn main() {
 		b: 0.82,
 		a: 0.4,
 	};
+	let checkmated_color = Color {
+		r: 0.9,
+		g: 0.4,
+		b: 0.4,
+		a: 0.8,
+	};
 
 	let mut game = Game::new(
-		"♜♞♝♛♚♝♞♜♟♟♟♟♟♟♟♟                                ♙♙♙♙♙♙♙♙♖♘♗♕♔♗♘♖".to_string(),
-		// "♜   ♚  ♜♟♟♟♟♟♟♟♟                                ♙♙♙♙♙♙♙♙♖   ♔  ♖".to_string(),
+		"♖♘♗♕♔♗♘♖♙♙♙♙♙♙♙♙                                ♟♟♟♟♟♟♟♟♜♞♝♛♚♝♞♜".to_string(),
+		// "♖   ♔  ♖♙♙♙♙♙♙♙♙                                ♟♟♟♟♟♟♟♟♜   ♚  ♜".to_string(),
 	);
 
 	let mut selected_piece = false;
@@ -59,47 +61,72 @@ async fn main() {
 		..Default::default()
 	};
 
+	let mut checkmated_king: Option<usize> = None;
+
 	loop {
-		if game.promoting.is_none() {
-			// if game.whites_turn {
-				if is_mouse_button_pressed(MouseButton::Left) {
-					let mouse_vec2 = (Vec2::from(mouse_position()) / SQUARE_SIZE).floor();
-					let mouse_index = (mouse_vec2.x + (7.0 - mouse_vec2.y) * 8.0) as usize;
+		if checkmated_king.is_none() {
+			let mut made_move = false;
 
-					if game.board[mouse_index].is_white == game.whites_turn
-					&& game.board[mouse_index].piece_type != PieceType::None {
-						selected_piece = true;
-						current_move.from = mouse_index;
-					} else if selected_piece {
-						selected_piece = false;
-						current_move.to = mouse_index;
+			if game.game_data.promoting.is_none() {
+				if game.game_data.whites_turn {
+					if is_mouse_button_pressed(MouseButton::Left) {
+						let mouse_vec2 = (Vec2::from(mouse_position()) / SQUARE_SIZE).floor();
+						let mouse_index = (mouse_vec2.x + mouse_vec2.y * 8.0) as usize;
 
-						if current_move.from != current_move.to {
-							for legal_move in game.get_legal_moves_for_piece(current_move.from) {
-								if legal_move == current_move {
-									game.make_move(legal_move);
-									break;
+						if game.game_data.board[mouse_index].is_white == game.game_data.whites_turn
+						&& game.game_data.board[mouse_index].piece_type != PieceType::None {
+							selected_piece = true;
+							current_move.from = mouse_index;
+						} else if selected_piece {
+							selected_piece = false;
+							current_move.to = mouse_index;
+
+							if current_move.from != current_move.to {
+								for legal_move in game.get_legal_moves_for_piece(current_move.from) {
+									if legal_move == current_move {
+										game.make_move(legal_move);
+										made_move = true;
+										break;
+									}
 								}
 							}
 						}
 					}
-				}
-			// } else {
-			// 	let legal_moves = game.get_legal_moves_for_color(false);
+				} else {
+					let legal_moves = game.get_legal_moves_for_color(false);
 
-			// 	if legal_moves.len() > 0 {
-			// 		game.make_move(legal_moves[gen_range(0, legal_moves.len())]);
-			// 	}
-			// }
+					if legal_moves.len() > 0 {
+						game.make_move(legal_moves[gen_range(0, legal_moves.len())]);
+					}
+				}
+			} else {
+				if is_key_pressed(KeyCode::B) {
+					game.promote(PieceType::Bishop);
+				} else if is_key_pressed(KeyCode::N) {
+					game.promote(PieceType::Knight);
+				} else if is_key_pressed(KeyCode::R) {
+					game.promote(PieceType::Rook);
+				} else if is_key_pressed(KeyCode::Q) {
+					game.promote(PieceType::Queen);
+				}
+			}
+
+			if made_move
+			&& game.get_legal_moves_for_color(game.game_data.whites_turn).len() == 0 {
+				for i in 0..64 {
+					if game.game_data.board[i].is_white == game.game_data.whites_turn
+					&& game.game_data.board[i].piece_type == PieceType::King {
+						checkmated_king = Some(i);
+						break;
+					}
+				}
+			}
 		} else {
-			if is_key_pressed(KeyCode::B) {
-				game.promote(PieceType::Bishop);
-			} else if is_key_pressed(KeyCode::N) {
-				game.promote(PieceType::Knight);
-			} else if is_key_pressed(KeyCode::R) {
-				game.promote(PieceType::Rook);
-			} else if is_key_pressed(KeyCode::Q) {
-				game.promote(PieceType::Queen);
+			if is_key_pressed(KeyCode::Enter) {
+				checkmated_king = None;
+				game = Game::new(
+					"♖♘♗♕♔♗♘♖♙♙♙♙♙♙♙♙                                ♟♟♟♟♟♟♟♟♜♞♝♛♚♝♞♜".to_string(),
+				);
 			}
 		}
 
@@ -109,7 +136,7 @@ async fn main() {
 
 		for y in 0..8 {
 			for x in 0..8 {
-				let index = x + (7 - y) * 8;
+				let index = x + y * 8;
 
 				if selected_piece
 				&& index == current_move.from {
@@ -122,7 +149,17 @@ async fn main() {
 					);
 				}
 
-				let piece = get_index_for_piece(game.board[index]);
+				if index == checkmated_king.unwrap_or(69) {
+					draw_rectangle(
+						x as f32 * SQUARE_SIZE,
+						y as f32 * SQUARE_SIZE,
+						SQUARE_SIZE,
+						SQUARE_SIZE,
+						checkmated_color,
+					);
+				}
+
+				let piece = get_index_for_piece(game.game_data.board[index]);
 
 				if piece > 0 {
 					draw_texture(
@@ -132,6 +169,16 @@ async fn main() {
 						WHITE,
 					);
 				}
+
+				// draw_text_ex(
+				// 	&format!("{}", index),
+				// 	x as f32 * SQUARE_SIZE + 16.0,
+				// 	y as f32 * SQUARE_SIZE + 32.0,
+				// 	TextParams {
+				// 		font_size: 32,
+				// 		..Default::default()
+				// 	},
+				// );
 			}
 		}
 
@@ -141,7 +188,7 @@ async fn main() {
 
 				draw_circle(
 					p.x as f32 * SQUARE_SIZE + 32.0,
-					(7 - p.y) as f32 * SQUARE_SIZE + 32.0,
+					p.y as f32 * SQUARE_SIZE + 32.0,
 					12.0,
 					transparent_color,
 				);

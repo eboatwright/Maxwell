@@ -1,7 +1,7 @@
 use std::ops::Add;
 use std::ops::AddAssign;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Point {
 	pub x: i8,
 	pub y: i8,
