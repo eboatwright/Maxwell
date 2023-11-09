@@ -1,7 +1,27 @@
+use std::ops::Add;
+use std::ops::AddAssign;
+
 #[derive(Copy, Clone, PartialEq)]
 pub struct Point {
 	pub x: i8,
 	pub y: i8,
+}
+
+impl Add for Point {
+	fn add(self, other: Point) -> <Self as std::ops::Add<Point>>::Output {
+		Point {
+			x: self.x + other.x,
+			y: self.y + other.y,
+		}
+	}
+	type Output = Self;
+}
+
+impl AddAssign for Point {
+	fn add_assign(&mut self, other: Point) {
+		self.x += other.x;
+		self.y += other.y;
+	}
 }
 
 impl Point {

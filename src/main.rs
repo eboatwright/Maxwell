@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod resources;
 mod point;
 mod piece;
@@ -26,196 +28,46 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
 	let resources = Resources::load().await;
-
-	// let selected_color: Color = Color::from_hex(0x4B98B7);
+	let transparent_color = Color {
+		r: 0.8,
+		g: 0.8,
+		b: 0.82,
+		a: 0.4,
+	};
 
 	let mut game = Game {
 		board: generate_starting_position("♜♞♝♛♚♝♞♜♟♟♟♟♟♟♟♟                                ♙♙♙♙♙♙♙♙♖♘♗♕♔♗♘♖".to_string()),
-		// board: generate_starting_position("                          ♙ ♛ ♟                                 ".to_string()),
+		// board: generate_starting_position("  ♟     ♙         ♟         ♟     ♙    ♟        ♙ ♙       ♟♙    ".to_string()),
 		whites_turn: true,
 	};
 
 	let mut selected_piece = false;
-	let mut from = 0usize;
-	let mut to: usize;
+	let mut current_move = PieceMove {
+		from: 0,
+		to: 0,
+	};
 
 	loop {
 		if is_mouse_button_pressed(MouseButton::Left) {
 			let mouse_vec2 = (Vec2::from(mouse_position()) / SQUARE_SIZE).floor();
 			let mouse_index = (mouse_vec2.x + (7.0 - mouse_vec2.y) * 8.0) as usize;
 
-			if !selected_piece {
-				if game.board[mouse_index].piece_type != PieceType::None
-				&& game.board[mouse_index].is_white == game.whites_turn {
-					selected_piece = true;
-					from = mouse_index;
-				}
-			} else {
+			if game.board[mouse_index].is_white == game.whites_turn
+			&& game.board[mouse_index].piece_type != PieceType::None {
+				selected_piece = true;
+				current_move.from = mouse_index;
+			} else if selected_piece {
 				selected_piece = false;
-				to = mouse_index;
+				current_move.to = mouse_index;
 
+				if current_move.from != current_move.to {
+					let legal_moves = game.get_legal_moves_for_piece(current_move.from);
+					if legal_moves.contains(&current_move) {
+						game.board[current_move.to] = game.board[current_move.from];
+						game.board[current_move.from] = Piece::none();
 
-				let mut invalid_move = false;
-
-				if from != to
-				&& game.board[from].piece_type != PieceType::None
-				&& game.board[from].is_white == game.whites_turn {
-					let mut captured = false;
-
-					if game.board[to].piece_type != PieceType::None {
-						if game.board[from].is_white != game.board[to].is_white {
-							captured = true;
-						} else {
-							invalid_move = true;
-						}
+						game.whites_turn = !game.whites_turn;
 					}
-
-					match (game.board[from].piece_type, game.board[from].is_white) {
-						(PieceType::Pawn, false) => {
-							let from_p = Point::from_index(from);
-							let to_p = Point::from_index(to);
-
-							let difference = from_p.difference(to_p);
-
-							if captured {
-								if !(difference.x == -1
-								&& difference.y == -1)
-								&& !(difference.x == 1
-								&& difference.y == -1) {
-									invalid_move = true;
-								}
-							} else {
-								let mut can_move_twice = false;
-								if from_p.y == 6
-								&& game.board[(from_p.x + (from_p.y - 1) * 8) as usize].piece_type == PieceType::None {
-									can_move_twice = true;
-								}
-
-								if (difference.y != -1
-								&& (!can_move_twice
-								|| difference.y != -2))
-								|| difference.x != 0 {
-									invalid_move = true;
-								}
-							}
-						}
-
-						(PieceType::Pawn, true) => {
-							let from_p = Point::from_index(from);
-							let to_p = Point::from_index(to);
-
-							let difference = from_p.difference(to_p);
-
-							if captured {
-								if !(difference.x == -1
-								&& difference.y == 1)
-								&& !(difference.x == 1
-								&& difference.y == 1) {
-									invalid_move = true;
-								}
-							} else {
-								let mut can_move_twice = false;
-								if from_p.y == 1
-								&& game.board[(from_p.x + (from_p.y + 1) * 8) as usize].piece_type == PieceType::None {
-									can_move_twice = true;
-								}
-
-								if (difference.y != 1
-								&& (!can_move_twice
-								|| difference.y != 2))
-								|| difference.x != 0 {
-									invalid_move = true;
-								}
-							}
-						}
-
-						(PieceType::Bishop, ..) => {
-							let from_p = Point::from_index(from);
-							let to_p = Point::from_index(to);
-
-							if from_p.x == to_p.x
-							|| from_p.y == to_p.y {
-								invalid_move = true;
-							} else {
-								let x_dir = if to_p.x > from_p.x { 1 } else { -1 };
-								let y_dir = if to_p.y > from_p.y { 1 } else { -1 };
-
-								let mut x = from_p.x;
-								let mut y = from_p.y;
-
-								let mut found = false;
-
-								while x >= 0 && x < 8
-								&& y >= 0 && y < 8 {
-									x += x_dir;
-									y += y_dir;
-
-									if to_p.x == x
-									&& to_p.y == y {
-										found = true;
-										break;
-									}
-
-									if game.board[(x + y * 8) as usize].piece_type != PieceType::None {
-										break;
-									}
-								}
-
-								if !found {
-									invalid_move = true;
-								}
-							}
-						}
-
-						(PieceType::Knight, ..) => {
-							let from_p = Point::from_index(from);
-							let to_p = Point::from_index(to);
-
-							let difference = from_p.abs_difference(to_p);
-
-							if !(difference.x == 2
-							&& difference.y == 1)
-							&& !(difference.x == 1
-							&& difference.y == 2) {
-								invalid_move = true;
-							}
-						}
-
-						(PieceType::Rook, ..) => {
-							let from_p = Point::from_index(from);
-							let to_p = Point::from_index(to);
-
-							if (from_p.x != to_p.x
-							&& from_p.y != to_p.y)
-							|| game.piece_inbetween_points(from_p, to_p) {
-								invalid_move = true;
-							}
-						}
-
-						(PieceType::Queen, ..) => {}
-
-						(PieceType::King, ..) => {
-							let from_p = Point::from_index(from);
-							let to_p = Point::from_index(to);
-
-							let difference = from_p.abs_difference(to_p);
-
-							if difference.x > 1
-							|| difference.y > 1 {
-								invalid_move = true;
-							}
-						}
-						_ => {}
-					}
-				} else {
-					invalid_move = true;
-				}
-
-				if !invalid_move {
-					game.board[to] = game.board[from];
-					game.board[from] = Piece::none();
-
-					game.whites_turn = !game.whites_turn;
 				}
 			}
 		}
@@ -229,18 +81,13 @@ async fn main() {
 				let index = x + (7 - y) * 8;
 
 				if selected_piece
-				&& index == from {
+				&& index == current_move.from {
 					draw_rectangle(
 						x as f32 * SQUARE_SIZE,
 						y as f32 * SQUARE_SIZE,
 						SQUARE_SIZE,
 						SQUARE_SIZE,
-						Color {
-							r: 0.8,
-							g: 0.8,
-							b: 0.82,
-							a: 0.4,
-						},
+						transparent_color,
 					);
 				}
 
@@ -254,6 +101,19 @@ async fn main() {
 						WHITE,
 					);
 				}
+			}
+		}
+
+		if selected_piece {
+			for legal_move in game.get_legal_moves_for_piece(current_move.from) {
+				let p = Point::from_index(legal_move.to);
+
+				draw_circle(
+					p.x as f32 * SQUARE_SIZE + 32.0,
+					(7 - p.y) as f32 * SQUARE_SIZE + 32.0,
+					12.0,
+					transparent_color,
+				);
 			}
 		}
 

@@ -30,3 +30,9 @@ impl Piece {
 		}
 	}
 }
+
+#[derive(Copy, Clone, PartialEq)]
+pub struct PieceMove {
+	pub from: usize,
+	pub to: usize,
+}
