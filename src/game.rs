@@ -1,12 +1,40 @@
+use crate::generate_starting_position;
 use crate::piece::*;
 use crate::Point;
 
 pub struct Game {
 	pub board: [Piece; 64],
 	pub whites_turn: bool,
+
+	pub promoting: Option<usize>,
+
+	pub last_move: PieceMove,
+
+	pub white_can_short_castle: bool,
+	pub white_can_long_castle: bool,
+
+	pub black_can_short_castle: bool,
+	pub black_can_long_castle: bool,
 }
 
 impl Game {
+	pub fn new(board: String) -> Self {
+		Self {
+			board: generate_starting_position(board),
+			whites_turn: true,
+
+			promoting: None,
+
+			last_move: PieceMove::default(),
+
+			white_can_short_castle: true,
+			white_can_long_castle: true,
+
+			black_can_short_castle: true,
+			black_can_long_castle: true,
+		}
+	}
+
 	// fn flush(&self) {
 	// 	std::process::Command::new("clear").status().unwrap();
 
@@ -56,6 +84,69 @@ impl Game {
 		false
 	}
 
+	pub fn make_move(&mut self, m: PieceMove) {
+		self.last_move = m;
+
+		self.board[m.to] = self.board[m.from];
+		self.board[m.from] = Piece::none();
+
+		let p = Point::from_index(m.to);
+
+		match self.board[m.to].piece_type {
+			PieceType::Pawn => {
+				if let Some(i) = m.en_passant_capture {
+					self.board[i].piece_type = PieceType::None;
+				} else if p.y == 0
+				|| p.y == 7 {
+					// if self.whites_turn {
+						self.promoting = Some(m.to);
+					// } else {
+						// self.board[m.to].piece_type = m.promotion_type;
+					// }
+				}
+			}
+
+			PieceType::Rook => {
+				if m.from == 0 {
+					self.white_can_long_castle = false;
+				} else if m.from == 7 {
+					self.white_can_short_castle = false;
+				} else if m.from == 56 {
+					self.black_can_long_castle = false;
+				} else if m.from == 63 {
+					self.black_can_short_castle = false;
+				}
+			}
+
+			PieceType::King => {
+				if m.short_castle {
+					self.board[m.to - 1] = self.board[m.to + 1];
+					self.board[m.to + 1].piece_type = PieceType::None;
+				} else if m.long_castle {
+					self.board[m.to + 1] = self.board[m.to - 2];
+					self.board[m.to - 2].piece_type = PieceType::None;
+				}
+
+				if self.board[m.to].is_white {
+					self.white_can_short_castle = false;
+					self.white_can_long_castle = false;
+				} else {
+					self.black_can_short_castle = false;
+					self.black_can_long_castle = false;
+				}
+			}
+
+			_ => {}
+		}
+
+		self.whites_turn = !self.whites_turn;
+	}
+
+	pub fn promote(&mut self, piece: PieceType) {
+		self.board[self.promoting.unwrap()].piece_type = piece;
+		self.promoting = None;
+	}
+
 	pub fn get_legal_moves_for_color(&self, white: bool) -> Vec<PieceMove> {
 		let mut result = vec![];
 
@@ -77,12 +168,38 @@ impl Game {
 				let p = Point::from_index(index);
 
 				if self.board[index].is_white {
+
+
+
+
+
+
+
+
+					let will_promote = p.y + 1 == 7;
+
+
 					// Moving forward
 					if self.board[index + 8].piece_type == PieceType::None {
-						result.push(PieceMove {
-							from: index,
-							to: index + 8,
-						});
+						if will_promote {
+							for t in PROMOTABLE_PIECES {
+								result.push(PieceMove {
+									from: index,
+									to: index + 8,
+
+									promotion_type: t,
+
+									..Default::default()
+								});
+							}
+						} else {
+							result.push(PieceMove {
+								from: index,
+								to: index + 8,
+
+								..Default::default()
+							});
+						}
 
 						if index + 16 < 63
 						&& p.y == 1
@@ -90,31 +207,120 @@ impl Game {
 							result.push(PieceMove {
 								from: index,
 								to: index + 16,
+
+								pawn_moving_twice: true,
+
+								..Default::default()
 							});
 						}
 					}
 
 
-					// Capturing
+					// Normal capturing
 					for dir in [Point::new(-1, 1), Point::new(1, 1)] {
 						let new_p = p + dir;
+
+						if new_p.x < 0
+						|| new_p.x > 7 {
+							continue;
+						}
+
 						let new_index = (new_p.x + new_p.y * 8) as usize;
 
 						if self.board[new_index].piece_type != PieceType::None
 						&& self.board[new_index].is_white != self.board[index].is_white {
+							if will_promote {
+								for t in PROMOTABLE_PIECES {
+									result.push(PieceMove {
+										from: index,
+										to: index + 8,
+
+										promotion_type: t,
+
+										..Default::default()
+									});
+								}
+							} else {
+								result.push(PieceMove {
+									from: index,
+									to: new_index,
+
+									..Default::default()
+								});
+							}
+						}
+					}
+
+
+
+					// En Passant
+					if self.last_move.pawn_moving_twice {
+						if self.last_move.to == index - 1 {
 							result.push(PieceMove {
 								from: index,
-								to: new_index,
+								to: index + 7,
+
+								en_passant_capture: Some(index - 1),
+
+								..Default::default()
+							});
+						} else if self.last_move.to == index + 1 {
+							result.push(PieceMove {
+								from: index,
+								to: index + 9,
+
+								en_passant_capture: Some(index + 1),
+
+								..Default::default()
 							});
 						}
 					}
+
+
+
+
+
+
+
+
+
+
+
+
+
 				} else {
+
+
+
+
+
+
+
+
+					let will_promote = p.y - 1 == 0;
+
+
 					// Moving forward
 					if self.board[index - 8].piece_type == PieceType::None {
-						result.push(PieceMove {
-							from: index,
-							to: index - 8,
-						});
+						if will_promote {
+							for t in PROMOTABLE_PIECES {
+								result.push(PieceMove {
+									from: index,
+									to: index - 8,
+
+									promotion_type: t,
+
+									..Default::default()
+								});
+							}
+						} else {
+							result.push(PieceMove {
+								from: index,
+								to: index - 8,
+
+								..Default::default()
+							});
+						}
 
 						if index - 16 < 63
 						&& p.y == 6
@@ -122,24 +328,87 @@ impl Game {
 							result.push(PieceMove {
 								from: index,
 								to: index - 16,
+
+								pawn_moving_twice: true,
+
+								..Default::default()
 							});
 						}
 					}
 
 
-					// Capturing
+					// Normal capturing
 					for dir in [Point::new(-1, -1), Point::new(1, -1)] {
 						let new_p = p + dir;
+
+						if new_p.x < 0
+						|| new_p.x > 7 {
+							continue;
+						}
+
 						let new_index = (new_p.x + new_p.y * 8) as usize;
 
 						if self.board[new_index].piece_type != PieceType::None
 						&& self.board[new_index].is_white != self.board[index].is_white {
+							if will_promote {
+								for t in PROMOTABLE_PIECES {
+									result.push(PieceMove {
+										from: index,
+										to: index - 8,
+
+										promotion_type: t,
+
+										..Default::default()
+									});
+								}
+							} else {
+								result.push(PieceMove {
+									from: index,
+									to: new_index,
+
+									..Default::default()
+								});
+							}
+						}
+					}
+
+
+
+					// En Passant
+					if self.last_move.pawn_moving_twice {
+						if self.last_move.to == index - 1 {
 							result.push(PieceMove {
 								from: index,
-								to: new_index,
+								to: index - 9,
+
+								en_passant_capture: Some(index - 1),
+
+								..Default::default()
+							});
+						} else if self.last_move.to == index + 1 {
+							result.push(PieceMove {
+								from: index,
+								to: index - 7,
+
+								en_passant_capture: Some(index + 1),
+
+								..Default::default()
 							});
 						}
 					}
+
+
+
+
+
+
+
+
+
+
+
+
+
 				}
 			}
 
@@ -168,12 +437,16 @@ impl Game {
 							result.push(PieceMove {
 								from: index,
 								to: new_index,
+
+								..Default::default()
 							});
 						} else {
 							if self.board[new_index].is_white != self.board[index].is_white {
 								result.push(PieceMove {
 									from: index,
 									to: new_index,
+
+									..Default::default()
 								});
 							}
 
@@ -212,6 +485,8 @@ impl Game {
 						result.push(PieceMove {
 							from: index,
 							to: new_index,
+
+							..Default::default()
 						});
 					}
 				}
@@ -242,12 +517,16 @@ impl Game {
 							result.push(PieceMove {
 								from: index,
 								to: new_index,
+
+								..Default::default()
 							});
 						} else {
 							if self.board[new_index].is_white != self.board[index].is_white {
 								result.push(PieceMove {
 									from: index,
 									to: new_index,
+
+									..Default::default()
 								});
 							}
 
@@ -288,12 +567,16 @@ impl Game {
 							result.push(PieceMove {
 								from: index,
 								to: new_index,
+
+								..Default::default()
 							});
 						} else {
 							if self.board[new_index].is_white != self.board[index].is_white {
 								result.push(PieceMove {
 									from: index,
 									to: new_index,
+
+									..Default::default()
 								});
 							}
 
@@ -334,6 +617,64 @@ impl Game {
 						result.push(PieceMove {
 							from: index,
 							to: new_index,
+
+							..Default::default()
+						});
+					}
+				}
+
+				if self.board[index].is_white {
+					if self.white_can_short_castle
+					&& self.board[index + 1].piece_type == PieceType::None
+					&& self.board[index + 2].piece_type == PieceType::None {
+						result.push(PieceMove {
+							from: index,
+							to: index + 2,
+
+							short_castle: true,
+
+							..Default::default()
+						});
+					}
+
+					if self.white_can_long_castle
+					&& self.board[index - 1].piece_type == PieceType::None
+					&& self.board[index - 2].piece_type == PieceType::None
+					&& self.board[index - 3].piece_type == PieceType::None {
+						result.push(PieceMove {
+							from: index,
+							to: index - 2,
+
+							long_castle: true,
+
+							..Default::default()
+						});
+					}
+				} else {
+					if self.black_can_short_castle
+					&& self.board[index + 1].piece_type == PieceType::None
+					&& self.board[index + 2].piece_type == PieceType::None {
+						result.push(PieceMove {
+							from: index,
+							to: index + 2,
+
+							short_castle: true,
+
+							..Default::default()
+						});
+					}
+
+					if self.black_can_long_castle
+					&& self.board[index - 1].piece_type == PieceType::None
+					&& self.board[index - 2].piece_type == PieceType::None
+					&& self.board[index - 3].piece_type == PieceType::None {
+						result.push(PieceMove {
+							from: index,
+							to: index - 2,
+
+							long_castle: true,
+
+							..Default::default()
 						});
 					}
 				}

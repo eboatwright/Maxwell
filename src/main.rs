@@ -1,3 +1,11 @@
+/* TODO
+no castling through check
+
+check:
+	if the move leaves the king in check it's invalid
+	if no moves get the king out of check it's checkmate
+*/
+
 #![allow(dead_code)]
 
 mod resources;
@@ -5,6 +13,7 @@ mod point;
 mod piece;
 mod game;
 
+use macroquad::rand::{gen_range, srand};
 use macroquad::prelude::*;
 
 use crate::resources::Resources;
@@ -27,6 +36,8 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+	srand(miniquad::date::now() as u64);
+
 	let resources = Resources::load().await;
 	let transparent_color = Color {
 		r: 0.8,
@@ -35,40 +46,60 @@ async fn main() {
 		a: 0.4,
 	};
 
-	let mut game = Game {
-		board: generate_starting_position("♜♞♝♛♚♝♞♜♟♟♟♟♟♟♟♟                                ♙♙♙♙♙♙♙♙♖♘♗♕♔♗♘♖".to_string()),
-		// board: generate_starting_position("  ♟     ♙         ♟         ♟     ♙    ♟        ♙ ♙       ♟♙    ".to_string()),
-		whites_turn: true,
-	};
+	let mut game = Game::new(
+		"♜♞♝♛♚♝♞♜♟♟♟♟♟♟♟♟                                ♙♙♙♙♙♙♙♙♖♘♗♕♔♗♘♖".to_string(),
+		// "♜   ♚  ♜♟♟♟♟♟♟♟♟                                ♙♙♙♙♙♙♙♙♖   ♔  ♖".to_string(),
+	);
 
 	let mut selected_piece = false;
 	let mut current_move = PieceMove {
 		from: 0,
 		to: 0,
+
+		..Default::default()
 	};
 
 	loop {
-		if is_mouse_button_pressed(MouseButton::Left) {
-			let mouse_vec2 = (Vec2::from(mouse_position()) / SQUARE_SIZE).floor();
-			let mouse_index = (mouse_vec2.x + (7.0 - mouse_vec2.y) * 8.0) as usize;
+		if game.promoting.is_none() {
+			// if game.whites_turn {
+				if is_mouse_button_pressed(MouseButton::Left) {
+					let mouse_vec2 = (Vec2::from(mouse_position()) / SQUARE_SIZE).floor();
+					let mouse_index = (mouse_vec2.x + (7.0 - mouse_vec2.y) * 8.0) as usize;
 
-			if game.board[mouse_index].is_white == game.whites_turn
-			&& game.board[mouse_index].piece_type != PieceType::None {
-				selected_piece = true;
-				current_move.from = mouse_index;
-			} else if selected_piece {
-				selected_piece = false;
-				current_move.to = mouse_index;
+					if game.board[mouse_index].is_white == game.whites_turn
+					&& game.board[mouse_index].piece_type != PieceType::None {
+						selected_piece = true;
+						current_move.from = mouse_index;
+					} else if selected_piece {
+						selected_piece = false;
+						current_move.to = mouse_index;
 
-				if current_move.from != current_move.to {
-					let legal_moves = game.get_legal_moves_for_piece(current_move.from);
-					if legal_moves.contains(&current_move) {
-						game.board[current_move.to] = game.board[current_move.from];
-						game.board[current_move.from] = Piece::none();
-
-						game.whites_turn = !game.whites_turn;
+						if current_move.from != current_move.to {
+							for legal_move in game.get_legal_moves_for_piece(current_move.from) {
+								if legal_move == current_move {
+									game.make_move(legal_move);
+									break;
+								}
+							}
+						}
 					}
 				}
+			// } else {
+			// 	let legal_moves = game.get_legal_moves_for_color(false);
+
+			// 	if legal_moves.len() > 0 {
+			// 		game.make_move(legal_moves[gen_range(0, legal_moves.len())]);
+			// 	}
+			// }
+		} else {
+			if is_key_pressed(KeyCode::B) {
+				game.promote(PieceType::Bishop);
+			} else if is_key_pressed(KeyCode::N) {
+				game.promote(PieceType::Knight);
+			} else if is_key_pressed(KeyCode::R) {
+				game.promote(PieceType::Rook);
+			} else if is_key_pressed(KeyCode::Q) {
+				game.promote(PieceType::Queen);
 			}
 		}
 
