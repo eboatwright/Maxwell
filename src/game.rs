@@ -124,11 +124,11 @@ impl Game {
 					self.game_data.board[i].piece_type = PieceType::None;
 				} else if p.y == 0
 				|| p.y == 7 {
-					if self.game_data.whites_turn {
+					// if self.game_data.whites_turn {
 						self.game_data.promoting = Some(m.to);
-					} else {
-						self.game_data.board[m.to].piece_type = m.promotion_type;
-					}
+					// } else {
+						// self.game_data.board[m.to].piece_type = m.promotion_type;
+					// }
 				}
 			}
 
@@ -198,6 +198,31 @@ impl Game {
 		let mut result = self.get_moves_for_piece(index);
 
 		for i in (0..result.len()).rev() {
+			let mut already_removed = false;
+
+			if result[i].short_castle
+			|| result[i].long_castle {
+				self.make_move(
+					PieceMove {
+						to: (result[i].from as i8 + if result[i].short_castle { 1 } else { -1 }) as usize,
+						short_castle: false,
+						long_castle: false,
+						..result[i]
+					}
+				);
+
+				if self.king_in_check() {
+					result.remove(i);
+					already_removed = true;
+				}
+
+				self.undo_last_move();
+			}
+
+			if already_removed {
+				continue;
+			}
+
 			self.make_move(result[i]);
 
 			if self.king_in_check() {
@@ -225,60 +250,12 @@ impl Game {
 
 
 
-
-					let will_promote = p.y - 1 == 0;
-
-
-					// Moving forward
-					if self.game_data.board[index - 8].piece_type == PieceType::None {
-						if will_promote {
-							for t in PROMOTABLE_PIECES {
-								result.push(PieceMove {
-									from: index,
-									to: index - 8,
-
-									promotion_type: t,
-
-									..Default::default()
-								});
-							}
-						} else {
-							result.push(PieceMove {
-								from: index,
-								to: index - 8,
-
-								..Default::default()
-							});
-						}
-
-						if index - 16 < 63
-						&& p.y == 6
-						&& self.game_data.board[index - 16].piece_type == PieceType::None {
-							result.push(PieceMove {
-								from: index,
-								to: index - 16,
-
-								pawn_moving_twice: true,
-
-								..Default::default()
-							});
-						}
-					}
+					if p.y > 0 {
+						let will_promote = p.y - 1 == 0;
 
 
-					// Normal capturing
-					for dir in [Point::new(-1, -1), Point::new(1, -1)] {
-						let new_p = p + dir;
-
-						if new_p.x < 0
-						|| new_p.x > 7 {
-							continue;
-						}
-
-						let new_index = (new_p.x + new_p.y * 8) as usize;
-
-						if self.game_data.board[new_index].piece_type != PieceType::None
-						&& self.game_data.board[new_index].is_white != self.game_data.board[index].is_white {
+						// Moving forward
+						if self.game_data.board[index - 8].piece_type == PieceType::None {
 							if will_promote {
 								for t in PROMOTABLE_PIECES {
 									result.push(PieceMove {
@@ -293,36 +270,85 @@ impl Game {
 							} else {
 								result.push(PieceMove {
 									from: index,
-									to: new_index,
+									to: index - 8,
+
+									..Default::default()
+								});
+							}
+
+							if index - 16 < 63
+							&& p.y == 6
+							&& self.game_data.board[index - 16].piece_type == PieceType::None {
+								result.push(PieceMove {
+									from: index,
+									to: index - 16,
+
+									pawn_moving_twice: true,
 
 									..Default::default()
 								});
 							}
 						}
-					}
+
+
+						// Normal capturing
+						for dir in [Point::new(-1, -1), Point::new(1, -1)] {
+							let new_p = p + dir;
+
+							if new_p.x < 0
+							|| new_p.x > 7 {
+								continue;
+							}
+
+							let new_index = (new_p.x + new_p.y * 8) as usize;
+
+							if self.game_data.board[new_index].piece_type != PieceType::None
+							&& self.game_data.board[new_index].is_white != self.game_data.board[index].is_white {
+								if will_promote {
+									for t in PROMOTABLE_PIECES {
+										result.push(PieceMove {
+											from: index,
+											to: new_index,
+
+											promotion_type: t,
+
+											..Default::default()
+										});
+									}
+								} else {
+									result.push(PieceMove {
+										from: index,
+										to: new_index,
+
+										..Default::default()
+									});
+								}
+							}
+						}
 
 
 
-					// En Passant
-					if self.game_data.last_move.pawn_moving_twice {
-						if self.game_data.last_move.to == index - 1 {
-							result.push(PieceMove {
-								from: index,
-								to: index - 9,
+						// En Passant
+						if self.game_data.last_move.pawn_moving_twice {
+							if self.game_data.last_move.to == index - 1 {
+								result.push(PieceMove {
+									from: index,
+									to: index - 9,
 
-								en_passant_capture: Some(index - 1),
+									en_passant_capture: Some(index - 1),
 
-								..Default::default()
-							});
-						} else if self.game_data.last_move.to == index + 1 {
-							result.push(PieceMove {
-								from: index,
-								to: index - 7,
+									..Default::default()
+								});
+							} else if self.game_data.last_move.to == index + 1 {
+								result.push(PieceMove {
+									from: index,
+									to: index - 7,
 
-								en_passant_capture: Some(index + 1),
+									en_passant_capture: Some(index + 1),
 
-								..Default::default()
-							});
+									..Default::default()
+								});
+							}
 						}
 					}
 
@@ -351,59 +377,12 @@ impl Game {
 
 
 
-					let will_promote = p.y + 1 == 7;
+					if p.y < 7 {
+						let will_promote = p.y + 1 == 7;
 
 
-					// Moving forward
-					if self.game_data.board[index + 8].piece_type == PieceType::None {
-						if will_promote {
-							for t in PROMOTABLE_PIECES {
-								result.push(PieceMove {
-									from: index,
-									to: index + 8,
-
-									promotion_type: t,
-
-									..Default::default()
-								});
-							}
-						} else {
-							result.push(PieceMove {
-								from: index,
-								to: index + 8,
-
-								..Default::default()
-							});
-						}
-
-						if index + 16 < 63
-						&& p.y == 1
-						&& self.game_data.board[index + 16].piece_type == PieceType::None {
-							result.push(PieceMove {
-								from: index,
-								to: index + 16,
-
-								pawn_moving_twice: true,
-
-								..Default::default()
-							});
-						}
-					}
-
-
-					// Normal capturing
-					for dir in [Point::new(-1, 1), Point::new(1, 1)] {
-						let new_p = p + dir;
-
-						if new_p.x < 0
-						|| new_p.x > 7 {
-							continue;
-						}
-
-						let new_index = (new_p.x + new_p.y * 8) as usize;
-
-						if self.game_data.board[new_index].piece_type != PieceType::None
-						&& self.game_data.board[new_index].is_white != self.game_data.board[index].is_white {
+						// Moving forward
+						if self.game_data.board[index + 8].piece_type == PieceType::None {
 							if will_promote {
 								for t in PROMOTABLE_PIECES {
 									result.push(PieceMove {
@@ -418,36 +397,85 @@ impl Game {
 							} else {
 								result.push(PieceMove {
 									from: index,
-									to: new_index,
+									to: index + 8,
+
+									..Default::default()
+								});
+							}
+
+							if index + 16 < 63
+							&& p.y == 1
+							&& self.game_data.board[index + 16].piece_type == PieceType::None {
+								result.push(PieceMove {
+									from: index,
+									to: index + 16,
+
+									pawn_moving_twice: true,
 
 									..Default::default()
 								});
 							}
 						}
-					}
+
+
+						// Normal capturing
+						for dir in [Point::new(-1, 1), Point::new(1, 1)] {
+							let new_p = p + dir;
+
+							if new_p.x < 0
+							|| new_p.x > 7 {
+								continue;
+							}
+
+							let new_index = (new_p.x + new_p.y * 8) as usize;
+
+							if self.game_data.board[new_index].piece_type != PieceType::None
+							&& self.game_data.board[new_index].is_white != self.game_data.board[index].is_white {
+								if will_promote {
+									for t in PROMOTABLE_PIECES {
+										result.push(PieceMove {
+											from: index,
+											to: new_index,
+
+											promotion_type: t,
+
+											..Default::default()
+										});
+									}
+								} else {
+									result.push(PieceMove {
+										from: index,
+										to: new_index,
+
+										..Default::default()
+									});
+								}
+							}
+						}
 
 
 
-					// En Passant
-					if self.game_data.last_move.pawn_moving_twice {
-						if self.game_data.last_move.to == index - 1 {
-							result.push(PieceMove {
-								from: index,
-								to: index + 7,
+						// En Passant
+						if self.game_data.last_move.pawn_moving_twice {
+							if self.game_data.last_move.to == index - 1 {
+								result.push(PieceMove {
+									from: index,
+									to: index + 7,
 
-								en_passant_capture: Some(index - 1),
+									en_passant_capture: Some(index - 1),
 
-								..Default::default()
-							});
-						} else if self.game_data.last_move.to == index + 1 {
-							result.push(PieceMove {
-								from: index,
-								to: index + 9,
+									..Default::default()
+								});
+							} else if self.game_data.last_move.to == index + 1 {
+								result.push(PieceMove {
+									from: index,
+									to: index + 9,
 
-								en_passant_capture: Some(index + 1),
+									en_passant_capture: Some(index + 1),
 
-								..Default::default()
-							});
+									..Default::default()
+								});
+							}
 						}
 					}
 

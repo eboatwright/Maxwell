@@ -1,7 +1,3 @@
-/* TODO
-no castling through check
-*/
-
 #![allow(dead_code)]
 
 mod resources;
@@ -39,7 +35,7 @@ async fn main() {
 		r: 0.8,
 		g: 0.8,
 		b: 0.82,
-		a: 0.4,
+		a: 0.5,
 	};
 	let checkmated_color = Color {
 		r: 0.9,
@@ -50,7 +46,7 @@ async fn main() {
 
 	let mut game = Game::new(
 		"♖♘♗♕♔♗♘♖♙♙♙♙♙♙♙♙                                ♟♟♟♟♟♟♟♟♜♞♝♛♚♝♞♜".to_string(),
-		// "♖   ♔  ♖♙♙♙♙♙♙♙♙                                ♟♟♟♟♟♟♟♟♜   ♚  ♜".to_string(),
+		// "   ♖♔♖                                                  ♜   ♚  ♜".to_string(),
 	);
 
 	let mut selected_piece = false;
@@ -68,7 +64,7 @@ async fn main() {
 			let mut made_move = false;
 
 			if game.game_data.promoting.is_none() {
-				if game.game_data.whites_turn {
+				// if game.game_data.whites_turn {
 					if is_mouse_button_pressed(MouseButton::Left) {
 						let mouse_vec2 = (Vec2::from(mouse_position()) / SQUARE_SIZE).floor();
 						let mouse_index = (mouse_vec2.x + mouse_vec2.y * 8.0) as usize;
@@ -92,13 +88,13 @@ async fn main() {
 							}
 						}
 					}
-				} else {
-					let legal_moves = game.get_legal_moves_for_color(false);
+				// } else {
+				// 	let legal_moves = game.get_legal_moves_for_color(false);
 
-					if legal_moves.len() > 0 {
-						game.make_move(legal_moves[gen_range(0, legal_moves.len())]);
-					}
-				}
+				// 	if legal_moves.len() > 0 {
+				// 		game.make_move(legal_moves[gen_range(0, legal_moves.len())]);
+				// 	}
+				// }
 			} else {
 				if is_key_pressed(KeyCode::B) {
 					game.promote(PieceType::Bishop);
