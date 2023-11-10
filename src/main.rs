@@ -18,7 +18,7 @@ pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 fn window_conf() -> Conf {
 	Conf {
-		window_title: "CHESS ENGINE".to_string(),
+		window_title: "MAXWELL".to_string(),
 		window_width: WINDOW_SIZE as i32,
 		window_height: WINDOW_SIZE as i32,
 		window_resizable: false,
@@ -58,13 +58,15 @@ async fn main() {
 	};
 
 	let mut checkmated_king: Option<usize> = None;
+	let mut stalemate = false;
 
 	loop {
-		if checkmated_king.is_none() {
+		if checkmated_king.is_none()
+		&& !stalemate {
 			let mut made_move = false;
 
 			if game.game_data.promoting.is_none() {
-				// if game.game_data.whites_turn {
+				if game.game_data.whites_turn {
 					if is_mouse_button_pressed(MouseButton::Left) {
 						let mouse_vec2 = (Vec2::from(mouse_position()) / SQUARE_SIZE).floor();
 						let mouse_index = (mouse_vec2.x + mouse_vec2.y * 8.0) as usize;
@@ -88,13 +90,13 @@ async fn main() {
 							}
 						}
 					}
-				// } else {
-				// 	let legal_moves = game.get_legal_moves_for_color(false);
+				} else {
+					let legal_moves = game.get_legal_moves_for_color(false);
 
-				// 	if legal_moves.len() > 0 {
-				// 		game.make_move(legal_moves[gen_range(0, legal_moves.len())]);
-				// 	}
-				// }
+					if legal_moves.len() > 0 {
+						game.make_move(legal_moves[gen_range(0, legal_moves.len())]);
+					}
+				}
 			} else {
 				if is_key_pressed(KeyCode::B) {
 					game.promote(PieceType::Bishop);
@@ -109,12 +111,16 @@ async fn main() {
 
 			if made_move
 			&& game.get_legal_moves_for_color(game.game_data.whites_turn).len() == 0 {
-				for i in 0..64 {
-					if game.game_data.board[i].is_white == game.game_data.whites_turn
-					&& game.game_data.board[i].piece_type == PieceType::King {
-						checkmated_king = Some(i);
-						break;
+				if game.king_in_check(game.game_data.whites_turn) {
+					for i in 0..64 {
+						if game.game_data.board[i].is_white == game.game_data.whites_turn
+						&& game.game_data.board[i].piece_type == PieceType::King {
+							checkmated_king = Some(i);
+							break;
+						}
 					}
+				} else {
+					stalemate = true;
 				}
 			}
 		} else {
@@ -165,16 +171,6 @@ async fn main() {
 						WHITE,
 					);
 				}
-
-				// draw_text_ex(
-				// 	&format!("{}", index),
-				// 	x as f32 * SQUARE_SIZE + 16.0,
-				// 	y as f32 * SQUARE_SIZE + 32.0,
-				// 	TextParams {
-				// 		font_size: 32,
-				// 		..Default::default()
-				// 	},
-				// );
 			}
 		}
 
@@ -189,6 +185,30 @@ async fn main() {
 					transparent_color,
 				);
 			}
+		}
+
+		if stalemate {
+			draw_text_ex(
+				"STALEMATE!",
+				40.0,
+				160.0,
+				TextParams {
+					font_size: 96,
+					color: RED,
+					..Default::default()
+				},
+			);
+
+			draw_text_ex(
+				"Draw",
+				40.0,
+				240.0,
+				TextParams {
+					font_size: 96,
+					color: RED,
+					..Default::default()
+				},
+			);
 		}
 
 		next_frame().await

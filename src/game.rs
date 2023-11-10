@@ -124,11 +124,11 @@ impl Game {
 					self.game_data.board[i].piece_type = PieceType::None;
 				} else if p.y == 0
 				|| p.y == 7 {
-					// if self.game_data.whites_turn {
+					if self.game_data.whites_turn {
 						self.game_data.promoting = Some(m.to);
-					// } else {
-						// self.game_data.board[m.to].piece_type = m.promotion_type;
-					// }
+					} else {
+						self.game_data.board[m.to].piece_type = m.promotion_type;
+					}
 				}
 			}
 
@@ -178,13 +178,13 @@ impl Game {
 		result
 	}
 
-	pub fn king_in_check(&mut self) -> bool {
+	pub fn king_in_check(&mut self, white: bool) -> bool {
 		for i in 0..64 {
 			if self.game_data.board[i].piece_type != PieceType::None
-			&& self.game_data.board[i].is_white == self.game_data.whites_turn {
+			&& self.game_data.board[i].is_white == !white {
 				for legal_move in self.get_moves_for_piece(i) {
 					if self.game_data.board[legal_move.to].piece_type == PieceType::King
-					&& self.game_data.board[legal_move.to].is_white != self.game_data.board[legal_move.from].is_white {
+					&& self.game_data.board[legal_move.to].is_white == white {
 						return true;
 					}
 				}
@@ -211,7 +211,7 @@ impl Game {
 					}
 				);
 
-				if self.king_in_check() {
+				if self.king_in_check(!self.game_data.whites_turn) {
 					result.remove(i);
 					already_removed = true;
 				}
@@ -225,7 +225,7 @@ impl Game {
 
 			self.make_move(result[i]);
 
-			if self.king_in_check() {
+			if self.king_in_check(!self.game_data.whites_turn) {
 				result.remove(i);
 			}
 
