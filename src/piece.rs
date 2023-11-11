@@ -1,39 +1,19 @@
-pub const PROMOTABLE_PIECES: [PieceType; 4] = [PieceType::Knight, PieceType::Bishop, PieceType::Rook, PieceType::Queen];
+pub const PROMOTABLE_PIECES: [u8; 4] = [
+	KNIGHT,
+	BISHOP,
+	ROOK,
+	QUEEN,
+];
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[derive(Eq, Hash)]
-pub enum PieceType {
-	Pawn,
-	Knight,
-	Bishop,
-	Rook,
-	Queen,
-	King,
-	None,
-}
+pub const PAWN: u8   = 0b_0001;
+pub const KNIGHT: u8 = 0b_0010;
+pub const BISHOP: u8 = 0b_0011;
+pub const ROOK: u8   = 0b_0100;
+pub const QUEEN: u8  = 0b_0101;
+pub const KING: u8   = 0b_0110;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[derive(Eq, Hash)]
-pub struct Piece {
-	pub piece_type: PieceType,
-	pub is_white: bool,
-}
-
-impl Piece {
-	pub fn new(piece_type: PieceType, is_white: bool) -> Self {
-		Self {
-			piece_type,
-			is_white,
-		}
-	}
-
-	pub fn none() -> Self {
-		Self {
-			piece_type: PieceType::None,
-			is_white: false,
-		}
-	}
-}
+pub const WHITE: u8  = 0b_1000;
+pub const BLACK: u8  = 0b_0000;
 
 #[derive(Copy, Clone, Debug)]
 #[derive(Eq, Hash)]
@@ -41,7 +21,7 @@ pub struct PieceMove {
 	pub from: usize,
 	pub to: usize,
 
-	pub promotion_type: PieceType,
+	pub promotion_type: u8,
 	pub pawn_moving_twice: bool,
 	pub en_passant_capture: Option<usize>,
 
@@ -55,7 +35,7 @@ impl Default for PieceMove {
 			from: 0,
 			to: 0,
 
-			promotion_type: PieceType::None,
+			promotion_type: 0,
 			pawn_moving_twice: false,
 			en_passant_capture: None,
 

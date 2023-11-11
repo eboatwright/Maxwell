@@ -1,12 +1,12 @@
 use std::collections::HashMap;
-use crate::utils::{generate_starting_position, get_worth_for_piece};
+use crate::utils::*;
 use crate::piece::*;
 use crate::Point;
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(Eq, Hash)]
 pub struct GameData {
-	pub board: [Piece; 64],
+	pub board: [u8; 64],
 	pub whites_turn: bool,
 
 	pub last_move: PieceMove,
@@ -53,9 +53,9 @@ impl Game {
 		let mut eval = 0;
 
 		for i in 0..64 {
-			if self.game_data.board[i].piece_type != PieceType::None {
+			if self.game_data.board[i] != 0 {
 				let piece_value = get_worth_for_piece(self.game_data.board[i], i);
-				if self.game_data.board[i].is_white {
+				if is_white(self.game_data.board[i]) {
 					eval += piece_value;
 				} else {
 					eval -= piece_value;
@@ -74,7 +74,7 @@ impl Game {
 		self.game_data.last_move = m;
 
 		self.game_data.board[m.to] = self.game_data.board[m.from];
-		self.game_data.board[m.from] = Piece::none();
+		self.game_data.board[m.from] = 0;
 
 		let p = Point::from_index(m.to);
 
@@ -92,30 +92,30 @@ impl Game {
 			self.game_data.white_can_short_castle = false;
 		}
 
-		match self.game_data.board[m.to].piece_type {
-			PieceType::Pawn => {
+		match self.game_data.board[m.to] & 0b_0111 {
+			PAWN => {
 				if let Some(i) = m.en_passant_capture {
-					self.game_data.board[i].piece_type = PieceType::None;
+					self.game_data.board[i] = 0;
 				} else if p.y == 0
 				|| p.y == 7 {
 					if self.game_data.whites_turn {
 						self.game_data.promoting = Some(m.to);
 					} else {
-						self.game_data.board[m.to].piece_type = m.promotion_type;
+						self.game_data.board[m.to] = (self.game_data.board[m.to] & 0b_1000) | m.promotion_type;
 					}
 				}
 			}
 
-			PieceType::King => {
+			KING => {
 				if m.short_castle {
 					self.game_data.board[m.to - 1] = self.game_data.board[m.to + 1];
-					self.game_data.board[m.to + 1].piece_type = PieceType::None;
+					self.game_data.board[m.to + 1] = 0;
 				} else if m.long_castle {
 					self.game_data.board[m.to + 1] = self.game_data.board[m.to - 2];
-					self.game_data.board[m.to - 2].piece_type = PieceType::None;
+					self.game_data.board[m.to - 2] = 0;
 				}
 
-				if self.game_data.board[m.to].is_white {
+				if is_white(self.game_data.board[m.to]) {
 					self.game_data.white_can_short_castle = false;
 					self.game_data.white_can_long_castle = false;
 				} else {
@@ -134,8 +134,9 @@ impl Game {
 		self.game_data = self.last_game_data.clone();
 	}
 
-	pub fn promote(&mut self, piece: PieceType) {
-		self.game_data.board[self.game_data.promoting.unwrap()].piece_type = piece;
+	pub fn promote(&mut self, piece: u8) {
+		let p = self.game_data.promoting.unwrap();
+		self.game_data.board[p] = (self.game_data.board[p] & 0b_1000) | piece;
 		self.game_data.promoting = None;
 	}
 
@@ -143,8 +144,8 @@ impl Game {
 		let mut result = vec![];
 
 		for i in 0..64 {
-			if self.game_data.board[i].piece_type != PieceType::None
-			&& self.game_data.board[i].is_white == white {
+			if self.game_data.board[i] != 0
+			&& is_white(self.game_data.board[i]) == white {
 				result = [result, self.get_legal_moves_for_piece(i)].concat();
 			}
 		}
@@ -154,11 +155,11 @@ impl Game {
 
 	pub fn king_in_check(&mut self, white: bool) -> bool {
 		for i in 0..64 {
-			if self.game_data.board[i].piece_type != PieceType::None
-			&& self.game_data.board[i].is_white == !white {
+			if self.game_data.board[i] != 0
+			&& is_white(self.game_data.board[i]) == !white {
 				for legal_move in self.get_moves_for_piece(i) {
-					if self.game_data.board[legal_move.to].piece_type == PieceType::King
-					&& self.game_data.board[legal_move.to].is_white == white {
+					if self.game_data.board[legal_move.to] & 0b_0111 == KING
+					&& is_white(self.game_data.board[legal_move.to]) == white {
 						return true;
 					}
 				}
@@ -217,11 +218,11 @@ impl Game {
 	fn get_moves_for_piece(&mut self, index: usize) -> Vec<PieceMove> {
 		let mut result = vec![];
 
-		match self.game_data.board[index].piece_type {
-			PieceType::Pawn => {
+		match self.game_data.board[index] & 0b_0111 {
+			PAWN => {
 				let p = Point::from_index(index);
 
-				if self.game_data.board[index].is_white {
+				if is_white(self.game_data.board[index]) {
 
 
 
@@ -234,7 +235,7 @@ impl Game {
 
 
 						// Moving forward
-						if self.game_data.board[index - 8].piece_type == PieceType::None {
+						if self.game_data.board[index - 8] == 0 {
 							if will_promote {
 								for t in PROMOTABLE_PIECES {
 									result.push(PieceMove {
@@ -257,7 +258,7 @@ impl Game {
 
 							if index - 16 < 63
 							&& p.y == 6
-							&& self.game_data.board[index - 16].piece_type == PieceType::None {
+							&& self.game_data.board[index - 16] == 0 {
 								result.push(PieceMove {
 									from: index,
 									to: index - 16,
@@ -281,8 +282,8 @@ impl Game {
 
 							let new_index = (new_p.x + new_p.y * 8) as usize;
 
-							if self.game_data.board[new_index].piece_type != PieceType::None
-							&& self.game_data.board[new_index].is_white != self.game_data.board[index].is_white {
+							if self.game_data.board[new_index] != 0
+							&& is_white(self.game_data.board[new_index]) != is_white(self.game_data.board[index]) {
 								if will_promote {
 									for t in PROMOTABLE_PIECES {
 										result.push(PieceMove {
@@ -361,7 +362,7 @@ impl Game {
 
 
 						// Moving forward
-						if self.game_data.board[index + 8].piece_type == PieceType::None {
+						if self.game_data.board[index + 8] == 0 {
 							if will_promote {
 								for t in PROMOTABLE_PIECES {
 									result.push(PieceMove {
@@ -384,7 +385,7 @@ impl Game {
 
 							if index + 16 < 63
 							&& p.y == 1
-							&& self.game_data.board[index + 16].piece_type == PieceType::None {
+							&& self.game_data.board[index + 16] == 0 {
 								result.push(PieceMove {
 									from: index,
 									to: index + 16,
@@ -408,8 +409,8 @@ impl Game {
 
 							let new_index = (new_p.x + new_p.y * 8) as usize;
 
-							if self.game_data.board[new_index].piece_type != PieceType::None
-							&& self.game_data.board[new_index].is_white != self.game_data.board[index].is_white {
+							if self.game_data.board[new_index] != 0
+							&& is_white(self.game_data.board[new_index]) != is_white(self.game_data.board[index]) {
 								if will_promote {
 									for t in PROMOTABLE_PIECES {
 										result.push(PieceMove {
@@ -470,7 +471,7 @@ impl Game {
 				}
 			}
 
-			PieceType::Knight => {
+			KNIGHT => {
 				let p = Point::from_index(index);
 
 				for dir in [
@@ -494,8 +495,8 @@ impl Game {
 
 					let new_index = (new_point.x + new_point.y * 8) as usize;
 
-					if self.game_data.board[new_index].piece_type == PieceType::None
-					|| self.game_data.board[new_index].is_white != self.game_data.board[index].is_white {
+					if self.game_data.board[new_index] == 0
+					|| is_white(self.game_data.board[new_index]) != is_white(self.game_data.board[index]) {
 						result.push(PieceMove {
 							from: index,
 							to: new_index,
@@ -506,7 +507,7 @@ impl Game {
 				}
 			}
 
-			PieceType::Bishop => {
+			BISHOP => {
 				for dir in [
 					Point::new(-1, -1),
 					Point::new(-1,  1),
@@ -527,7 +528,7 @@ impl Game {
 							continue;
 						}
 
-						if self.game_data.board[new_index].piece_type == PieceType::None {
+						if self.game_data.board[new_index] == 0 {
 							result.push(PieceMove {
 								from: index,
 								to: new_index,
@@ -535,7 +536,7 @@ impl Game {
 								..Default::default()
 							});
 						} else {
-							if self.game_data.board[new_index].is_white != self.game_data.board[index].is_white {
+							if is_white(self.game_data.board[new_index]) != is_white(self.game_data.board[index]) {
 								result.push(PieceMove {
 									from: index,
 									to: new_index,
@@ -550,7 +551,7 @@ impl Game {
 				}
 			}
 
-			PieceType::Rook => {
+			ROOK => {
 				for dir in [
 					Point::new(-1,  0),
 					Point::new( 1,  0),
@@ -571,7 +572,7 @@ impl Game {
 							continue;
 						}
 
-						if self.game_data.board[new_index].piece_type == PieceType::None {
+						if self.game_data.board[new_index] == 0 {
 							result.push(PieceMove {
 								from: index,
 								to: new_index,
@@ -579,7 +580,7 @@ impl Game {
 								..Default::default()
 							});
 						} else {
-							if self.game_data.board[new_index].is_white != self.game_data.board[index].is_white {
+							if is_white(self.game_data.board[new_index]) != is_white(self.game_data.board[index]) {
 								result.push(PieceMove {
 									from: index,
 									to: new_index,
@@ -594,7 +595,7 @@ impl Game {
 				}
 			}
 
-			PieceType::Queen => {
+			QUEEN => {
 				for dir in [
 					Point::new(-1, -1),
 					Point::new( 0, -1),
@@ -621,7 +622,7 @@ impl Game {
 							continue;
 						}
 
-						if self.game_data.board[new_index].piece_type == PieceType::None {
+						if self.game_data.board[new_index] == 0 {
 							result.push(PieceMove {
 								from: index,
 								to: new_index,
@@ -629,7 +630,7 @@ impl Game {
 								..Default::default()
 							});
 						} else {
-							if self.game_data.board[new_index].is_white != self.game_data.board[index].is_white {
+							if is_white(self.game_data.board[new_index]) != is_white(self.game_data.board[index]) {
 								result.push(PieceMove {
 									from: index,
 									to: new_index,
@@ -644,7 +645,7 @@ impl Game {
 				}
 			}
 
-			PieceType::King => {
+			KING => {
 				let p = Point::from_index(index);
 
 				for dir in [
@@ -670,8 +671,8 @@ impl Game {
 
 					let new_index = (new_point.x + new_point.y * 8) as usize;
 
-					if self.game_data.board[new_index].piece_type == PieceType::None
-					|| self.game_data.board[new_index].is_white != self.game_data.board[index].is_white {
+					if self.game_data.board[new_index] == 0
+					|| is_white(self.game_data.board[new_index]) != is_white(self.game_data.board[index]) {
 						result.push(PieceMove {
 							from: index,
 							to: new_index,
@@ -681,10 +682,10 @@ impl Game {
 					}
 				}
 
-				if self.game_data.board[index].is_white {
+				if is_white(self.game_data.board[index]) {
 					if self.game_data.white_can_short_castle
-					&& self.game_data.board[index + 1].piece_type == PieceType::None
-					&& self.game_data.board[index + 2].piece_type == PieceType::None {
+					&& self.game_data.board[index + 1] == 0
+					&& self.game_data.board[index + 2] == 0 {
 						result.push(PieceMove {
 							from: index,
 							to: index + 2,
@@ -696,9 +697,9 @@ impl Game {
 					}
 
 					if self.game_data.white_can_long_castle
-					&& self.game_data.board[index - 1].piece_type == PieceType::None
-					&& self.game_data.board[index - 2].piece_type == PieceType::None
-					&& self.game_data.board[index - 3].piece_type == PieceType::None {
+					&& self.game_data.board[index - 1] == 0
+					&& self.game_data.board[index - 2] == 0
+					&& self.game_data.board[index - 3] == 0 {
 						result.push(PieceMove {
 							from: index,
 							to: index - 2,
@@ -710,8 +711,8 @@ impl Game {
 					}
 				} else {
 					if self.game_data.black_can_short_castle
-					&& self.game_data.board[index + 1].piece_type == PieceType::None
-					&& self.game_data.board[index + 2].piece_type == PieceType::None {
+					&& self.game_data.board[index + 1] == 0
+					&& self.game_data.board[index + 2] == 0 {
 						result.push(PieceMove {
 							from: index,
 							to: index + 2,
@@ -723,9 +724,9 @@ impl Game {
 					}
 
 					if self.game_data.black_can_long_castle
-					&& self.game_data.board[index - 1].piece_type == PieceType::None
-					&& self.game_data.board[index - 2].piece_type == PieceType::None
-					&& self.game_data.board[index - 3].piece_type == PieceType::None {
+					&& self.game_data.board[index - 1] == 0
+					&& self.game_data.board[index - 2] == 0
+					&& self.game_data.board[index - 3] == 0 {
 						result.push(PieceMove {
 							from: index,
 							to: index - 2,

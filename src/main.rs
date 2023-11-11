@@ -27,7 +27,7 @@ use crate::piece::*;
 use crate::point::Point;
 use crate::game::*;
 use crate::maxwell::*;
-use crate::utils::get_index_for_piece;
+use crate::utils::*;
 
 pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
@@ -110,8 +110,8 @@ async fn main() {
 						let mouse_vec2 = (Vec2::from(mouse_position()) / SQUARE_SIZE).floor();
 						let mouse_index = (mouse_vec2.x + mouse_vec2.y * 8.0) as usize;
 
-						if game.game_data.board[mouse_index].is_white == game.game_data.whites_turn
-						&& game.game_data.board[mouse_index].piece_type != PieceType::None {
+						if is_white(game.game_data.board[mouse_index]) == game.game_data.whites_turn
+						&& game.game_data.board[mouse_index] != 0 {
 							selected_piece = true;
 							current_move.from = mouse_index;
 						} else if selected_piece {
@@ -144,13 +144,13 @@ async fn main() {
 				}
 			} else {
 				if is_key_pressed(KeyCode::N) {
-					game.promote(PieceType::Knight);
+					game.promote(KNIGHT);
 				} else if is_key_pressed(KeyCode::B) {
-					game.promote(PieceType::Bishop);
+					game.promote(BISHOP);
 				} else if is_key_pressed(KeyCode::R) {
-					game.promote(PieceType::Rook);
+					game.promote(ROOK);
 				} else if is_key_pressed(KeyCode::Q) {
-					game.promote(PieceType::Queen);
+					game.promote(QUEEN);
 				}
 			}
 
@@ -158,8 +158,8 @@ async fn main() {
 				if game.get_legal_moves_for_color(game.game_data.whites_turn).len() == 0 {
 					if game.king_in_check(game.game_data.whites_turn) {
 						for i in 0..64 {
-							if game.game_data.board[i].is_white == game.game_data.whites_turn
-							&& game.game_data.board[i].piece_type == PieceType::King {
+							if is_white(game.game_data.board[i]) == game.game_data.whites_turn
+							&& game.game_data.board[i] & 0b_0111 == KING {
 								checkmated_king = Some(i);
 								break;
 							}
@@ -176,9 +176,9 @@ async fn main() {
 			}
 		}
 
-		clear_background(BLACK);
+		clear_background(macroquad::prelude::BLACK);
 
-		draw_texture(&resources.board_tex, 0.0, 0.0, WHITE);
+		draw_texture(&resources.board_tex, 0.0, 0.0, macroquad::prelude::WHITE);
 
 		for y in 0..8 {
 			for x in 0..8 {
@@ -230,7 +230,7 @@ async fn main() {
 						&resources.pieces_tex,
 						x as f32 * SQUARE_SIZE,
 						y as f32 * SQUARE_SIZE,
-						WHITE,
+						macroquad::prelude::WHITE,
 						DrawTextureParams {
 							source: Some(Rect {
 								x: (piece - 1) as f32 * SQUARE_SIZE,
