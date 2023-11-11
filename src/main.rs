@@ -1,6 +1,4 @@
 /* TODO
-improve Game struct, especially undoing moves sucks
-
 detect endgame positions
 change the king heatmap during endgames
 encourage moving the enemy king to the edges to help with checkmate (during endgames?)
@@ -19,15 +17,17 @@ mod piece;
 mod game;
 mod maxwell;
 
-use crate::maxwell::*;
-use crate::utils::get_index_for_piece;
+use std::collections::HashMap;
+use std::time::{Instant, Duration};
 use macroquad::rand::{gen_range, srand};
 use macroquad::prelude::*;
 
 use crate::resources::Resources;
 use crate::piece::*;
 use crate::point::Point;
-use crate::game::Game;
+use crate::game::*;
+use crate::maxwell::*;
+use crate::utils::get_index_for_piece;
 
 pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
@@ -92,15 +92,12 @@ async fn main() {
 	);
 
 	let mut selected_piece = false;
-	let mut current_move = PieceMove {
-		from: 0,
-		to: 0,
-
-		..Default::default()
-	};
+	let mut current_move = PieceMove::default();
 
 	let mut checkmated_king: Option<usize> = None;
 	let mut stalemate = false;
+
+	let mut eval_cache: HashMap<GameData, i32> = HashMap::new();
 
 	loop {
 		if checkmated_king.is_none()
@@ -133,19 +130,23 @@ async fn main() {
 						}
 					}
 				} else {
-					let (best_move, _) = search_moves(game.clone(), 6, -i32::MAX, i32::MAX);
+					let time = Instant::now();
+
+					let (best_move, _) = search_moves(game.clone(), 4, -i32::MAX, i32::MAX, &mut eval_cache);
 					if let Some(m) = best_move {
 						game.make_move(m);
 						made_move = true;
 					} else {
 						println!("got none from search function :[");
 					}
+
+					println!("{} secs", time.elapsed().as_secs_f32());
 				}
 			} else {
-				if is_key_pressed(KeyCode::B) {
-					game.promote(PieceType::Bishop);
-				} else if is_key_pressed(KeyCode::N) {
+				if is_key_pressed(KeyCode::N) {
 					game.promote(PieceType::Knight);
+				} else if is_key_pressed(KeyCode::B) {
+					game.promote(PieceType::Bishop);
 				} else if is_key_pressed(KeyCode::R) {
 					game.promote(PieceType::Rook);
 				} else if is_key_pressed(KeyCode::Q) {
@@ -154,7 +155,6 @@ async fn main() {
 			}
 
 			if made_move {
-				println!("{}", game.eval());
 				if game.get_legal_moves_for_color(game.game_data.whites_turn).len() == 0 {
 					if game.king_in_check(game.game_data.whites_turn) {
 						for i in 0..64 {

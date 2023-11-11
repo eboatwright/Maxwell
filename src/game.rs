@@ -1,15 +1,17 @@
+use std::collections::HashMap;
 use crate::utils::{generate_starting_position, get_worth_for_piece};
 use crate::piece::*;
 use crate::Point;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+#[derive(Eq, Hash)]
 pub struct GameData {
 	pub board: [Piece; 64],
 	pub whites_turn: bool,
 
-	pub promoting: Option<usize>,
-
 	pub last_move: PieceMove,
+
+	pub promoting: Option<usize>,
 
 	pub white_can_short_castle: bool,
 	pub white_can_long_castle: bool,
@@ -18,7 +20,7 @@ pub struct GameData {
 	pub black_can_long_castle: bool,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Game {
 	pub game_data: GameData,
 	pub last_game_data: GameData,
@@ -30,9 +32,9 @@ impl Game {
 			board: generate_starting_position(board),
 			whites_turn: true,
 
-			promoting: None,
-
 			last_move: PieceMove::default(),
+
+			promoting: None,
 
 			white_can_short_castle: true,
 			white_can_long_castle: true,
@@ -42,7 +44,7 @@ impl Game {
 		};
 
 		Self {
-			game_data,
+			game_data: game_data.clone(),
 			last_game_data: game_data,
 		}
 	}
@@ -69,11 +71,7 @@ impl Game {
 
 	pub fn make_move(&mut self, m: PieceMove) {
 		self.last_game_data = self.game_data.clone();
-
-		self.game_data.last_move = PieceMove {
-			capture: Some(self.game_data.board[m.to]),
-			..m
-		};
+		self.game_data.last_move = m;
 
 		self.game_data.board[m.to] = self.game_data.board[m.from];
 		self.game_data.board[m.from] = Piece::none();
@@ -133,7 +131,7 @@ impl Game {
 	}
 
 	pub fn undo_last_move(&mut self) {
-		self.game_data = self.last_game_data;
+		self.game_data = self.last_game_data.clone();
 	}
 
 	pub fn promote(&mut self, piece: PieceType) {
@@ -472,6 +470,42 @@ impl Game {
 				}
 			}
 
+			PieceType::Knight => {
+				let p = Point::from_index(index);
+
+				for dir in [
+					Point::new(-1,  2),
+					Point::new( 1,  2),
+					Point::new(-1, -2),
+					Point::new( 1, -2),
+					Point::new( 2, -1),
+					Point::new( 2,  1),
+					Point::new(-2, -1),
+					Point::new(-2,  1),
+				] {
+					let new_point = p + dir;
+
+					if new_point.x < 0
+					|| new_point.x > 7
+					|| new_point.y < 0
+					|| new_point.y > 7 {
+						continue;
+					}
+
+					let new_index = (new_point.x + new_point.y * 8) as usize;
+
+					if self.game_data.board[new_index].piece_type == PieceType::None
+					|| self.game_data.board[new_index].is_white != self.game_data.board[index].is_white {
+						result.push(PieceMove {
+							from: index,
+							to: new_index,
+
+							..Default::default()
+						});
+					}
+				}
+			}
+
 			PieceType::Bishop => {
 				for dir in [
 					Point::new(-1, -1),
@@ -512,42 +546,6 @@ impl Game {
 
 							break;
 						}
-					}
-				}
-			}
-
-			PieceType::Knight => {
-				let p = Point::from_index(index);
-
-				for dir in [
-					Point::new(-1,  2),
-					Point::new( 1,  2),
-					Point::new(-1, -2),
-					Point::new( 1, -2),
-					Point::new( 2, -1),
-					Point::new( 2,  1),
-					Point::new(-2, -1),
-					Point::new(-2,  1),
-				] {
-					let new_point = p + dir;
-
-					if new_point.x < 0
-					|| new_point.x > 7
-					|| new_point.y < 0
-					|| new_point.y > 7 {
-						continue;
-					}
-
-					let new_index = (new_point.x + new_point.y * 8) as usize;
-
-					if self.game_data.board[new_index].piece_type == PieceType::None
-					|| self.game_data.board[new_index].is_white != self.game_data.board[index].is_white {
-						result.push(PieceMove {
-							from: index,
-							to: new_index,
-
-							..Default::default()
-						});
 					}
 				}
 			}
