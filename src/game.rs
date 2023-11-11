@@ -1,4 +1,4 @@
-use crate::generate_starting_position;
+use crate::utils::{generate_starting_position, get_worth_for_piece};
 use crate::piece::*;
 use crate::Point;
 
@@ -18,6 +18,7 @@ pub struct GameData {
 	pub black_can_long_castle: bool,
 }
 
+#[derive(Copy, Clone)]
 pub struct Game {
 	pub game_data: GameData,
 	pub last_game_data: GameData,
@@ -46,53 +47,24 @@ impl Game {
 		}
 	}
 
-	// fn flush(&self) {
-	// 	std::process::Command::new("clear").status().unwrap();
+	pub fn eval(&mut self) -> i32 {
+		let mut eval = 0;
 
-	// 	for y in (0..8).rev() {
-	// 		let mut line = format!("{}", format!("{} ", y + 1).bold().black().on_white());
-	// 		for x in 0..8 {
-	// 			let piece = self.board[x + y * 8];
-
-	// 			line.push(get_char_for_piece(piece));
-	// 			line.push(' ');
-	// 		}
-	// 		println!("{}", line);
-	// 	}
-	// 	println!("{}", "  a b c d e f g h".bold().black().on_white());
-
-	// 	stdout().flush().unwrap();
-	// }
-
-	pub fn piece_inbetween_points(&mut self, mut a: Point, mut b: Point) -> bool {
-		if a.x > b.x {
-			let buffer = a.x;
-			a.x = b.x;
-			b.x = buffer;
-		}
-
-		if a.y > b.y {
-			let buffer = a.y;
-			a.y = b.y;
-			b.y = buffer;
-		}
-
-		for x in a.x..=b.x {
-			for y in a.y..=b.y {
-				if (x == a.x
-				&& y == a.y)
-				|| (x == b.x
-				&& y == b.y) {
-					continue;
-				}
-
-
-				if self.game_data.board[(x + y * 8) as usize].piece_type != PieceType::None {
-					return true;
+		for i in 0..64 {
+			if self.game_data.board[i].piece_type != PieceType::None {
+				let piece_value = get_worth_for_piece(self.game_data.board[i], i);
+				if self.game_data.board[i].is_white {
+					eval += piece_value;
+				} else {
+					eval -= piece_value;
 				}
 			}
 		}
-		false
+
+		eval += self.get_legal_moves_for_color(true).len() as i32;
+		eval -= self.get_legal_moves_for_color(false).len() as i32;
+
+		eval
 	}
 
 	pub fn make_move(&mut self, m: PieceMove) {
@@ -157,7 +129,7 @@ impl Game {
 	}
 
 	pub fn undo_last_move(&mut self) {
-		self.game_data = self.last_game_data;
+		self.game_data = self.last_game_data.clone();
 	}
 
 	pub fn promote(&mut self, piece: PieceType) {
@@ -202,6 +174,11 @@ impl Game {
 
 			if result[i].short_castle
 			|| result[i].long_castle {
+				if self.king_in_check(self.game_data.whites_turn) {
+					result.remove(i);
+					continue;
+				}
+
 				self.make_move(
 					PieceMove {
 						to: (result[i].from as i8 + if result[i].short_castle { 1 } else { -1 }) as usize,

@@ -1,10 +1,17 @@
 #![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_variables)]
 
 mod resources;
+mod utils;
+mod heatmaps;
 mod point;
 mod piece;
 mod game;
+mod maxwell;
 
+use crate::maxwell::*;
+use crate::utils::get_index_for_piece;
 use macroquad::rand::{gen_range, srand};
 use macroquad::prelude::*;
 
@@ -42,6 +49,12 @@ async fn main() {
 		g: 0.4,
 		b: 0.4,
 		a: 0.8,
+	};
+	let last_move_color = Color {
+		r: 0.8,
+		g: 0.8,
+		b: 0.5,
+		a: 0.4,
 	};
 
 	let mut game = Game::new(
@@ -91,11 +104,10 @@ async fn main() {
 						}
 					}
 				} else {
-					let legal_moves = game.get_legal_moves_for_color(false);
+					let (best_move, _) = search_moves(game.clone(), 4, -i32::MAX, i32::MAX);
+					game.make_move(best_move.expect("Got back none from search function :["));
 
-					if legal_moves.len() > 0 {
-						game.make_move(legal_moves[gen_range(0, legal_moves.len())]);
-					}
+					made_move = true;
 				}
 			} else {
 				if is_key_pressed(KeyCode::B) {
@@ -109,18 +121,20 @@ async fn main() {
 				}
 			}
 
-			if made_move
-			&& game.get_legal_moves_for_color(game.game_data.whites_turn).len() == 0 {
-				if game.king_in_check(game.game_data.whites_turn) {
-					for i in 0..64 {
-						if game.game_data.board[i].is_white == game.game_data.whites_turn
-						&& game.game_data.board[i].piece_type == PieceType::King {
-							checkmated_king = Some(i);
-							break;
+			if made_move {
+				println!("{}", game.eval());
+				if game.get_legal_moves_for_color(game.game_data.whites_turn).len() == 0 {
+					if game.king_in_check(game.game_data.whites_turn) {
+						for i in 0..64 {
+							if game.game_data.board[i].is_white == game.game_data.whites_turn
+							&& game.game_data.board[i].piece_type == PieceType::King {
+								checkmated_king = Some(i);
+								break;
+							}
 						}
+					} else {
+						stalemate = true;
 					}
-				} else {
-					stalemate = true;
 				}
 			}
 		} else {
@@ -159,16 +173,41 @@ async fn main() {
 						SQUARE_SIZE,
 						checkmated_color,
 					);
+				} else if index == game.game_data.last_move.from {
+					draw_rectangle(
+						x as f32 * SQUARE_SIZE,
+						y as f32 * SQUARE_SIZE,
+						SQUARE_SIZE,
+						SQUARE_SIZE,
+						last_move_color,
+					);
+				} else if index == game.game_data.last_move.to {
+					draw_rectangle(
+						x as f32 * SQUARE_SIZE,
+						y as f32 * SQUARE_SIZE,
+						SQUARE_SIZE,
+						SQUARE_SIZE,
+						last_move_color,
+					);
 				}
 
 				let piece = get_index_for_piece(game.game_data.board[index]);
 
 				if piece > 0 {
-					draw_texture(
-						&resources.piece_texs[piece - 1],
+					draw_texture_ex(
+						&resources.pieces_tex,
 						x as f32 * SQUARE_SIZE,
 						y as f32 * SQUARE_SIZE,
 						WHITE,
+						DrawTextureParams {
+							source: Some(Rect {
+								x: (piece - 1) as f32 * SQUARE_SIZE,
+								y: 0.0,
+								w: SQUARE_SIZE,
+								h: SQUARE_SIZE,
+							}),
+							..Default::default()
+						},
 					);
 				}
 			}
@@ -214,98 +253,3 @@ async fn main() {
 		next_frame().await
 	}
 }
-
-pub fn generate_starting_position(string: String) -> [Piece; 64] {
-	let mut board: [Piece; 64] = [Piece::new(PieceType::None, false); 64];
-
-	for i in 0..64 {
-		board[i] = match string.chars().collect::<Vec<char>>()[i] {
-			'♟' => Piece::new(PieceType::Pawn, true),
-			'♝' => Piece::new(PieceType::Bishop, true),
-			'♞' => Piece::new(PieceType::Knight, true),
-			'♜' => Piece::new(PieceType::Rook, true),
-			'♛' => Piece::new(PieceType::Queen, true),
-			'♚' => Piece::new(PieceType::King, true),
-
-			'♙' => Piece::new(PieceType::Pawn, false),
-			'♗' => Piece::new(PieceType::Bishop, false),
-			'♘' => Piece::new(PieceType::Knight, false),
-			'♖' => Piece::new(PieceType::Rook, false),
-			'♕' => Piece::new(PieceType::Queen, false),
-			'♔' => Piece::new(PieceType::King, false),
-
-			_ => Piece::new(PieceType::None, false),
-		};
-	}
-
-	board
-}
-
-fn get_index_for_piece(piece: Piece) -> usize {
-	match (piece.piece_type, piece.is_white) {
-		(PieceType::Pawn, true) => 1,
-		(PieceType::Bishop, true) => 2,
-		(PieceType::Knight, true) => 3,
-		(PieceType::Rook, true) => 4,
-		(PieceType::Queen, true) => 5,
-		(PieceType::King, true) => 6,
-
-		(PieceType::Pawn, false) => 7,
-		(PieceType::Bishop, false) => 8,
-		(PieceType::Knight, false) => 9,
-		(PieceType::Rook, false) => 10,
-		(PieceType::Queen, false) => 11,
-		(PieceType::King, false) => 12,
-
-		(PieceType::None, ..) => 0,
-	}
-}
-
-// fn get_char_for_piece(piece: Piece) -> char {
-// 	match (piece.piece_type, piece.is_white) {
-// 		(PieceType::Pawn, true) => '♟',
-// 		(PieceType::Bishop, true) => '♝',
-// 		(PieceType::Knight, true) => '♞',
-// 		(PieceType::Rook, true) => '♜',
-// 		(PieceType::Queen, true) => '♛',
-// 		(PieceType::King, true) => '♚',
-
-// 		(PieceType::Pawn, false) => '♙',
-// 		(PieceType::Bishop, false) => '♗',
-// 		(PieceType::Knight, false) => '♘',
-// 		(PieceType::Rook, false) => '♖',
-// 		(PieceType::Queen, false) => '♕',
-// 		(PieceType::King, false) => '♔',
-
-// 		(PieceType::None, ..) => ' ',
-// 	}
-// }
-
-// fn get_index_from_coordinate(coordinate: String) -> Option<usize> {
-// 	let mut invalid_column = false;
-
-// 	let mut result = match coordinate.chars().nth(0).expect("Invalid coordinate") {
-// 		'a' => 0,
-// 		'b' => 1,
-// 		'c' => 2,
-// 		'd' => 3,
-// 		'e' => 4,
-// 		'f' => 5,
-// 		'g' => 6,
-// 		'h' => 7,
-// 		_ => {
-// 			invalid_column = true;
-// 			0
-// 		},
-// 	};
-
-// 	let number = coordinate.chars().nth(1)?.to_string().parse::<usize>().ok()? as usize;
-// 	result += (number - 1) * 8;
-
-// 	if invalid_column
-// 	|| !(1..=8).contains(&number) {
-// 		None
-// 	} else {
-// 		Some(result)
-// 	}
-// }
