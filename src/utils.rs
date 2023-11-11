@@ -2,7 +2,7 @@ use crate::Point;
 use crate::heatmaps::*;
 use crate::piece::*;
 
-pub fn generate_starting_position(string: String) -> [Piece; 64] {
+pub fn generate_starting_position(string: &'static str) -> [Piece; 64] {
 	let mut board: [Piece; 64] = [Piece::new(PieceType::None, false); 64];
 
 	for i in 0..64 {

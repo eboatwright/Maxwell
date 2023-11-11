@@ -3,17 +3,17 @@ use crate::piece::*;
 use crate::Game;
 
 pub fn search_moves(mut game: Game, depth: i8, mut alpha: i32, beta: i32) -> (Option<PieceMove>, i32) {
-	if depth == 0 {
-		return (None, -game.eval());
-	}
-
 	let legal_moves = game.get_legal_moves_for_color(game.game_data.whites_turn);
 
 	if legal_moves.len() == 0 {
 		if game.king_in_check(game.game_data.whites_turn) {
-			return (None, -i32::MAX);
+			return (None, -9999999 - depth as i32);
 		}
 		return (None, 0);
+	}
+
+	if depth == 0 {
+		return (None, -game.eval());
 	}
 
 	let mut best_move = 0;
@@ -27,7 +27,7 @@ pub fn search_moves(mut game: Game, depth: i8, mut alpha: i32, beta: i32) -> (Op
 		game.undo_last_move();
 
 		if eval_after_move >= beta {
-			return (None, beta);
+			return (Some(legal_moves[i]), beta);
 		}
 
 		if eval_after_move > alpha {

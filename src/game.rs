@@ -25,7 +25,7 @@ pub struct Game {
 }
 
 impl Game {
-	pub fn new(board: String) -> Self {
+	pub fn new(board: &'static str) -> Self {
 		let game_data = GameData {
 			board: generate_starting_position(board),
 			whites_turn: true,
@@ -69,7 +69,11 @@ impl Game {
 
 	pub fn make_move(&mut self, m: PieceMove) {
 		self.last_game_data = self.game_data.clone();
-		self.game_data.last_move = m;
+
+		self.game_data.last_move = PieceMove {
+			capture: Some(self.game_data.board[m.to]),
+			..m
+		};
 
 		self.game_data.board[m.to] = self.game_data.board[m.from];
 		self.game_data.board[m.from] = Piece::none();
@@ -129,7 +133,7 @@ impl Game {
 	}
 
 	pub fn undo_last_move(&mut self) {
-		self.game_data = self.last_game_data.clone();
+		self.game_data = self.last_game_data;
 	}
 
 	pub fn promote(&mut self, piece: PieceType) {

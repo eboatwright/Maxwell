@@ -1,3 +1,12 @@
+/* TODO
+improve Game struct, especially undoing moves sucks
+
+detect endgame positions
+change the king heatmap during endgames
+encourage moving the enemy king to the edges to help with checkmate (during endgames?)
+*/
+
+
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_variables)]
@@ -22,6 +31,17 @@ use crate::game::Game;
 
 pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
+
+pub const STARTING_POSITION: &'static str = "\
+♖♘♗♕♔♗♘♖\
+♙♙♙♙♙♙♙♙\
+________\
+________\
+________\
+________\
+♟♟♟♟♟♟♟♟\
+♜♞♝♛♚♝♞♜\
+";
 
 fn window_conf() -> Conf {
 	Conf {
@@ -58,8 +78,17 @@ async fn main() {
 	};
 
 	let mut game = Game::new(
-		"♖♘♗♕♔♗♘♖♙♙♙♙♙♙♙♙                                ♟♟♟♟♟♟♟♟♜♞♝♛♚♝♞♜".to_string(),
-		// "   ♖♔♖                                                  ♜   ♚  ♜".to_string(),
+		STARTING_POSITION
+// "\
+// ________\
+// ____♖__♔\
+// _______♙\
+// __♙♝_♗__\
+// ___♙___♟\
+// _♜____♙♕\
+// __♟_♛___\
+// ______♚_\
+// ",
 	);
 
 	let mut selected_piece = false;
@@ -104,10 +133,13 @@ async fn main() {
 						}
 					}
 				} else {
-					let (best_move, _) = search_moves(game.clone(), 4, -i32::MAX, i32::MAX);
-					game.make_move(best_move.expect("Got back none from search function :["));
-
-					made_move = true;
+					let (best_move, _) = search_moves(game.clone(), 6, -i32::MAX, i32::MAX);
+					if let Some(m) = best_move {
+						game.make_move(m);
+						made_move = true;
+					} else {
+						println!("got none from search function :[");
+					}
 				}
 			} else {
 				if is_key_pressed(KeyCode::B) {
@@ -140,9 +172,7 @@ async fn main() {
 		} else {
 			if is_key_pressed(KeyCode::Enter) {
 				checkmated_king = None;
-				game = Game::new(
-					"♖♘♗♕♔♗♘♖♙♙♙♙♙♙♙♙                                ♟♟♟♟♟♟♟♟♜♞♝♛♚♝♞♜".to_string(),
-				);
+				game = Game::new(STARTING_POSITION);
 			}
 		}
 
@@ -173,22 +203,24 @@ async fn main() {
 						SQUARE_SIZE,
 						checkmated_color,
 					);
-				} else if index == game.game_data.last_move.from {
-					draw_rectangle(
-						x as f32 * SQUARE_SIZE,
-						y as f32 * SQUARE_SIZE,
-						SQUARE_SIZE,
-						SQUARE_SIZE,
-						last_move_color,
-					);
-				} else if index == game.game_data.last_move.to {
-					draw_rectangle(
-						x as f32 * SQUARE_SIZE,
-						y as f32 * SQUARE_SIZE,
-						SQUARE_SIZE,
-						SQUARE_SIZE,
-						last_move_color,
-					);
+				} else if game.game_data.last_move != PieceMove::default() {
+					if index == game.game_data.last_move.from {
+						draw_rectangle(
+							x as f32 * SQUARE_SIZE,
+							y as f32 * SQUARE_SIZE,
+							SQUARE_SIZE,
+							SQUARE_SIZE,
+							last_move_color,
+						);
+					} else if index == game.game_data.last_move.to {
+						draw_rectangle(
+							x as f32 * SQUARE_SIZE,
+							y as f32 * SQUARE_SIZE,
+							SQUARE_SIZE,
+							SQUARE_SIZE,
+							last_move_color,
+						);
+					}
 				}
 
 				let piece = get_index_for_piece(game.game_data.board[index]);
