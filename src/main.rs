@@ -1,4 +1,5 @@
 /* TODO
+i should probably limit the size of the cache hashmaps...
 detect endgame positions
 change the king heatmap during endgames
 encourage moving the enemy king to the edges to help with checkmate (during endgames?)
@@ -45,7 +46,7 @@ ________\
 
 fn window_conf() -> Conf {
 	Conf {
-		window_title: "MAXWELL".to_string(),
+		window_title: "Maxwell ~ The Chess Engine v1".to_string(),
 		window_width: WINDOW_SIZE as i32,
 		window_height: WINDOW_SIZE as i32,
 		window_resizable: false,
@@ -77,19 +78,7 @@ async fn main() {
 		a: 0.4,
 	};
 
-	let mut game = Game::new(
-		STARTING_POSITION
-// "\
-// ________\
-// ____♖__♔\
-// _______♙\
-// __♙♝_♗__\
-// ___♙___♟\
-// _♜____♙♕\
-// __♟_♛___\
-// ______♚_\
-// ",
-	);
+	let mut game = Game::new(STARTING_POSITION);
 
 	let mut selected_piece = false;
 	let mut current_move = PieceMove::default();
@@ -98,6 +87,7 @@ async fn main() {
 	let mut stalemate = false;
 
 	let mut eval_cache: HashMap<GameData, i32> = HashMap::new();
+	let mut legal_move_cache: HashMap<GameData, Vec<PieceMove>> = HashMap::new();
 
 	loop {
 		if checkmated_king.is_none()
@@ -132,7 +122,7 @@ async fn main() {
 				} else {
 					let time = Instant::now();
 
-					let (best_move, _) = search_moves(game.clone(), 4, -i32::MAX, i32::MAX, &mut eval_cache);
+					let (best_move, _) = search_moves(game.clone(), 4, -i32::MAX, i32::MAX, &mut eval_cache, &mut legal_move_cache);
 					if let Some(m) = best_move {
 						game.make_move(m);
 						made_move = true;
