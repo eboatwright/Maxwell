@@ -1,34 +1,45 @@
-use crate::Point;
 use crate::heatmaps::*;
 use crate::piece::*;
 
-pub fn generate_starting_position(string: &'static str) -> [u8; 64] {
+// rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+pub fn generate_board_from_fen(fen: &'static str) -> [u8; 64] {
+	let sections: Vec<&str> = fen.split(' ').collect();
+	let pieces = sections[0].chars().collect::<Vec<char>>();
+
 	let mut board: [u8; 64] = [0; 64];
+	let mut board_index = 0usize;
 
-	for i in 0..64 {
-		board[i] = match string.chars().collect::<Vec<char>>()[i] {
-			'♟' => PAWN | WHITE,
-			'♞' => KNIGHT | WHITE,
-			'♝' => BISHOP | WHITE,
-			'♜' => ROOK | WHITE,
-			'♛' => QUEEN | WHITE,
-			'♚' => KING | WHITE,
+	for i in 0..pieces.len() {
+		if let Ok(number_of_empty_squares) = pieces[i].to_string().parse::<usize>() {
+			board_index += number_of_empty_squares;
+		} else {
+			board[board_index] = match pieces[i] {
+				'P' => WHITE | PAWN,
+				'N' => WHITE | KNIGHT,
+				'B' => WHITE | BISHOP,
+				'R' => WHITE | ROOK,
+				'Q' => WHITE | QUEEN,
+				'K' => WHITE | KING,
 
-			'♙' => PAWN | BLACK,
-			'♘' => KNIGHT | BLACK,
-			'♗' => BISHOP | BLACK,
-			'♖' => ROOK | BLACK,
-			'♕' => QUEEN | BLACK,
-			'♔' => KING | BLACK,
+				'p' => BLACK | PAWN,
+				'n' => BLACK | KNIGHT,
+				'b' => BLACK | BISHOP,
+				'r' => BLACK | ROOK,
+				'q' => BLACK | QUEEN,
+				'k' => BLACK | KING,
 
-			_ => 0,
-		};
+				_ => 0,
+			};
+			if board[board_index] != 0 {
+				board_index += 1;
+			}
+		}
 	}
 
 	board
 }
 
-pub fn get_index_for_piece(piece: u8) -> usize {
+pub fn get_image_index_for_piece(piece: u8) -> usize {
 	if piece == 0 {
 		return 0;
 	}
