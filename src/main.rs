@@ -36,26 +36,8 @@ async fn main() {
 	srand(miniquad::date::now() as u64);
 
 	let resources = Resources::load().await;
-	let transparent_color = Color {
-		r: 0.8,
-		g: 0.8,
-		b: 0.82,
-		a: 0.5,
-	};
-	let checkmated_color = Color {
-		r: 0.9,
-		g: 0.4,
-		b: 0.4,
-		a: 0.8,
-	};
-	let last_move_color = Color {
-		r: 0.8,
-		g: 0.8,
-		b: 0.5,
-		a: 0.4,
-	};
 
-	let board = Board::new(STARTING_FEN);
+	let board = Board::from_fen(STARTING_FEN);
 
 	loop {
 		clear_background(macroquad::prelude::BLACK);

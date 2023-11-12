@@ -1,44 +1,6 @@
 use crate::heatmaps::*;
 use crate::piece::*;
 
-// rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
-pub fn generate_board_from_fen(fen: &'static str) -> [u8; 64] {
-	let sections: Vec<&str> = fen.split(' ').collect();
-	let pieces = sections[0].chars().collect::<Vec<char>>();
-
-	let mut board: [u8; 64] = [0; 64];
-	let mut board_index = 0usize;
-
-	for i in 0..pieces.len() {
-		if let Ok(number_of_empty_squares) = pieces[i].to_string().parse::<usize>() {
-			board_index += number_of_empty_squares;
-		} else {
-			board[board_index] = match pieces[i] {
-				'P' => WHITE | PAWN,
-				'N' => WHITE | KNIGHT,
-				'B' => WHITE | BISHOP,
-				'R' => WHITE | ROOK,
-				'Q' => WHITE | QUEEN,
-				'K' => WHITE | KING,
-
-				'p' => BLACK | PAWN,
-				'n' => BLACK | KNIGHT,
-				'b' => BLACK | BISHOP,
-				'r' => BLACK | ROOK,
-				'q' => BLACK | QUEEN,
-				'k' => BLACK | KING,
-
-				_ => 0,
-			};
-			if board[board_index] != 0 {
-				board_index += 1;
-			}
-		}
-	}
-
-	board
-}
-
 pub fn get_image_index_for_piece(piece: u8) -> usize {
 	if piece == 0 {
 		return 0;
@@ -86,4 +48,45 @@ pub fn get_worth_for_piece(piece: u8, mut i: usize) -> i32 {
 
 pub fn is_white(piece: u8) -> bool {
 	piece & 0b_1000 == WHITE
+}
+
+// If somebody knows a better way to do this please @ me :/
+pub fn index_from_coordinate(coordinate: &'static str) -> Option<usize> {
+	if coordinate.len() != 2 {
+		return None;
+	}
+
+
+	let split = coordinate.to_string().chars().collect::<Vec<char>>();
+
+
+
+	let file_index = match split[0] {
+		'a' => 0,
+		'b' => 1,
+		'c' => 2,
+		'd' => 3,
+		'e' => 4,
+		'f' => 5,
+		'g' => 6,
+		'h' => 7,
+		_ => 69,
+	};
+
+	let rank = if split[1].is_digit(10) {
+		split[1].to_digit(10).unwrap() as usize
+	} else {
+		69
+	};
+
+
+
+	let full_index = file_index + rank * 8;
+
+
+
+	if full_index >= 64 {
+		return None;
+	}
+	Some(full_index)
 }
