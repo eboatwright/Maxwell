@@ -46,7 +46,7 @@ ________\
 
 fn window_conf() -> Conf {
 	Conf {
-		window_title: "Maxwell ~ The Chess Engine v1".to_string(),
+		window_title: "Maxwell ~ The Chess Engine v1.0".to_string(),
 		window_width: WINDOW_SIZE as i32,
 		window_height: WINDOW_SIZE as i32,
 		window_resizable: false,
