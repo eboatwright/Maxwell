@@ -5,6 +5,6 @@
 
 # Helpful Sources
  Sebastian Lague's Chess Programming series:<br>
-  https://www.youtube.com/playlist?list=PLFt_AvWsXl0cvHyu32ajwh2qU1i6hl77c
+  https://www.youtube.com/playlist?list=PLFt_AvWsXl0cvHyu32ajwh2qU1i6hl77c<br>
  The Chess Programming Wiki:<br>
-  https://www.chessprogramming.org/Main_Page
+  https://www.chessprogramming.org/Main_Page<br>
