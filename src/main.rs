@@ -3,13 +3,13 @@
 #![allow(unused_variables)]
 
 mod resources;
-mod bitboards;
+mod precomputed_bitboards;
 mod heatmaps;
 mod piece;
 mod utils;
 mod board;
 
-use crate::bitboards::Bitboards;
+use crate::precomputed_bitboards::PrecomputedBitboards;
 use crate::piece::*;
 use crate::utils::*;
 use crate::board::Board;
@@ -40,16 +40,15 @@ async fn main() {
 
 	let resources = Resources::load().await;
 
-	let bitboards = Bitboards::initialize();
 	let mut board = Board::from_fen(STARTING_FEN);
 
 	let mut piece_dragging = None;
-	let mut last_move = 0u16;
 
 	loop {
 		if is_mouse_button_pressed(MouseButton::Left) {
 			let mouse_index = get_mouse_position_as_index();
-			if board.board[mouse_index] != 0 {
+			if board.board[mouse_index] != 0
+			&& is_white(board.board[mouse_index]) == board.whites_turn {
 				piece_dragging = Some(mouse_index);
 			}
 		}
@@ -58,13 +57,15 @@ async fn main() {
 			if let Some(from) = piece_dragging {
 				let to = get_mouse_position_as_index();
 				if from != to {
-					board.board[to] = board.board[from];
-					board.board[from] = 0;
-
-					last_move = ((from as u16) << 6) | to as u16;
+					let m = build_move(0, board.board[to] as u32, from, to);
+					board.make_move(m);
 				}
 				piece_dragging = None;
 			}
+		}
+
+		if is_key_pressed(KeyCode::Space) {
+			board.undo_last_move();
 		}
 
 		clear_background(macroquad::prelude::BLACK);
@@ -76,6 +77,17 @@ async fn main() {
 				let index = x + y * 8;
 				let piece = get_image_index_for_piece(board.board[index]);
 
+				// if (board.all_piece_bitboards[1] >> index) & 1 == 1 {
+				// 	draw_rectangle(
+				// 		x as f32 * SQUARE_SIZE,
+				// 		y as f32 * SQUARE_SIZE,
+				// 		SQUARE_SIZE,
+				// 		SQUARE_SIZE,
+				// 		resources.checkmated_color,
+				// 	);
+				// }
+
+				let last_move = board.get_last_move();
 				if last_move != 0
 				&& (get_move_from(last_move) == index
 				|| get_move_to(last_move) == index) {
@@ -96,18 +108,6 @@ async fn main() {
 						SQUARE_SIZE,
 						resources.last_move_color,
 					);
-
-					for i in 0..64 {
-						if (bitboards.knight_bitboards[index] >> i) & 1 == 1 {
-							draw_rectangle(
-								(i % 8) as f32 * SQUARE_SIZE,
-								(i as f32 / 8.0).floor() * SQUARE_SIZE,
-								SQUARE_SIZE,
-								SQUARE_SIZE,
-								resources.checkmated_color,
-							);
-						}
-					}
 				} else if piece > 0 {
 					draw_texture_ex(
 						&resources.pieces_tex,
@@ -129,6 +129,16 @@ async fn main() {
 		}
 
 		if let Some(piece_dragging) = piece_dragging {
+			for legal_move in board.get_legal_moves_for_piece(piece_dragging) {
+				let to = get_move_to(legal_move);
+				draw_circle(
+					((to % 8) as f32 + 0.5) * SQUARE_SIZE,
+					((to as f32 / 8.0).floor() + 0.5) * SQUARE_SIZE,
+					SQUARE_SIZE * 0.2,
+					resources.transparent_color,
+				);
+			}
+
 			let pos = mouse_position_vec2() - vec2(SQUARE_SIZE, SQUARE_SIZE) * 0.5;
 			draw_texture_ex(
 				&resources.pieces_tex,

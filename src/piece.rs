@@ -38,19 +38,28 @@ pub const BISHOP_PROMO_FLAG: u8     = 0b_0110;
 pub const ROOK_PROMO_FLAG: u8       = 0b_0111;
 pub const QUEEN_PROMO_FLAG: u8      = 0b_1000;
 
-pub const MOVE_FLAG_MASK: u16 = 0b_1111_000000_000000;
-pub const MOVE_FROM_MASK: u16 = 0b_0000_111111_000000;
-pub const MOVE_TO_MASK: u16   = 0b_0000_000000_111111;
+pub const MOVE_FLAG_MASK: u32    = 0b_1111_0000_000000_000000;
+pub const MOVE_CAPTURE_MASK: u32 = 0b_0000_1111_000000_000000;
+pub const MOVE_FROM_MASK: u32    = 0b_0000_0000_111111_000000;
+pub const MOVE_TO_MASK: u32      = 0b_0000_0000_000000_111111;
 
 
-pub fn get_move_flag(m: u16) -> u16 {
-	(m & MOVE_FLAG_MASK) >> 12
+pub fn get_move_flag(m: u32) -> u32 {
+	(m & MOVE_FLAG_MASK) >> 16
 }
 
-pub fn get_move_from(m: u16) -> usize {
+pub fn get_move_capture(m: u32) -> u8 {
+	((m & MOVE_CAPTURE_MASK) >> 12) as u8
+}
+
+pub fn get_move_from(m: u32) -> usize {
 	((m & MOVE_FROM_MASK) >> 6) as usize
 }
 
-pub fn get_move_to(m: u16) -> usize {
+pub fn get_move_to(m: u32) -> usize {
 	(m & MOVE_TO_MASK) as usize
+}
+
+pub fn build_move(flag: u32, capture: u32, from: usize, to: usize) -> u32 {
+	((flag << 16) as usize | (capture << 12) as usize | (from << 6) | to) as u32
 }
