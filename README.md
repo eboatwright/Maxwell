@@ -1,3 +1,4 @@
+![](/icon/Maxwell_316x316.png)
 # ~ Maxwell Chess Engine ~
  My Chess bot named Maxwell, written in Rust!<br>
  View the code at your own discretion, it's very messy<br><br>
