@@ -26,7 +26,7 @@ impl Resources {
 				r: 0.9,
 				g: 0.4,
 				b: 0.4,
-				a: 0.8,
+				a: 0.5,
 			},
 
 			last_move_color: Color {

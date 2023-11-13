@@ -3,11 +3,13 @@
 #![allow(unused_variables)]
 
 mod resources;
+mod bitboards;
 mod heatmaps;
 mod piece;
 mod utils;
 mod board;
 
+use crate::bitboards::Bitboards;
 use crate::piece::*;
 use crate::utils::*;
 use crate::board::Board;
@@ -38,6 +40,7 @@ async fn main() {
 
 	let resources = Resources::load().await;
 
+	let bitboards = Bitboards::initialize();
 	let mut board = Board::from_fen(STARTING_FEN);
 
 	let mut piece_dragging = None;
@@ -93,6 +96,18 @@ async fn main() {
 						SQUARE_SIZE,
 						resources.last_move_color,
 					);
+
+					for i in 0..64 {
+						if (bitboards.knight_bitboards[index] >> i) & 1 == 1 {
+							draw_rectangle(
+								(i % 8) as f32 * SQUARE_SIZE,
+								(i as f32 / 8.0).floor() * SQUARE_SIZE,
+								SQUARE_SIZE,
+								SQUARE_SIZE,
+								resources.checkmated_color,
+							);
+						}
+					}
 				} else if piece > 0 {
 					draw_texture_ex(
 						&resources.pieces_tex,
