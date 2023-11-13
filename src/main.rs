@@ -8,7 +8,8 @@ mod piece;
 mod utils;
 mod board;
 
-use crate::utils::get_image_index_for_piece;
+use crate::piece::*;
+use crate::utils::*;
 use crate::board::Board;
 use std::time::{Instant, Duration};
 use macroquad::rand::{gen_range, srand};
@@ -37,9 +38,32 @@ async fn main() {
 
 	let resources = Resources::load().await;
 
-	let board = Board::from_fen(STARTING_FEN);
+	let mut board = Board::from_fen(STARTING_FEN);
+
+	let mut piece_dragging = None;
+	let mut last_move = 0u16;
 
 	loop {
+		if is_mouse_button_pressed(MouseButton::Left) {
+			let mouse_index = get_mouse_position_as_index();
+			if board.board[mouse_index] != 0 {
+				piece_dragging = Some(mouse_index);
+			}
+		}
+
+		if is_mouse_button_released(MouseButton::Left) {
+			if let Some(from) = piece_dragging {
+				let to = get_mouse_position_as_index();
+				if from != to {
+					board.board[to] = board.board[from];
+					board.board[from] = 0;
+
+					last_move = ((from as u16) << 6) | to as u16;
+				}
+				piece_dragging = None;
+			}
+		}
+
 		clear_background(macroquad::prelude::BLACK);
 
 		draw_texture(&resources.board_tex, 0.0, 0.0, macroquad::prelude::WHITE);
@@ -49,7 +73,27 @@ async fn main() {
 				let index = x + y * 8;
 				let piece = get_image_index_for_piece(board.board[index]);
 
-				if piece > 0 {
+				if last_move != 0
+				&& (get_move_from(last_move) == index
+				|| get_move_to(last_move) == index) {
+					draw_rectangle(
+						x as f32 * SQUARE_SIZE,
+						y as f32 * SQUARE_SIZE,
+						SQUARE_SIZE,
+						SQUARE_SIZE,
+						resources.last_move_color,
+					);
+				}
+
+				if piece_dragging == Some(index) {
+					draw_rectangle(
+						x as f32 * SQUARE_SIZE,
+						y as f32 * SQUARE_SIZE,
+						SQUARE_SIZE,
+						SQUARE_SIZE,
+						resources.last_move_color,
+					);
+				} else if piece > 0 {
 					draw_texture_ex(
 						&resources.pieces_tex,
 						x as f32 * SQUARE_SIZE,
@@ -67,6 +111,25 @@ async fn main() {
 					);
 				}
 			}
+		}
+
+		if let Some(piece_dragging) = piece_dragging {
+			let pos = mouse_position_vec2() - vec2(SQUARE_SIZE, SQUARE_SIZE) * 0.5;
+			draw_texture_ex(
+				&resources.pieces_tex,
+				pos.x,
+				pos.y,
+				macroquad::prelude::WHITE,
+				DrawTextureParams {
+					source: Some(Rect {
+						x: (get_image_index_for_piece(board.board[piece_dragging]) - 1) as f32 * SQUARE_SIZE,
+						y: 0.0,
+						w: SQUARE_SIZE,
+						h: SQUARE_SIZE,
+					}),
+					..Default::default()
+				},
+			);
 		}
 
 		// draw_text_ex(
