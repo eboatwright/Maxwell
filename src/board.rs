@@ -7,6 +7,7 @@ pub struct Board {
 	pub precomputed_data: PrecomputedData,
 	pub piece_bitboards: [[u64; 6]; 2],
 	pub all_piece_bitboards: [u64; 2],
+	pub attacked_squares_bitboards: [u64; 2],
 
 	pub board: [u8; 64],
 	pub whites_turn: bool,
@@ -92,6 +93,7 @@ impl Board {
 			precomputed_data: PrecomputedData::initialize(),
 			piece_bitboards: [[0; 6]; 2],
 			all_piece_bitboards: [0; 2],
+			attacked_squares_bitboards: [0; 2],
 
 			board,
 			whites_turn,
@@ -120,6 +122,7 @@ impl Board {
 
 
 		final_board.compute_all_piece_bitboards();
+		final_board.compute_attacked_squares_bitboards();
 
 
 		final_board
@@ -132,6 +135,38 @@ impl Board {
 		];
 	}
 
+	pub fn king_in_check(&self, white: bool) -> bool {
+		self.piece_bitboards[white as usize][(KING - 1) as usize] & self.attacked_squares_bitboards[!white as usize] != 0
+	}
+
+	pub fn compute_attacked_squares_bitboards(&mut self) {
+		self.attacked_squares_bitboards = [0; 2];
+
+		for i in 0..64 {
+			let piece = self.board[i];
+
+			if piece != 0 {
+				let piece_color = is_white(piece) as usize;
+
+				match get_piece_type(piece) {
+					PAWN => {
+						self.attacked_squares_bitboards[piece_color] |= self.precomputed_data.pawn_bitboards[piece_color][i];
+					}
+
+					KNIGHT => {
+						self.attacked_squares_bitboards[piece_color] |= self.precomputed_data.knight_bitboards[i];
+					}
+
+					KING => {
+						self.attacked_squares_bitboards[piece_color] |= self.precomputed_data.king_bitboards[i];
+					}
+
+					_ => {}
+				}
+			}
+		}
+	}
+
 	pub fn get_last_move(&self) -> u32 {
 		if self.moves.len() == 0 {
 			return 0;
@@ -139,7 +174,7 @@ impl Board {
 		self.moves[self.moves.len() - 1]
 	}
 
-	pub fn get_legal_moves_for_color(&self, white_pieces: bool) -> Vec<u32> {
+	pub fn get_legal_moves_for_color(&mut self, white_pieces: bool) -> Vec<u32> {
 		let mut result = vec![];
 
 		for i in 0..64 {
@@ -152,7 +187,7 @@ impl Board {
 		result
 	}
 
-	pub fn get_legal_moves_for_piece(&self, piece_index: usize) -> Vec<u32> {
+	pub fn get_legal_moves_for_piece(&mut self, piece_index: usize) -> Vec<u32> {
 		let piece_color = is_white(self.board[piece_index]) as usize;
 		let other_color = !is_white(self.board[piece_index]) as usize;
 		let piece_type = get_piece_type(self.board[piece_index]);
@@ -324,6 +359,16 @@ impl Board {
 			_ => {}
 		};
 
+		for i in (0..result.len()).rev() {
+			self.make_move(result[i]);
+
+			if self.king_in_check(!self.whites_turn) {
+				result.remove(i);
+			}
+
+			self.undo_last_move();
+		}
+
 		result
 	}
 
@@ -378,6 +423,7 @@ impl Board {
 		}
 
 		self.compute_all_piece_bitboards();
+		self.compute_attacked_squares_bitboards();
 
 		self.moves.push(piece_move);
 
@@ -434,6 +480,7 @@ impl Board {
 		}
 
 		self.compute_all_piece_bitboards();
+		self.compute_attacked_squares_bitboards();
 
 		if !self.whites_turn {
 			self.moves_without_capture_or_pawn_push -= 1;

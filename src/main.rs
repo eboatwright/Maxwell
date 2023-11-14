@@ -118,9 +118,9 @@ async fn main() {
 			);
 		}
 
-		// let bitboard = viewing_board.piece_bitboards[1][0];
+		// let bitboard = viewing_board.attacked_squares_bitboards[1];
 		// for i in 0..64 {
-		// 	if (1 << i) & bitboard != 0 {
+		// 	if bitboard & (1 << i) != 0 {
 		// 		draw_rectangle(
 		// 			(i % 8) as f32 * SQUARE_SIZE,
 		// 			(i as f32 / 8.0).floor() * SQUARE_SIZE,
@@ -190,6 +190,16 @@ fn render_board(resources: &Resources, board: &Board, looking_back: bool, piece_
 			// 		resources.checkmated_color,
 			// 	);
 			// }
+
+			if board.board[index] == (board.whites_turn as u8) << 3 | KING
+			&& board.king_in_check(board.whites_turn) {
+				draw_rectangle(
+					x as f32 * SQUARE_SIZE,
+					y as f32 * SQUARE_SIZE,
+					SQUARE_SIZE, SQUARE_SIZE,
+					resources.checkmated_color,
+				);
+			}
 
 			let last_move = board.get_last_move();
 			if last_move != 0
