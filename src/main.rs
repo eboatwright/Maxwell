@@ -40,7 +40,7 @@ async fn main() {
 	let resources = Resources::load().await;
 
 	let mut game_board = Board::from_fen(STARTING_FEN);
-	let mut viewing_board = Board::from_fen(STARTING_FEN);
+	let mut viewing_board = game_board.clone();
 
 	let mut piece_dragging = None;
 
@@ -129,23 +129,6 @@ async fn main() {
 		// 				r: 1.0,
 		// 				g: 0.0,
 		// 				b: 0.0,
-		// 				a: 0.5,
-		// 			},
-		// 		);
-		// 	}
-		// }
-
-		// let bitboard = viewing_board.piece_bitboards[1][1];
-		// for i in 0..64 {
-		// 	if (1 << i) & bitboard != 0 {
-		// 		draw_rectangle(
-		// 			(i % 8) as f32 * SQUARE_SIZE,
-		// 			(i as f32 / 8.0).floor() * SQUARE_SIZE,
-		// 			SQUARE_SIZE, SQUARE_SIZE,
-		// 			Color {
-		// 				r: 0.0,
-		// 				g: 0.0,
-		// 				b: 1.0,
 		// 				a: 0.5,
 		// 			},
 		// 		);

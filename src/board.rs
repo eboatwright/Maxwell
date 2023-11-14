@@ -139,6 +139,19 @@ impl Board {
 		self.moves[self.moves.len() - 1]
 	}
 
+	pub fn get_legal_moves_for_color(&self, white_pieces: bool) -> Vec<u32> {
+		let mut result = vec![];
+
+		for i in 0..64 {
+			if self.board[i] != 0
+			&& is_white(self.board[i]) == white_pieces {
+				result.append(&mut self.get_legal_moves_for_piece(i));
+			}
+		}
+
+		result
+	}
+
 	pub fn get_legal_moves_for_piece(&self, piece_index: usize) -> Vec<u32> {
 		let piece_color = is_white(self.board[piece_index]) as usize;
 		let other_color = !is_white(self.board[piece_index]) as usize;
@@ -282,8 +295,24 @@ impl Board {
 				}
 			}
 
+
+
+
 			KNIGHT => {
 				let bitboard = self.precomputed_data.knight_bitboards[piece_index] & !self.all_piece_bitboards[piece_color];
+
+				for i in 0..64 {
+					if (bitboard >> i) & 1 == 1 {
+						result.push(build_move(0, self.board[i] as u32, piece_index, i));
+					}
+				}
+			}
+
+
+
+
+			KING => {
+				let bitboard = self.precomputed_data.king_bitboards[piece_index] & !self.all_piece_bitboards[piece_color];
 
 				for i in 0..64 {
 					if (bitboard >> i) & 1 == 1 {

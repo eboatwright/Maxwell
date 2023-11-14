@@ -1,3 +1,4 @@
+use crate::Board;
 use crate::SQUARE_SIZE;
 use macroquad::prelude::{Vec2, mouse_position};
 use crate::heatmaps::*;
@@ -99,4 +100,23 @@ pub fn get_mouse_position_as_index() -> usize {
 
 pub fn rank_of_index(index: usize) -> u8 {
 	8 - (index as f32 / 8.0).floor() as u8
+}
+
+fn position_counter(board: &mut Board, depth: u8) -> u64 {
+	if depth == 0 {
+		return 1;
+	}
+
+	let mut total_positions = 0;
+
+	let legal_moves = board.get_legal_moves_for_color(board.whites_turn);
+	for legal_move in legal_moves.iter() {
+		board.make_move(*legal_move);
+
+		total_positions += position_counter(board, depth - 1);
+
+		board.undo_last_move();
+	}
+
+	total_positions
 }

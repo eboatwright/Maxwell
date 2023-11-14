@@ -16,12 +16,14 @@ pub const NOT_GH_FILES: u64 = A_FILE | B_FILE | C_FILE | D_FILE | E_FILE | F_FIL
 #[derive(Clone)]
 pub struct PrecomputedData {
 	pub knight_bitboards: [u64; 64],
+	pub king_bitboards: [u64; 64],
 }
 
 impl PrecomputedData {
 	pub fn initialize() -> Self {
 		Self {
 			knight_bitboards: Self::initialize_knight_bitboards(),
+			king_bitboards: Self::initialize_king_bitboards(),
 		}
 	}
 
@@ -40,6 +42,28 @@ impl PrecomputedData {
 			bitboard |= ((1 << i) & NOT_H_FILE) >> 17;
 			bitboard |= ((1 << i) & NOT_A_FILE) >> 15;
 			bitboard |= ((1 << i) & NOT_AB_FILES) >> 6;
+
+			bitboards[i] = bitboard;
+		}
+
+		bitboards
+	}
+
+	fn initialize_king_bitboards() -> [u64; 64] {
+		let mut bitboards = [0; 64];
+
+		for i in 0..64 {
+			let mut bitboard = 0;
+
+			bitboard |= ((1 << i) & NOT_H_FILE) >> 9;
+			bitboard |= (1 << i) >> 8;
+			bitboard |= ((1 << i) & NOT_A_FILE) >> 7;
+			bitboard |= ((1 << i) & NOT_H_FILE) >> 1;
+
+			bitboard |= ((1 << i) & NOT_A_FILE) << 9;
+			bitboard |= (1 << i) << 8;
+			bitboard |= ((1 << i) & NOT_H_FILE) << 7;
+			bitboard |= ((1 << i) & NOT_A_FILE) << 1;
 
 			bitboards[i] = bitboard;
 		}
