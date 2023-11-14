@@ -13,23 +13,62 @@ pub const NOT_AB_FILES: u64 = C_FILE | D_FILE | E_FILE | F_FILE | G_FILE | H_FIL
 pub const NOT_H_FILE: u64 = A_FILE | B_FILE | C_FILE | D_FILE | E_FILE | F_FILE | G_FILE;
 pub const NOT_GH_FILES: u64 = A_FILE | B_FILE | C_FILE | D_FILE | E_FILE | F_FILE;
 
+pub const DIRECTION_OFFSETS: [i8; 8] = [-8, 8, -1, 1, -7, 7, -9, 9];
+
+
 #[derive(Clone)]
 pub struct PrecomputedData {
+	pub squares_to_edge: [[usize; 8]; 64],
+
 	pub pawn_bitboards: [[u64; 64]; 2],
 	pub knight_bitboards: [u64; 64],
 	pub king_bitboards: [u64; 64],
 }
 
 impl PrecomputedData {
-	pub fn initialize() -> Self {
+	pub fn calculate() -> Self {
 		Self {
-			pawn_bitboards: Self::initialize_pawn_bitboards(),
-			knight_bitboards: Self::initialize_knight_bitboards(),
-			king_bitboards: Self::initialize_king_bitboards(),
+			squares_to_edge: Self::calculate_squares_to_edge(),
+
+			pawn_bitboards: Self::calculate_pawn_bitboards(),
+			knight_bitboards: Self::calculate_knight_bitboards(),
+			king_bitboards: Self::calculate_king_bitboards(),
 		}
 	}
 
-	fn initialize_pawn_bitboards() -> [[u64; 64]; 2] {
+
+
+	fn calculate_squares_to_edge() -> [[usize; 8]; 64] {
+		let mut squares_to_edge = [[0; 8]; 64];
+
+		for y in 0..8 {
+			for x in 0..8 {
+				let north_to_edge = y;
+				let south_to_edge = 7 - y;
+				let west_to_edge = x;
+				let east_to_edge = 7 - x;
+
+				squares_to_edge[x + y * 8] = [
+					north_to_edge,
+					south_to_edge,
+					west_to_edge,
+					east_to_edge,
+
+					usize::min(north_to_edge, east_to_edge),
+					usize::min(south_to_edge, west_to_edge),
+					usize::min(north_to_edge, west_to_edge),
+					usize::min(south_to_edge, east_to_edge),
+				];
+			}
+		}
+
+		squares_to_edge
+	}
+
+
+
+
+	fn calculate_pawn_bitboards() -> [[u64; 64]; 2] {
 		let mut bitboards = [[0; 64]; 2];
 
 		for i in 8..56 {
@@ -53,7 +92,10 @@ impl PrecomputedData {
 		bitboards
 	}
 
-	fn initialize_knight_bitboards() -> [u64; 64] {
+
+
+
+	fn calculate_knight_bitboards() -> [u64; 64] {
 		let mut bitboards = [0; 64];
 
 		for i in 0..64 {
@@ -75,7 +117,10 @@ impl PrecomputedData {
 		bitboards
 	}
 
-	fn initialize_king_bitboards() -> [u64; 64] {
+
+
+
+	fn calculate_king_bitboards() -> [u64; 64] {
 		let mut bitboards = [0; 64];
 
 		for i in 0..64 {

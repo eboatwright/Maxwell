@@ -1,3 +1,4 @@
+use std::ops::Range;
 use crate::precomputed_data::*;
 use crate::utils::*;
 use crate::piece::*;
@@ -90,7 +91,7 @@ impl Board {
 
 
 		let mut final_board = Board {
-			precomputed_data: PrecomputedData::initialize(),
+			precomputed_data: PrecomputedData::calculate(),
 			piece_bitboards: [[0; 6]; 2],
 			all_piece_bitboards: [0; 2],
 			attacked_squares_bitboards: [0; 2],
@@ -157,6 +158,18 @@ impl Board {
 						self.attacked_squares_bitboards[piece_color] |= self.precomputed_data.knight_bitboards[i];
 					}
 
+					BISHOP => {
+						self.attacked_squares_bitboards[piece_color] |= self.generate_sliding_attacks_bitboard(i, 4..8)
+					}
+
+					ROOK => {
+						self.attacked_squares_bitboards[piece_color] |= self.generate_sliding_attacks_bitboard(i, 0..4)
+					}
+
+					QUEEN => {
+						self.attacked_squares_bitboards[piece_color] |= self.generate_sliding_attacks_bitboard(i, 0..8)
+					}
+
 					KING => {
 						self.attacked_squares_bitboards[piece_color] |= self.precomputed_data.king_bitboards[i];
 					}
@@ -166,6 +179,54 @@ impl Board {
 			}
 		}
 	}
+
+
+
+
+	fn generate_sliding_moves(&self, piece_from: usize, direction_range: Range<usize>) -> Vec<u32> {
+		let mut result = vec![];
+
+		for direction_index in direction_range {
+			for n in 0..self.precomputed_data.squares_to_edge[piece_from][direction_index] {
+				let to = (piece_from as i8 + DIRECTION_OFFSETS[direction_index] * (n as i8 + 1)) as usize;
+				let is_piece_on_target_square = self.board[to] != 0;
+
+				if is_piece_on_target_square
+				&& is_white(self.board[to]) == is_white(self.board[piece_from]) {
+					break;
+				}
+
+				result.push(build_move(0, self.board[to as usize] as u32, piece_from, to as usize));
+
+				if is_piece_on_target_square {
+					break;
+				}
+			}
+		}
+
+		result
+	}
+
+	pub fn generate_sliding_attacks_bitboard(&self, piece_from: usize, direction_range: Range<usize>) -> u64 {
+		let mut result_bitboard = 0;
+
+		for direction_index in direction_range {
+			for n in 0..self.precomputed_data.squares_to_edge[piece_from][direction_index] {
+				let to = (piece_from as i8 + DIRECTION_OFFSETS[direction_index] * (n as i8 + 1)) as usize;
+
+				result_bitboard |= 1 << to;
+
+				if self.board[to] != 0 {
+					break;
+				}
+			}
+		}
+
+		result_bitboard
+	}
+
+
+
 
 	pub fn get_last_move(&self) -> u32 {
 		if self.moves.len() == 0 {
@@ -341,6 +402,27 @@ impl Board {
 						result.push(build_move(0, self.board[i] as u32, piece_index, i));
 					}
 				}
+			}
+
+
+
+
+			BISHOP => {
+				result = self.generate_sliding_moves(piece_index, 4..8);
+			}
+
+
+
+
+			ROOK => {
+				result = self.generate_sliding_moves(piece_index, 0..4);
+			}
+
+
+
+
+			QUEEN => {
+				result = self.generate_sliding_moves(piece_index, 0..8);
 			}
 
 

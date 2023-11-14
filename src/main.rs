@@ -245,7 +245,10 @@ fn render_board(resources: &Resources, board: &Board, looking_back: bool, piece_
 
 async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: usize, promoting_to: usize) -> Option<u8> {
 	let x = (promoting_to % 8) as f32 * SQUARE_SIZE;
-	let y = (promoting_to as f32 / 8.0).floor();
+	let mut y = (promoting_to as f32 / 8.0).floor();
+	let pawn_is_white = y == 0.0;
+
+	y -= if pawn_is_white { 0.0 } else { 3.0 };
 
 	loop {
 		if is_mouse_button_pressed(MouseButton::Left) {
@@ -258,9 +261,11 @@ async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: 
 			};
 
 			for i in 1..=4 {
+				let j = if pawn_is_white { 4 - i } else { i - 1 };
+
 				if mouse_rect.overlaps(&Rect {
 					x: x,
-					y: y + (4 - i) as f32 * SQUARE_SIZE,
+					y: (y + j as f32) * SQUARE_SIZE,
 					w: SQUARE_SIZE,
 					h: SQUARE_SIZE,
 				}) {
@@ -277,7 +282,7 @@ async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: 
 
 		draw_rectangle(
 			x,
-			y,
+			y * SQUARE_SIZE,
 			SQUARE_SIZE,
 			SQUARE_SIZE * 4.0,
 			Color {
@@ -289,14 +294,16 @@ async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: 
 		);
 
 		for i in 1..=4 {
+			let j = if pawn_is_white { 4 - i } else { i - 1 };
+
 			draw_texture_ex(
 				&resources.pieces_tex,
 				x,
-				(y + (4 - i) as f32) * SQUARE_SIZE,
+				(y + j as f32) * SQUARE_SIZE,
 				macroquad::prelude::WHITE,
 				DrawTextureParams {
 					source: Some(Rect {
-						x: i as f32 * SQUARE_SIZE,
+						x: get_image_index_for_piece((if pawn_is_white { piece::WHITE } else { piece::BLACK }) | i as u8) as f32 * SQUARE_SIZE,
 						y: 0.0,
 						w: SQUARE_SIZE,
 						h: SQUARE_SIZE,
