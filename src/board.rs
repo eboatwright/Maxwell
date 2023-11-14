@@ -155,10 +155,21 @@ impl Board {
 
 
 
+					let will_promote = rank_of_index(piece_index) == 7;
+
+
+
 
 					// Pushing
 					if (piece >> 8) & empty_squares != 0 {
-						result.push(build_move(0, 0, piece_index, piece_index - 8));
+						if will_promote {
+							for promotion in PROMOTABLE_PIECES.iter() {
+								result.push(build_move(*promotion, 0, piece_index, piece_index - 8));
+							}
+						} else {
+							result.push(build_move(0, 0, piece_index, piece_index - 8));
+						}
+
 						if rank_of_index(piece_index) == 2
 						&& (piece >> 16) & empty_squares != 0 {
 							result.push(build_move(DOUBLE_PAWN_PUSH_FLAG, 0, piece_index, piece_index - 16));
@@ -170,10 +181,23 @@ impl Board {
 
 					// Capturing
 					if (piece >> 7) & self.all_piece_bitboards[other_color] & NOT_H_FILE != 0 {
-						result.push(build_move(0, self.board[piece_index - 7] as u32, piece_index, piece_index - 7));
+						if will_promote {
+							for promotion in PROMOTABLE_PIECES.iter() {
+								result.push(build_move(*promotion, self.board[piece_index - 7] as u32, piece_index, piece_index - 7));
+							}
+						} else {
+							result.push(build_move(0, self.board[piece_index - 7] as u32, piece_index, piece_index - 7));
+						}
 					}
+
 					if (piece >> 9) & self.all_piece_bitboards[other_color] & NOT_A_FILE != 0 {
-						result.push(build_move(0, self.board[piece_index - 9] as u32, piece_index, piece_index - 9));
+						if will_promote {
+							for promotion in PROMOTABLE_PIECES.iter() {
+								result.push(build_move(*promotion, self.board[piece_index - 9] as u32, piece_index, piece_index - 9));
+							}
+						} else {
+							result.push(build_move(0, self.board[piece_index - 9] as u32, piece_index, piece_index - 9));
+						}
 					}
 
 
@@ -195,10 +219,21 @@ impl Board {
 
 
 
+					let will_promote = rank_of_index(piece_index) == 2;
+
+
+
 
 					// Pushing
 					if (piece << 8) & empty_squares != 0 {
-						result.push(build_move(0, 0, piece_index, piece_index + 8));
+						if will_promote {
+							for promotion in PROMOTABLE_PIECES.iter() {
+								result.push(build_move(*promotion, 0, piece_index, piece_index + 8));
+							}
+						} else {
+							result.push(build_move(0, 0, piece_index, piece_index + 8));
+						}
+
 						if rank_of_index(piece_index) == 7
 						&& (piece << 16) & empty_squares != 0 {
 							result.push(build_move(DOUBLE_PAWN_PUSH_FLAG, 0, piece_index, piece_index + 16));
@@ -210,10 +245,23 @@ impl Board {
 
 					// Capturing
 					if (piece << 7) & self.all_piece_bitboards[other_color] & NOT_A_FILE != 0 {
-						result.push(build_move(0, self.board[piece_index + 7] as u32, piece_index, piece_index + 7));
+						if will_promote {
+							for promotion in PROMOTABLE_PIECES.iter() {
+								result.push(build_move(*promotion, self.board[piece_index + 7] as u32, piece_index, piece_index + 7));
+							}
+						} else {
+							result.push(build_move(0, self.board[piece_index + 7] as u32, piece_index, piece_index + 7));
+						}
 					}
+
 					if (piece << 9) & self.all_piece_bitboards[other_color] & NOT_H_FILE != 0 {
-						result.push(build_move(0, self.board[piece_index + 9] as u32, piece_index, piece_index + 9));
+						if will_promote {
+							for promotion in PROMOTABLE_PIECES.iter() {
+								result.push(build_move(*promotion, self.board[piece_index + 9] as u32, piece_index, piece_index + 9));
+							}
+						} else {
+							result.push(build_move(0, self.board[piece_index + 9] as u32, piece_index, piece_index + 9));
+						}
 					}
 
 
@@ -250,51 +298,66 @@ impl Board {
 		result
 	}
 
-	pub fn make_move(&mut self, piece_move: u32) {
-		let from = get_move_from(piece_move);
-		let to = get_move_to(piece_move);
-
+	pub fn play_move(&mut self, promotion: u8, from: usize, to: usize) {
 		for m in self.get_legal_moves_for_piece(from) {
-			if get_move_from(m) == from
+			let flag = get_move_flag(m);
+			if (!PROMOTABLE_PIECES.contains(&flag)
+			|| flag == promotion)
+			&& get_move_from(m) == from
 			&& get_move_to(m) == to {
-				let flag = get_move_flag(m);
-				let capture = get_move_capture(m);
-
-				self.board[to] = self.board[from];
-				self.board[from] = 0;
-
-				let piece = self.board[to];
-				let pieces_bitboard = &mut self.piece_bitboards[is_white(piece) as usize][get_piece_type(piece) as usize - 1];
-				*pieces_bitboard ^= 1 << to;
-				*pieces_bitboard ^= 1 << from;
-
-				if flag == EN_PASSANT_FLAG {
-					let pawn_square = if is_white(piece) {
-						to + 8
-					} else {
-						to - 8
-					};
-
-					self.board[pawn_square] = 0;
-					self.piece_bitboards[is_white(capture) as usize][get_piece_type(capture) as usize - 1] ^= 1 << pawn_square;
-				} else if capture != 0 {
-					self.piece_bitboards[is_white(capture) as usize][get_piece_type(capture) as usize - 1] ^= 1 << to;
-				}
-
-				self.compute_all_piece_bitboards();
-
-				self.moves.push(m);
-
-				if !self.whites_turn {
-					self.moves_without_capture_or_pawn_push += 1;
-					self.fullmove_counter += 1;
-				}
-
-				self.whites_turn = !self.whites_turn;
-
+				self.make_move(m);
 				break;
 			}
 		}
+	}
+
+	pub fn make_move(&mut self, piece_move: u32) {
+		let from = get_move_from(piece_move);
+		let to = get_move_to(piece_move);
+		let flag = get_move_flag(piece_move);
+		let capture = get_move_capture(piece_move);
+
+		let piece = self.board[from];
+		let piece_is_white = is_white(piece);
+		let piece_type = get_piece_type(piece);
+
+		self.board[to] = self.board[from];
+		self.board[from] = 0;
+
+		let pieces_bitboard = &mut self.piece_bitboards[piece_is_white as usize][piece_type as usize - 1];
+		*pieces_bitboard ^= 1 << to;
+		*pieces_bitboard ^= 1 << from;
+
+		if flag == EN_PASSANT_FLAG {
+			let pawn_square = if piece_is_white {
+				to + 8
+			} else {
+				to - 8
+			};
+
+			self.board[pawn_square] = 0;
+			self.piece_bitboards[is_white(capture) as usize][get_piece_type(capture) as usize - 1] ^= 1 << pawn_square;
+		} else if capture != 0 {
+			self.piece_bitboards[is_white(capture) as usize][get_piece_type(capture) as usize - 1] ^= 1 << to;
+		}
+
+		if PROMOTABLE_PIECES.contains(&flag) {
+			self.piece_bitboards[piece_is_white as usize][0] ^= 1 << to;
+			self.piece_bitboards[piece_is_white as usize][flag as usize - 1] ^= 1 << to;
+
+			self.board[to] = (piece_is_white as u8) << 3 | flag;
+		}
+
+		self.compute_all_piece_bitboards();
+
+		self.moves.push(piece_move);
+
+		if !self.whites_turn {
+			self.moves_without_capture_or_pawn_push += 1;
+			self.fullmove_counter += 1;
+		}
+
+		self.whites_turn = !self.whites_turn;
 	}
 
 	pub fn undo_last_move(&mut self) {
@@ -309,16 +372,26 @@ impl Board {
 		let from = get_move_from(last_move);
 		let to = get_move_to(last_move);
 
+		let piece = self.board[to];
+		let piece_is_white = is_white(piece);
+		let piece_type = get_piece_type(piece);
+
 		self.board[from] = self.board[to];
 		self.board[to] = capture;
 
-		let piece = self.board[from];
-		let pieces_bitboard = &mut self.piece_bitboards[is_white(piece) as usize][get_piece_type(piece) as usize - 1];
-		*pieces_bitboard ^= 1 << to;
-		*pieces_bitboard ^= 1 << from;
+		if PROMOTABLE_PIECES.contains(&flag) {
+			self.piece_bitboards[piece_is_white as usize][0] ^= 1 << from;
+			self.piece_bitboards[piece_is_white as usize][flag as usize - 1] ^= 1 << to;
+
+			self.board[from] = (piece_is_white as u8) << 3 | PAWN;
+		} else {
+			let pieces_bitboard = &mut self.piece_bitboards[piece_is_white as usize][piece_type as usize - 1];
+			*pieces_bitboard ^= 1 << to;
+			*pieces_bitboard ^= 1 << from;
+		}
 
 		if flag == EN_PASSANT_FLAG {
-			let pawn_square = if is_white(piece) {
+			let pawn_square = if piece_is_white {
 				to + 8
 			} else {
 				to - 8

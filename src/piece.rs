@@ -30,13 +30,9 @@ pub fn get_piece_type(piece: u8) -> u8 {
 
 
 pub const DOUBLE_PAWN_PUSH_FLAG: u8 = 0b_0001;
-pub const EN_PASSANT_FLAG: u8       = 0b_0010;
-pub const CASTLE_KINGSIDE_FLAG: u8  = 0b_0011;
-pub const CASTLE_QUEENSIDE_FLAG: u8 = 0b_0100;
-pub const KNIGHT_PROMO_FLAG: u8     = 0b_0101;
-pub const BISHOP_PROMO_FLAG: u8     = 0b_0110;
-pub const ROOK_PROMO_FLAG: u8       = 0b_0111;
-pub const QUEEN_PROMO_FLAG: u8      = 0b_1000;
+pub const EN_PASSANT_FLAG: u8       = 0b_0110;
+pub const CASTLE_KINGSIDE_FLAG: u8  = 0b_0111;
+pub const CASTLE_QUEENSIDE_FLAG: u8 = 0b_1000;
 
 pub const MOVE_FLAG_MASK: u32    = 0b_1111_0000_000000_000000;
 pub const MOVE_CAPTURE_MASK: u32 = 0b_0000_1111_000000_000000;
