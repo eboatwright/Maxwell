@@ -1,9 +1,11 @@
-use crate::PrecomputedBitboards;
-use crate::utils::index_from_coordinate;
+use crate::precomputed_data::*;
+use crate::utils::*;
 use crate::piece::*;
 
+#[derive(Clone)]
 pub struct Board {
-	pub precomputed_bitboards: PrecomputedBitboards,
+	pub precomputed_data: PrecomputedData,
+	pub piece_bitboards: [[u64; 6]; 2],
 	pub all_piece_bitboards: [u64; 2],
 
 	pub board: [u8; 64],
@@ -87,7 +89,8 @@ impl Board {
 
 
 		let mut final_board = Board {
-			precomputed_bitboards: PrecomputedBitboards::initialize(),
+			precomputed_data: PrecomputedData::initialize(),
+			piece_bitboards: [[0; 6]; 2],
 			all_piece_bitboards: [0; 2],
 
 			board,
@@ -105,20 +108,28 @@ impl Board {
 			moves: vec![],
 		};
 
+
+		for i in 0..64 {
+			if board[i] != 0 {
+				let piece_color = is_white(board[i]) as usize;
+				let piece_type = get_piece_type(board[i]) as usize;
+
+				final_board.piece_bitboards[piece_color][piece_type - 1] |= 1 << i;
+			}
+		}
+
+
 		final_board.compute_all_piece_bitboards();
+
 
 		final_board
 	}
 
 	pub fn compute_all_piece_bitboards(&mut self) {
-		self.all_piece_bitboards = [0; 2];
-
-		for i in 0..64 {
-			if self.board[i] != 0 {
-				let color = is_white(self.board[i]) as usize;
-				self.all_piece_bitboards[color] |= 1 << i;
-			}
-		}
+		self.all_piece_bitboards = [
+			self.piece_bitboards[0][0] | self.piece_bitboards[0][1] | self.piece_bitboards[0][2] | self.piece_bitboards[0][3] | self.piece_bitboards[0][4] | self.piece_bitboards[0][5],
+			self.piece_bitboards[1][0] | self.piece_bitboards[1][1] | self.piece_bitboards[1][2] | self.piece_bitboards[1][3] | self.piece_bitboards[1][4] | self.piece_bitboards[1][5],
+		];
 	}
 
 	pub fn get_last_move(&self) -> u32 {
@@ -130,21 +141,87 @@ impl Board {
 
 	pub fn get_legal_moves_for_piece(&self, piece_index: usize) -> Vec<u32> {
 		let piece_color = is_white(self.board[piece_index]) as usize;
+		let other_color = !is_white(self.board[piece_index]) as usize;
 		let piece_type = get_piece_type(self.board[piece_index]);
-
-		let bitboard = match piece_type {
-			KNIGHT => self.precomputed_bitboards.knight_bitboards[piece_index] & !self.all_piece_bitboards[piece_color],
-
-			_ => 0,
-		};
 
 		let mut result = vec![];
 
-		for i in 0..64 {
-			if (bitboard >> i) & 1 == 1 {
-				result.push(build_move(0, self.board[i] as u32, piece_index, i));
+		match piece_type {
+			PAWN => {
+				let piece = 1 << piece_index;
+				let empty_squares = !(self.all_piece_bitboards[0] | self.all_piece_bitboards[1]);
+
+				if piece_color == 1 {
+
+
+
+
+					// Pushing
+					if (piece >> 8) & empty_squares != 0 {
+						result.push(build_move(0, 0, piece_index, piece_index - 8));
+						if rank_of_index(piece_index) == 2
+						&& (piece >> 16) & empty_squares != 0 {
+							result.push(build_move(DOUBLE_PAWN_PUSH_FLAG as u32, 0, piece_index, piece_index - 16));
+						}
+					}
+
+
+
+
+					// Capturing
+					if (piece >> 7) & self.all_piece_bitboards[other_color] & NOT_H_FILE != 0 {
+						result.push(build_move(0, self.board[piece_index - 7] as u32, piece_index, piece_index - 7));
+					}
+					if (piece >> 9) & self.all_piece_bitboards[other_color] & NOT_A_FILE != 0 {
+						result.push(build_move(0, self.board[piece_index - 9] as u32, piece_index, piece_index - 9));
+					}
+
+
+
+
+				} else {
+
+
+
+
+					// Pushing
+					if (piece << 8) & empty_squares != 0 {
+						result.push(build_move(0, 0, piece_index, piece_index + 8));
+						if rank_of_index(piece_index) == 7
+						&& (piece << 16) & empty_squares != 0 {
+							result.push(build_move(DOUBLE_PAWN_PUSH_FLAG as u32, 0, piece_index, piece_index + 16));
+						}
+					}
+
+
+
+
+					// Capturing
+					if (piece << 7) & self.all_piece_bitboards[other_color] & NOT_A_FILE != 0 {
+						result.push(build_move(0, self.board[piece_index + 7] as u32, piece_index, piece_index + 7));
+					}
+					if (piece << 9) & self.all_piece_bitboards[other_color] & NOT_H_FILE != 0 {
+						result.push(build_move(0, self.board[piece_index + 9] as u32, piece_index, piece_index + 9));
+					}
+
+
+
+
+				}
 			}
-		}
+
+			KNIGHT => {
+				let bitboard = self.precomputed_data.knight_bitboards[piece_index] & !self.all_piece_bitboards[piece_color];
+
+				for i in 0..64 {
+					if (bitboard >> i) & 1 == 1 {
+						result.push(build_move(0, self.board[i] as u32, piece_index, i));
+					}
+				}
+			}
+
+			_ => {}
+		};
 
 		result
 	}
@@ -160,9 +237,18 @@ impl Board {
 				self.board[to] = self.board[from];
 				self.board[from] = 0;
 
-				self.moves.push(piece_move);
+				let piece = self.board[to];
+				let pieces_bitboard = &mut self.piece_bitboards[is_white(piece) as usize][get_piece_type(piece) as usize - 1];
+				*pieces_bitboard ^= 1 << to;
+				*pieces_bitboard ^= 1 << from;
+
+				if capture != 0 {
+					self.piece_bitboards[is_white(capture) as usize][get_piece_type(capture) as usize - 1] ^= 1 << to;
+				}
 
 				self.compute_all_piece_bitboards();
+
+				self.moves.push(piece_move);
 
 				self.whites_turn = !self.whites_turn;
 
@@ -185,6 +271,15 @@ impl Board {
 
 		self.board[from] = self.board[to];
 		self.board[to] = capture;
+
+		let piece = self.board[from];
+		let pieces_bitboard = &mut self.piece_bitboards[is_white(piece) as usize][get_piece_type(piece) as usize - 1];
+		*pieces_bitboard ^= 1 << to;
+		*pieces_bitboard ^= 1 << from;
+
+		if capture != 0 {
+			self.piece_bitboards[is_white(capture) as usize][get_piece_type(capture) as usize - 1] ^= 1 << to;
+		}
 
 		self.compute_all_piece_bitboards();
 

@@ -96,3 +96,7 @@ pub fn get_mouse_position_as_index() -> usize {
 	let square_mouse = (mouse_position_vec2() / SQUARE_SIZE).floor();
 	(square_mouse.x + square_mouse.y * 8.0) as usize
 }
+
+pub fn rank_of_index(index: usize) -> u8 {
+	8 - (index as f32 / 8.0).floor() as u8
+}

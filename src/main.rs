@@ -3,13 +3,12 @@
 #![allow(unused_variables)]
 
 mod resources;
-mod precomputed_bitboards;
+mod precomputed_data;
 mod heatmaps;
 mod piece;
 mod utils;
 mod board;
 
-use crate::precomputed_bitboards::PrecomputedBitboards;
 use crate::piece::*;
 use crate::utils::*;
 use crate::board::Board;
@@ -40,42 +39,62 @@ async fn main() {
 
 	let resources = Resources::load().await;
 
-	let mut board = Board::from_fen(STARTING_FEN);
+	let mut game_board = Board::from_fen(STARTING_FEN);
+	let mut viewing_board = Board::from_fen(STARTING_FEN);
 
 	let mut piece_dragging = None;
 
 	loop {
-		if is_mouse_button_pressed(MouseButton::Left) {
-			let mouse_index = get_mouse_position_as_index();
-			if board.board[mouse_index] != 0
-			&& is_white(board.board[mouse_index]) == board.whites_turn {
-				piece_dragging = Some(mouse_index);
-			}
-		}
-
-		if is_mouse_button_released(MouseButton::Left) {
-			if let Some(from) = piece_dragging {
-				let to = get_mouse_position_as_index();
-				if from != to {
-					let m = build_move(0, board.board[to] as u32, from, to);
-					board.make_move(m);
+		let looking_back = game_board.moves != viewing_board.moves;
+		if !looking_back {
+			if is_mouse_button_pressed(MouseButton::Left) {
+				let mouse_index = get_mouse_position_as_index();
+				if game_board.board[mouse_index] != 0
+				&& is_white(game_board.board[mouse_index]) == game_board.whites_turn {
+					piece_dragging = Some(mouse_index);
 				}
-				piece_dragging = None;
 			}
+
+			if is_mouse_button_released(MouseButton::Left) {
+				if let Some(from) = piece_dragging {
+					let to = get_mouse_position_as_index();
+					if from != to {
+						let m = build_move(0, game_board.board[to] as u32, from, to);
+						game_board.make_move(m);
+					}
+					piece_dragging = None;
+				}
+			}
+
+			viewing_board = game_board.clone();
+		} else if is_key_pressed(KeyCode::Right) {
+			viewing_board.make_move(game_board.moves[viewing_board.moves.len()]);
 		}
 
-		if is_key_pressed(KeyCode::Space) {
-			board.undo_last_move();
+		if is_key_pressed(KeyCode::Left) {
+			viewing_board.undo_last_move();
 		}
 
 		clear_background(macroquad::prelude::BLACK);
 
 		draw_texture(&resources.board_tex, 0.0, 0.0, macroquad::prelude::WHITE);
+		if looking_back {
+			draw_rectangle(
+				0.0, 0.0,
+				WINDOW_SIZE, WINDOW_SIZE,
+				Color {
+					r: 0.9,
+					g: 0.9,
+					b: 0.92,
+					a: 0.2,
+				},
+			);
+		}
 
 		for y in 0..8 {
 			for x in 0..8 {
 				let index = x + y * 8;
-				let piece = get_image_index_for_piece(board.board[index]);
+				let piece = get_image_index_for_piece(viewing_board.board[index]);
 
 				// if (board.all_piece_bitboards[1] >> index) & 1 == 1 {
 				// 	draw_rectangle(
@@ -87,7 +106,7 @@ async fn main() {
 				// 	);
 				// }
 
-				let last_move = board.get_last_move();
+				let last_move = viewing_board.get_last_move();
 				if last_move != 0
 				&& (get_move_from(last_move) == index
 				|| get_move_to(last_move) == index) {
@@ -129,7 +148,7 @@ async fn main() {
 		}
 
 		if let Some(piece_dragging) = piece_dragging {
-			for legal_move in board.get_legal_moves_for_piece(piece_dragging) {
+			for legal_move in viewing_board.get_legal_moves_for_piece(piece_dragging) {
 				let to = get_move_to(legal_move);
 				draw_circle(
 					((to % 8) as f32 + 0.5) * SQUARE_SIZE,
@@ -147,7 +166,7 @@ async fn main() {
 				macroquad::prelude::WHITE,
 				DrawTextureParams {
 					source: Some(Rect {
-						x: (get_image_index_for_piece(board.board[piece_dragging]) - 1) as f32 * SQUARE_SIZE,
+						x: (get_image_index_for_piece(viewing_board.board[piece_dragging]) - 1) as f32 * SQUARE_SIZE,
 						y: 0.0,
 						w: SQUARE_SIZE,
 						h: SQUARE_SIZE,
@@ -156,6 +175,18 @@ async fn main() {
 				},
 			);
 		}
+
+		// let bitboard = viewing_board.all_piece_bitboards[1];
+		// for i in 0..64 {
+		// 	if (1 << i) & bitboard != 0 {
+		// 		draw_rectangle(
+		// 			(i % 8) as f32 * SQUARE_SIZE,
+		// 			(i as f32 / 8.0).floor() * SQUARE_SIZE,
+		// 			SQUARE_SIZE, SQUARE_SIZE,
+		// 			resources.checkmated_color,
+		// 		);
+		// 	}
+		// }
 
 		// draw_text_ex(
 		// 	"STALEMATE!",

@@ -13,11 +13,12 @@ pub const NOT_AB_FILES: u64 = C_FILE | D_FILE | E_FILE | F_FILE | G_FILE | H_FIL
 pub const NOT_H_FILE: u64 = A_FILE | B_FILE | C_FILE | D_FILE | E_FILE | F_FILE | G_FILE;
 pub const NOT_GH_FILES: u64 = A_FILE | B_FILE | C_FILE | D_FILE | E_FILE | F_FILE;
 
-pub struct PrecomputedBitboards {
+#[derive(Clone)]
+pub struct PrecomputedData {
 	pub knight_bitboards: [u64; 64],
 }
 
-impl PrecomputedBitboards {
+impl PrecomputedData {
 	pub fn initialize() -> Self {
 		Self {
 			knight_bitboards: Self::initialize_knight_bitboards(),
