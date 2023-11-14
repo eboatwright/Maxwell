@@ -161,7 +161,7 @@ impl Board {
 						result.push(build_move(0, 0, piece_index, piece_index - 8));
 						if rank_of_index(piece_index) == 2
 						&& (piece >> 16) & empty_squares != 0 {
-							result.push(build_move(DOUBLE_PAWN_PUSH_FLAG as u32, 0, piece_index, piece_index - 16));
+							result.push(build_move(DOUBLE_PAWN_PUSH_FLAG, 0, piece_index, piece_index - 16));
 						}
 					}
 
@@ -178,6 +178,18 @@ impl Board {
 
 
 
+					// En Passant
+					let last_move = self.get_last_move();
+					if get_move_flag(last_move) == DOUBLE_PAWN_PUSH_FLAG {
+						let pawn_index = get_move_to(last_move);
+						if pawn_index == piece_index - 1
+						|| pawn_index == piece_index + 1 {
+							result.push(build_move(EN_PASSANT_FLAG, self.board[pawn_index] as u32, piece_index, pawn_index - 8));
+						}
+					}
+
+
+
 
 				} else {
 
@@ -189,7 +201,7 @@ impl Board {
 						result.push(build_move(0, 0, piece_index, piece_index + 8));
 						if rank_of_index(piece_index) == 7
 						&& (piece << 16) & empty_squares != 0 {
-							result.push(build_move(DOUBLE_PAWN_PUSH_FLAG as u32, 0, piece_index, piece_index + 16));
+							result.push(build_move(DOUBLE_PAWN_PUSH_FLAG, 0, piece_index, piece_index + 16));
 						}
 					}
 
@@ -202,6 +214,18 @@ impl Board {
 					}
 					if (piece << 9) & self.all_piece_bitboards[other_color] & NOT_H_FILE != 0 {
 						result.push(build_move(0, self.board[piece_index + 9] as u32, piece_index, piece_index + 9));
+					}
+
+
+
+					// En Passant
+					let last_move = self.get_last_move();
+					if get_move_flag(last_move) == DOUBLE_PAWN_PUSH_FLAG {
+						let pawn_index = get_move_to(last_move);
+						if pawn_index == piece_index - 1
+						|| pawn_index == piece_index + 1 {
+							result.push(build_move(EN_PASSANT_FLAG, self.board[pawn_index] as u32, piece_index, pawn_index + 8));
+						}
 					}
 
 
@@ -227,13 +251,15 @@ impl Board {
 	}
 
 	pub fn make_move(&mut self, piece_move: u32) {
-		let flags = get_move_flag(piece_move);
-		let capture = get_move_capture(piece_move);
 		let from = get_move_from(piece_move);
 		let to = get_move_to(piece_move);
 
 		for m in self.get_legal_moves_for_piece(from) {
-			if get_move_to(m) == to {
+			if get_move_from(m) == from
+			&& get_move_to(m) == to {
+				let flag = get_move_flag(m);
+				let capture = get_move_capture(m);
+
 				self.board[to] = self.board[from];
 				self.board[from] = 0;
 
@@ -242,13 +268,27 @@ impl Board {
 				*pieces_bitboard ^= 1 << to;
 				*pieces_bitboard ^= 1 << from;
 
-				if capture != 0 {
+				if flag == EN_PASSANT_FLAG {
+					let pawn_square = if is_white(piece) {
+						to + 8
+					} else {
+						to - 8
+					};
+
+					self.board[pawn_square] = 0;
+					self.piece_bitboards[is_white(capture) as usize][get_piece_type(capture) as usize - 1] ^= 1 << pawn_square;
+				} else if capture != 0 {
 					self.piece_bitboards[is_white(capture) as usize][get_piece_type(capture) as usize - 1] ^= 1 << to;
 				}
 
 				self.compute_all_piece_bitboards();
 
-				self.moves.push(piece_move);
+				self.moves.push(m);
+
+				if !self.whites_turn {
+					self.moves_without_capture_or_pawn_push += 1;
+					self.fullmove_counter += 1;
+				}
 
 				self.whites_turn = !self.whites_turn;
 
@@ -264,7 +304,7 @@ impl Board {
 
 		let last_move = self.moves.pop().unwrap();
 
-		let flags = get_move_flag(last_move);
+		let flag = get_move_flag(last_move);
 		let capture = get_move_capture(last_move);
 		let from = get_move_from(last_move);
 		let to = get_move_to(last_move);
@@ -277,11 +317,26 @@ impl Board {
 		*pieces_bitboard ^= 1 << to;
 		*pieces_bitboard ^= 1 << from;
 
-		if capture != 0 {
+		if flag == EN_PASSANT_FLAG {
+			let pawn_square = if is_white(piece) {
+				to + 8
+			} else {
+				to - 8
+			};
+
+			self.board[pawn_square] = capture;
+			self.board[to] = 0;
+			self.piece_bitboards[is_white(capture) as usize][get_piece_type(capture) as usize - 1] ^= 1 << pawn_square;
+		} else if capture != 0 {
 			self.piece_bitboards[is_white(capture) as usize][get_piece_type(capture) as usize - 1] ^= 1 << to;
 		}
 
 		self.compute_all_piece_bitboards();
+
+		if !self.whites_turn {
+			self.moves_without_capture_or_pawn_push -= 1;
+			self.fullmove_counter -= 1;
+		}
 
 		self.whites_turn = !self.whites_turn;
 	}

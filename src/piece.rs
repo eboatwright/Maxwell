@@ -44,8 +44,8 @@ pub const MOVE_FROM_MASK: u32    = 0b_0000_0000_111111_000000;
 pub const MOVE_TO_MASK: u32      = 0b_0000_0000_000000_111111;
 
 
-pub fn get_move_flag(m: u32) -> u32 {
-	(m & MOVE_FLAG_MASK) >> 16
+pub fn get_move_flag(m: u32) -> u8 {
+	((m & MOVE_FLAG_MASK) >> 16) as u8
 }
 
 pub fn get_move_capture(m: u32) -> u8 {
@@ -60,6 +60,6 @@ pub fn get_move_to(m: u32) -> usize {
 	(m & MOVE_TO_MASK) as usize
 }
 
-pub fn build_move(flag: u32, capture: u32, from: usize, to: usize) -> u32 {
-	((flag << 16) as usize | (capture << 12) as usize | (from << 6) | to) as u32
+pub fn build_move(flag: u8, capture: u32, from: usize, to: usize) -> u32 {
+	(((flag as u32) << 16) as usize | (capture << 12) as usize | (from << 6) | to) as u32
 }
