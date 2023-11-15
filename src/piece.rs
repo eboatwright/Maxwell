@@ -20,6 +20,23 @@ pub const COLOR_MASK: u8 = 0b1000;
 pub const PIECE_MASK: u8 = 0b0111;
 
 
+pub const PAWN_WORTH: i32   = 100;
+pub const KNIGHT_WORTH: i32 = 300;
+pub const BISHOP_WORTH: i32 = 320;
+pub const ROOK_WORTH: i32   = 500;
+pub const QUEEN_WORTH: i32  = 900;
+pub const KING_WORTH: i32   = 20000;
+
+pub const PIECE_WORTH: [i32; 6] = [
+	PAWN_WORTH,
+	KNIGHT_WORTH,
+	BISHOP_WORTH,
+	ROOK_WORTH,
+	QUEEN_WORTH,
+	KING_WORTH,
+];
+
+
 pub fn is_white(piece: u8) -> bool {
 	piece & COLOR_MASK == WHITE
 }

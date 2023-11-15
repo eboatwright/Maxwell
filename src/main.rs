@@ -10,7 +10,7 @@ mod utils;
 mod board;
 mod maxwell;
 
-use crate::maxwell::Maxwell;
+use crate::maxwell::*;
 use std::thread;
 use crate::piece::*;
 use crate::utils::*;
@@ -24,10 +24,11 @@ pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN: &'static str = "6k1/pp4p1/2p5/2bp4/8/P5Pb/1P3rrP/2BRRN1K b - - 0 1";
+pub const TESTING_FEN: &'static str = "2r3k1/p4p2/3Rp2p/1p2P1pK/8/1P4P1/P3Q2P/1q6 b - - 0 1";
 
 pub const MAXWELL_PLAYING_WHITE: bool = false;
 
+#[derive(PartialEq)]
 pub enum GameOverState {
 	None,
 
@@ -81,74 +82,119 @@ async fn main() {
 	let mut piece_dragging = None;
 	let mut game_over_state = GameOverState::None;
 
+	let mut looking_back = false;
+
 	loop {
 		let mut made_move = false;
 
-		if game_board.whites_turn == MAXWELL_PLAYING_WHITE {
-			let move_to_play = {
-				let mut maxwell = Maxwell::new(MAXWELL_PLAYING_WHITE, &mut game_board);
-				maxwell.search_moves(4, -i32::MAX, i32::MAX);
-				maxwell.move_to_play
-			};
 
-			game_board.make_move(move_to_play);
-			made_move = true;
-		}
 
-		let looking_back = game_board.moves != viewing_board.moves;
-		if !looking_back {
-			if is_mouse_button_pressed(MouseButton::Left) {
-				let mouse_index = get_mouse_position_as_index();
-				if game_board.board[mouse_index] != 0
-				&& is_white(game_board.board[mouse_index]) == game_board.whites_turn {
-					piece_dragging = Some(mouse_index);
-				}
-			}
+		if game_over_state == GameOverState::None {
+			if game_board.whites_turn == MAXWELL_PLAYING_WHITE {
+				/* TEST DATA
+				Depth 6, sorting by: capture & promotion, after e4
+				Time in seconds: 18.798716
+				Positions searched: 1,032,946
+				*/
 
-			if is_mouse_button_released(MouseButton::Left) {
-				if let Some(from) = piece_dragging {
-					let to = get_mouse_position_as_index();
-					if from != to {
-						let promotion =
-							if get_piece_type(game_board.board[from]) == PAWN
-							&& (rank_of_index(to) == 1
-							|| rank_of_index(to) == 8) {
-								handle_promotion(&resources, &game_board, from, to).await
-							} else {
-								Some(0)
-							};
+				let move_to_play = {
+					let timer = Instant::now();
 
-						if let Some(promotion) = promotion {
-							game_board.play_move(promotion, from, to);
-							made_move = true;
-						}
-					}
-					piece_dragging = None;
-				}
-			}
-		} else if is_key_pressed(KeyCode::Right) {
-			viewing_board.make_move(game_board.moves[viewing_board.moves.len()]);
-		}
+					let mut maxwell = Maxwell::new(MAXWELL_PLAYING_WHITE, &mut game_board);
+					let evaluation = maxwell.search_moves(6, 0, -i32::MAX, i32::MAX);
 
-		if is_key_pressed(KeyCode::Left) {
-			viewing_board.undo_last_move();
-		}
+					println!("Time in seconds: {}", timer.elapsed().as_secs_f32());
+					println!("Positions searched: {}", maxwell.positions_searched);
 
-		if made_move {
-			viewing_board = game_board.clone();
-
-			if game_board.get_legal_moves_for_color(game_board.whites_turn).len() == 0 {
-				if game_board.king_in_check(game_board.whites_turn) {
-					if game_board.whites_turn {
-						game_over_state = GameOverState::BlackWins;
+					if evaluation_is_mate(evaluation) {
+						let sign = if evaluation * (if MAXWELL_PLAYING_WHITE { 1 } else { -1 }) < 0 { "-" } else { "" };
+						println!("Final evaluation: {}#{}", sign, moves_from_mate(evaluation));
 					} else {
-						game_over_state = GameOverState::WhiteWins;
+						println!("Final evaluation: {}", evaluation as f32 * 0.01);
 					}
-				} else {
-					game_over_state = GameOverState::Draw;
+
+					println!("\n\n");
+
+					maxwell.move_to_play
+				};
+
+				game_board.make_move(move_to_play);
+				made_move = true;
+			} else if !looking_back {
+				if is_mouse_button_pressed(MouseButton::Left) {
+					let mouse_index = get_mouse_position_as_index();
+					if game_board.board[mouse_index] != 0
+					&& is_white(game_board.board[mouse_index]) == game_board.whites_turn {
+						piece_dragging = Some(mouse_index);
+					}
+				}
+
+				if is_mouse_button_released(MouseButton::Left) {
+					if let Some(from) = piece_dragging {
+						let to = get_mouse_position_as_index();
+						if from != to {
+							let promotion =
+								if get_piece_type(game_board.board[from]) == PAWN
+								&& (rank_of_index(to) == 1
+								|| rank_of_index(to) == 8) {
+									handle_promotion(&resources, &game_board, from, to).await
+								} else {
+									Some(0)
+								};
+
+							if let Some(promotion) = promotion {
+								game_board.play_move(promotion, from, to);
+								made_move = true;
+							}
+						}
+						piece_dragging = None;
+					}
 				}
 			}
+
+			if made_move {
+				viewing_board = game_board.clone();
+				looking_back = false;
+
+				if game_board.get_legal_moves_for_color(game_board.whites_turn).len() == 0 {
+					if game_board.king_in_check(game_board.whites_turn) {
+						if game_board.whites_turn {
+							game_over_state = GameOverState::BlackWins;
+						} else {
+							game_over_state = GameOverState::WhiteWins;
+						}
+					} else {
+						game_over_state = GameOverState::Draw;
+					}
+				}
+			}
+		} else {
+			if is_key_pressed(KeyCode::Enter) {
+				game_board = Board::from_fen(STARTING_FEN);
+				viewing_board = game_board.clone();
+				looking_back = false;
+
+				game_over_state = GameOverState::None;
+			}
 		}
+
+
+
+		if looking_back
+		&& is_key_pressed(KeyCode::Right) {
+			viewing_board.make_move(game_board.moves[viewing_board.moves.len()]);
+			if game_board.moves == viewing_board.moves {
+				looking_back = false;
+			}
+		}
+
+		if is_key_pressed(KeyCode::Left)
+		&& viewing_board.moves.len() > 0 {
+			viewing_board.undo_last_move();
+			looking_back = true;
+		}
+
+
 
 		clear_background(macroquad::prelude::BLACK);
 
@@ -206,7 +252,7 @@ async fn main() {
 			GameOverState::WhiteWins => {
 				draw_text_ex(
 					"White Wins!",
-					40.0,
+					32.0,
 					240.0,
 					TextParams {
 						font_size: 96,
@@ -219,7 +265,7 @@ async fn main() {
 			GameOverState::Draw => {
 				draw_text_ex(
 					"Draw",
-					40.0,
+					32.0,
 					240.0,
 					TextParams {
 						font_size: 96,
@@ -232,7 +278,7 @@ async fn main() {
 			GameOverState::BlackWins => {
 				draw_text_ex(
 					"Black Wins!",
-					40.0,
+					32.0,
 					240.0,
 					TextParams {
 						font_size: 96,
@@ -241,6 +287,19 @@ async fn main() {
 					},
 				);
 			}
+		}
+
+		if game_over_state != GameOverState::None {
+			draw_text_ex(
+				"Press Enter to reset...",
+				32.0,
+				320.0,
+				TextParams {
+					font_size: 48,
+					color: GOLD,
+					..Default::default()
+				},
+			);
 		}
 
 		next_frame().await
@@ -404,42 +463,4 @@ async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: 
 
 		next_frame().await
 	}
-}
-
-
-
-
-
-
-
-
-
-fn position_counter_test(resources: &Resources, board: &mut Board, depth: u8, total_captures: &mut u64, total_checks: &mut u64) -> u64 {
-	if depth == 0 {
-		return 1;
-	}
-
-	let mut total_positions = 0;
-
-	let legal_moves = board.get_legal_moves_for_color(board.whites_turn);
-	for legal_move in legal_moves.iter() {
-		board.make_move(*legal_move);
-
-		if get_move_capture(*legal_move) != 0 {
-			*total_captures += 1;
-			// board.print_to_console();
-		}
-
-		if board.king_in_check(board.whites_turn) {
-			*total_checks += 1;
-		}
-
-		// thread::sleep(Duration::from_millis(100));
-
-		total_positions += position_counter_test(resources, board, depth - 1, total_captures, total_checks);
-
-		board.undo_last_move();
-	}
-
-	total_positions
 }

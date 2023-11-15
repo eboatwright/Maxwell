@@ -697,7 +697,7 @@ impl Board {
 			let piece = self.board[i];
 
 			if piece != 0 {
-				let worth = get_piece_worth(piece, i);
+				let worth = get_full_piece_worth(piece, i);
 
 				if is_white(piece) {
 					white_material += worth;
