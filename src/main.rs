@@ -8,7 +8,9 @@ mod heatmaps;
 mod piece;
 mod utils;
 mod board;
+mod maxwell;
 
+use crate::maxwell::Maxwell;
 use std::thread;
 use crate::piece::*;
 use crate::utils::*;
@@ -22,7 +24,17 @@ pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN: &'static str = "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8";
+pub const TESTING_FEN: &'static str = "6k1/pp4p1/2p5/2bp4/8/P5Pb/1P3rrP/2BRRN1K b - - 0 1";
+
+pub const MAXWELL_PLAYING_WHITE: bool = false;
+
+pub enum GameOverState {
+	None,
+
+	WhiteWins,
+	Draw,
+	BlackWins,
+}
 
 fn window_conf() -> Conf {
 	Conf {
@@ -67,8 +79,22 @@ async fn main() {
 	let mut viewing_board = game_board.clone();
 
 	let mut piece_dragging = None;
+	let mut game_over_state = GameOverState::None;
 
 	loop {
+		let mut made_move = false;
+
+		if game_board.whites_turn == MAXWELL_PLAYING_WHITE {
+			let move_to_play = {
+				let mut maxwell = Maxwell::new(MAXWELL_PLAYING_WHITE, &mut game_board);
+				maxwell.search_moves(4, -i32::MAX, i32::MAX);
+				maxwell.move_to_play
+			};
+
+			game_board.make_move(move_to_play);
+			made_move = true;
+		}
+
 		let looking_back = game_board.moves != viewing_board.moves;
 		if !looking_back {
 			if is_mouse_button_pressed(MouseButton::Left) {
@@ -94,19 +120,34 @@ async fn main() {
 
 						if let Some(promotion) = promotion {
 							game_board.play_move(promotion, from, to);
+							made_move = true;
 						}
 					}
 					piece_dragging = None;
 				}
 			}
-
-			viewing_board = game_board.clone();
 		} else if is_key_pressed(KeyCode::Right) {
 			viewing_board.make_move(game_board.moves[viewing_board.moves.len()]);
 		}
 
 		if is_key_pressed(KeyCode::Left) {
 			viewing_board.undo_last_move();
+		}
+
+		if made_move {
+			viewing_board = game_board.clone();
+
+			if game_board.get_legal_moves_for_color(game_board.whites_turn).len() == 0 {
+				if game_board.king_in_check(game_board.whites_turn) {
+					if game_board.whites_turn {
+						game_over_state = GameOverState::BlackWins;
+					} else {
+						game_over_state = GameOverState::WhiteWins;
+					}
+				} else {
+					game_over_state = GameOverState::Draw;
+				}
+			}
 		}
 
 		clear_background(macroquad::prelude::BLACK);
@@ -159,27 +200,48 @@ async fn main() {
 		// 	}
 		// }
 
-		// draw_text_ex(
-		// 	"STALEMATE!",
-		// 	40.0,
-		// 	160.0,
-		// 	TextParams {
-		// 		font_size: 96,
-		// 		color: RED,
-		// 		..Default::default()
-		// 	},
-		// );
+		match game_over_state {
+			GameOverState::None => {}
 
-		// draw_text_ex(
-		// 	"Draw",
-		// 	40.0,
-		// 	240.0,
-		// 	TextParams {
-		// 		font_size: 96,
-		// 		color: RED,
-		// 		..Default::default()
-		// 	},
-		// );
+			GameOverState::WhiteWins => {
+				draw_text_ex(
+					"White Wins!",
+					40.0,
+					240.0,
+					TextParams {
+						font_size: 96,
+						color: GOLD,
+						..Default::default()
+					},
+				);
+			}
+
+			GameOverState::Draw => {
+				draw_text_ex(
+					"Draw",
+					40.0,
+					240.0,
+					TextParams {
+						font_size: 96,
+						color: GOLD,
+						..Default::default()
+					},
+				);
+			}
+
+			GameOverState::BlackWins => {
+				draw_text_ex(
+					"Black Wins!",
+					40.0,
+					240.0,
+					TextParams {
+						font_size: 96,
+						color: GOLD,
+						..Default::default()
+					},
+				);
+			}
+		}
 
 		next_frame().await
 	}

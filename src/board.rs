@@ -686,4 +686,28 @@ impl Board {
 
 		self.whites_turn = !self.whites_turn;
 	}
+
+
+
+	pub fn evaluate(&self) -> i32 {
+		let mut white_material = 0;
+		let mut black_material = 0;
+
+		for i in 0..64 {
+			let piece = self.board[i];
+
+			if piece != 0 {
+				let worth = get_piece_worth(piece, i);
+
+				if is_white(piece) {
+					white_material += worth;
+				} else {
+					black_material += worth;
+				}
+			}
+		}
+
+		let perspective = if self.whites_turn { 1 } else { -1 };
+		(white_material - black_material) * perspective
+	}
 }

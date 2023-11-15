@@ -27,7 +27,7 @@ pub fn get_image_index_for_piece(piece: u8) -> usize {
 	}
 }
 
-pub fn get_worth_for_piece(piece: u8, mut i: usize) -> i32 {
+pub fn get_piece_worth(piece: u8, mut i: usize) -> i32 {
 	if !is_white(piece) {
 		// let mut p = Point::from_index(i);
 		// p.y = 7 - p.y;
