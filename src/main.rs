@@ -9,19 +9,20 @@ mod piece;
 mod utils;
 mod board;
 
+use std::thread;
 use crate::piece::*;
 use crate::utils::*;
 use crate::board::Board;
 use std::time::{Instant, Duration};
 use macroquad::rand::{gen_range, srand};
 use macroquad::prelude::*;
-
 use crate::resources::Resources;
 
 pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+pub const TESTING_FEN: &'static str = "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8";
 
 fn window_conf() -> Conf {
 	Conf {
@@ -40,6 +41,29 @@ async fn main() {
 	let resources = Resources::load().await;
 
 	let mut game_board = Board::from_fen(STARTING_FEN);
+
+
+
+
+	// for depth in 1..=6 {
+	// 	let timer = Instant::now();
+
+	// 	let mut total_captures = 0;
+	// 	let mut total_checks = 0;
+	// 	println!("Total positions: {}", position_counter_test(&resources, &mut game_board, depth, &mut total_captures, &mut total_checks));
+	// 	println!("Total captures: {}", total_captures);
+	// 	println!("Total checks: {}", total_checks);
+
+	// 	println!("Time in seconds: {}", timer.elapsed().as_secs_f32());
+
+	// 	println!("\n\n\n");
+	// }
+
+
+
+
+
+
 	let mut viewing_board = game_board.clone();
 
 	let mut piece_dragging = None;
@@ -94,7 +118,7 @@ async fn main() {
 				let to = get_move_to(legal_move);
 				draw_circle(
 					((to % 8) as f32 + 0.5) * SQUARE_SIZE,
-					((to as f32 / 8.0).floor() + 0.5) * SQUARE_SIZE,
+					((to / 8) as f32 + 0.5) * SQUARE_SIZE,
 					SQUARE_SIZE * 0.2,
 					resources.transparent_color,
 				);
@@ -118,17 +142,17 @@ async fn main() {
 			);
 		}
 
-		// let bitboard = viewing_board.attacked_squares_bitboards[1];
+		// let bitboard = viewing_board.all_piece_bitboards[1];
 		// for i in 0..64 {
 		// 	if bitboard & (1 << i) != 0 {
 		// 		draw_rectangle(
 		// 			(i % 8) as f32 * SQUARE_SIZE,
-		// 			(i as f32 / 8.0).floor() * SQUARE_SIZE,
+		// 			(i / 8) as f32 * SQUARE_SIZE,
 		// 			SQUARE_SIZE, SQUARE_SIZE,
 		// 			Color {
-		// 				r: 1.0,
+		// 				r: 0.0,
 		// 				g: 0.0,
-		// 				b: 0.0,
+		// 				b: 1.0,
 		// 				a: 0.5,
 		// 			},
 		// 		);
@@ -243,12 +267,15 @@ fn render_board(resources: &Resources, board: &Board, looking_back: bool, piece_
 	}
 }
 
+
+
+
 async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: usize, promoting_to: usize) -> Option<u8> {
 	let x = (promoting_to % 8) as f32 * SQUARE_SIZE;
-	let mut y = (promoting_to as f32 / 8.0).floor();
+	let mut y = (promoting_to / 8) as f32 * SQUARE_SIZE;
 	let pawn_is_white = y == 0.0;
 
-	y -= if pawn_is_white { 0.0 } else { 3.0 };
+	y -= if pawn_is_white { 0.0 } else { 3.0 * SQUARE_SIZE };
 
 	loop {
 		if is_mouse_button_pressed(MouseButton::Left) {
@@ -265,7 +292,7 @@ async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: 
 
 				if mouse_rect.overlaps(&Rect {
 					x: x,
-					y: (y + j as f32) * SQUARE_SIZE,
+					y: y + j as f32 * SQUARE_SIZE,
 					w: SQUARE_SIZE,
 					h: SQUARE_SIZE,
 				}) {
@@ -282,7 +309,7 @@ async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: 
 
 		draw_rectangle(
 			x,
-			y * SQUARE_SIZE,
+			y,
 			SQUARE_SIZE,
 			SQUARE_SIZE * 4.0,
 			Color {
@@ -299,7 +326,7 @@ async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: 
 			draw_texture_ex(
 				&resources.pieces_tex,
 				x,
-				(y + j as f32) * SQUARE_SIZE,
+				y + j as f32 * SQUARE_SIZE,
 				macroquad::prelude::WHITE,
 				DrawTextureParams {
 					source: Some(Rect {
@@ -315,4 +342,42 @@ async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: 
 
 		next_frame().await
 	}
+}
+
+
+
+
+
+
+
+
+
+fn position_counter_test(resources: &Resources, board: &mut Board, depth: u8, total_captures: &mut u64, total_checks: &mut u64) -> u64 {
+	if depth == 0 {
+		return 1;
+	}
+
+	let mut total_positions = 0;
+
+	let legal_moves = board.get_legal_moves_for_color(board.whites_turn);
+	for legal_move in legal_moves.iter() {
+		board.make_move(*legal_move);
+
+		if get_move_capture(*legal_move) != 0 {
+			*total_captures += 1;
+			// board.print_to_console();
+		}
+
+		if board.king_in_check(board.whites_turn) {
+			*total_checks += 1;
+		}
+
+		// thread::sleep(Duration::from_millis(100));
+
+		total_positions += position_counter_test(resources, board, depth - 1, total_captures, total_checks);
+
+		board.undo_last_move();
+	}
+
+	total_positions
 }
