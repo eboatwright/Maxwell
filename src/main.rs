@@ -1,3 +1,14 @@
+/* TODO
+try to optimize legal move generation
+searching all captures after the depth is reached
+better evaluation function
+detect endgames, and change king heatmaps accordingly
+zobrist hashing
+transposition table
+3 fold repetition table
+*/
+
+
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_variables)]
@@ -24,9 +35,9 @@ pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN: &'static str = "2r3k1/p4p2/3Rp2p/1p2P1pK/8/1P4P1/P3Q2P/1q6 b - - 0 1";
+pub const TESTING_FEN: &'static str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
 
-pub const MAXWELL_PLAYING_WHITE: bool = false;
+pub const MAXWELL_PLAYING_WHITE: bool = true;
 
 #[derive(PartialEq)]
 pub enum GameOverState {
@@ -53,17 +64,17 @@ async fn main() {
 
 	let resources = Resources::load().await;
 
-	let mut game_board = Board::from_fen(STARTING_FEN);
+	let mut game_board = Board::from_fen(TESTING_FEN);
 
 
 
 
-	// for depth in 1..=6 {
+	// for depth in 5..=5 {
 	// 	let timer = Instant::now();
 
 	// 	let mut total_captures = 0;
 	// 	let mut total_checks = 0;
-	// 	println!("Total positions: {}", position_counter_test(&resources, &mut game_board, depth, &mut total_captures, &mut total_checks));
+	// 	println!("Total positions: {}", position_counter_test(&mut game_board, depth, &mut total_captures, &mut total_checks));
 	// 	println!("Total captures: {}", total_captures);
 	// 	println!("Total checks: {}", total_checks);
 
@@ -74,15 +85,14 @@ async fn main() {
 
 
 
-
-
-
 	let mut viewing_board = game_board.clone();
 
 	let mut piece_dragging = None;
 	let mut game_over_state = GameOverState::None;
 
 	let mut looking_back = false;
+
+
 
 	loop {
 		let mut made_move = false;
@@ -92,28 +102,29 @@ async fn main() {
 		if game_over_state == GameOverState::None {
 			if game_board.whites_turn == MAXWELL_PLAYING_WHITE {
 				/* TEST DATA
-				Depth 6, sorting by: capture & promotion, after e4
-				Time in seconds: 18.798716
-				Positions searched: 1,032,946
+				Depth 6, after 1. e4
+					Sorting by: capture, promotion, weak square guessing (1,018,280)
 				*/
 
 				let move_to_play = {
 					let timer = Instant::now();
 
-					let mut maxwell = Maxwell::new(MAXWELL_PLAYING_WHITE, &mut game_board);
-					let evaluation = maxwell.search_moves(6, 0, -i32::MAX, i32::MAX);
+					let mut maxwell = Maxwell::new(&mut game_board);
+					let mut evaluation = maxwell.search_moves(6, 0, -i32::MAX, i32::MAX);
 
 					println!("Time in seconds: {}", timer.elapsed().as_secs_f32());
 					println!("Positions searched: {}", maxwell.positions_searched);
 
+					evaluation *= if MAXWELL_PLAYING_WHITE { 1 } else { -1 };
+
 					if evaluation_is_mate(evaluation) {
-						let sign = if evaluation * (if MAXWELL_PLAYING_WHITE { 1 } else { -1 }) < 0 { "-" } else { "" };
+						let sign = if evaluation < 0 { "-" } else { "" };
 						println!("Final evaluation: {}#{}", sign, moves_from_mate(evaluation));
 					} else {
 						println!("Final evaluation: {}", evaluation as f32 * 0.01);
 					}
 
-					println!("\n\n");
+					println!("\n");
 
 					maxwell.move_to_play
 				};

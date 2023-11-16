@@ -4,8 +4,6 @@ use std::cmp::{max, min};
 use crate::piece::*;
 
 pub struct Maxwell<'a> {
-	pub playing_white: bool,
-
 	pub board: &'a mut Board,
 	pub move_to_play: u32,
 
@@ -13,10 +11,8 @@ pub struct Maxwell<'a> {
 }
 
 impl<'a> Maxwell<'a> {
-	pub fn new(playing_white: bool, board: &'a mut Board) -> Self {
+	pub fn new(board: &'a mut Board) -> Self {
 		Self {
-			playing_white,
-
 			board,
 			move_to_play: 0,
 
@@ -26,8 +22,15 @@ impl<'a> Maxwell<'a> {
 
 	pub fn get_sorted_moves(&mut self) -> Vec<u32> {
 		let legal_moves = self.board.get_legal_moves_for_color(self.board.whites_turn);
+		if legal_moves.is_empty() {
+			return vec![];
+		}
+
 		let num_of_moves = legal_moves.len();
 		let mut scores = vec![(0, 0); num_of_moves];
+
+		let potentially_weak_squares = self.board.attacked_squares_bitboards[!self.board.whites_turn as usize] & !self.board.attacked_squares_bitboards[self.board.whites_turn as usize];
+
 
 		for i in 0..num_of_moves {
 			let m = legal_moves[i];
@@ -45,7 +48,12 @@ impl<'a> Maxwell<'a> {
 				score += 10 * get_full_piece_worth(captured_piece_type, move_to) - get_full_piece_worth(moved_piece_type, move_from);
 			}
 
-			if PROMOTABLE_PIECES.contains(&move_flag) {
+			if potentially_weak_squares & (1 << move_to) != 0 {
+				score -= get_full_piece_worth(moved_piece_type, move_to);
+			}
+
+			if self.board.fullmove_counter >= 4 // Promotions can't occur early in the game, so don't bother checking if it's still the opening
+			&& PROMOTABLE_PIECES.contains(&move_flag) {
 				score += get_full_piece_worth(move_flag, move_to);
 			}
 
@@ -53,14 +61,14 @@ impl<'a> Maxwell<'a> {
 			scores[i] = (score, i);
 		}
 
-		scores.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+		scores.sort_by(|a, b| b.0.cmp(&a.0));
 
-		let mut sorted_moves = vec![0; num_of_moves];
+		let mut ordered = vec![0; num_of_moves];
 		for i in 0..num_of_moves {
-			sorted_moves[i] = legal_moves[scores[i].1];
+			ordered[i] = legal_moves[scores[i].1];
 		}
 
-		sorted_moves
+		ordered
 	}
 
 	pub fn search_moves(&mut self, depth_left: i16, depth: i8, mut alpha: i32, beta: i32) -> i32 {
@@ -68,7 +76,7 @@ impl<'a> Maxwell<'a> {
 
 		let legal_moves = self.get_sorted_moves();
 
-		if legal_moves.len() == 0 {
+		if legal_moves.is_empty() {
 			if self.board.king_in_check(self.board.whites_turn) {
 				let mate_score = CHECKMATE_EVAL - depth as i32;
 				return -mate_score;
@@ -80,10 +88,8 @@ impl<'a> Maxwell<'a> {
 			return self.board.evaluate();
 		}
 
-		let mut best_move = 0;
-
-		for i in 0..legal_moves.len() {
-			self.board.make_move(legal_moves[i]);
+		for m in legal_moves {
+			self.board.make_move(m);
 
 			let eval_after_move = -self.search_moves(depth_left - 1, depth + 1, -beta, -alpha);
 
@@ -94,12 +100,14 @@ impl<'a> Maxwell<'a> {
 			}
 
 			if eval_after_move > alpha {
-				best_move = i;
 				alpha = eval_after_move;
+
+				if depth == 0 {
+					self.move_to_play = m;
+				}
 			}
 		}
 
-		self.move_to_play = legal_moves[best_move];
 		alpha
 	}
 }

@@ -203,7 +203,7 @@ impl Board {
 					break;
 				}
 
-				result.push(build_move(0, self.board[to] as u32, piece_from, to));
+				result.push(build_move(0, self.board[to], piece_from, to));
 
 				if is_piece_on_target_square {
 					break;
@@ -299,20 +299,20 @@ impl Board {
 					if (piece >> 7) & self.all_piece_bitboards[other_color] & NOT_H_FILE != 0 {
 						if will_promote {
 							for promotion in PROMOTABLE_PIECES.iter() {
-								result.push(build_move(*promotion, self.board[piece_index - 7] as u32, piece_index, piece_index - 7));
+								result.push(build_move(*promotion, self.board[piece_index - 7], piece_index, piece_index - 7));
 							}
 						} else {
-							result.push(build_move(0, self.board[piece_index - 7] as u32, piece_index, piece_index - 7));
+							result.push(build_move(0, self.board[piece_index - 7], piece_index, piece_index - 7));
 						}
 					}
 
 					if (piece >> 9) & self.all_piece_bitboards[other_color] & NOT_A_FILE != 0 {
 						if will_promote {
 							for promotion in PROMOTABLE_PIECES.iter() {
-								result.push(build_move(*promotion, self.board[piece_index - 9] as u32, piece_index, piece_index - 9));
+								result.push(build_move(*promotion, self.board[piece_index - 9], piece_index, piece_index - 9));
 							}
 						} else {
-							result.push(build_move(0, self.board[piece_index - 9] as u32, piece_index, piece_index - 9));
+							result.push(build_move(0, self.board[piece_index - 9], piece_index, piece_index - 9));
 						}
 					}
 
@@ -325,7 +325,7 @@ impl Board {
 						if (pawn_index == piece_index - 1
 						&& piece_index % 8 != 0)
 						|| pawn_index == piece_index + 1 {
-							result.push(build_move(EN_PASSANT_FLAG, self.board[pawn_index] as u32, piece_index, pawn_index - 8));
+							result.push(build_move(EN_PASSANT_FLAG, self.board[pawn_index], piece_index, pawn_index - 8));
 						}
 					}
 
@@ -364,20 +364,20 @@ impl Board {
 					if (piece << 7) & self.all_piece_bitboards[other_color] & NOT_A_FILE != 0 {
 						if will_promote {
 							for promotion in PROMOTABLE_PIECES.iter() {
-								result.push(build_move(*promotion, self.board[piece_index + 7] as u32, piece_index, piece_index + 7));
+								result.push(build_move(*promotion, self.board[piece_index + 7], piece_index, piece_index + 7));
 							}
 						} else {
-							result.push(build_move(0, self.board[piece_index + 7] as u32, piece_index, piece_index + 7));
+							result.push(build_move(0, self.board[piece_index + 7], piece_index, piece_index + 7));
 						}
 					}
 
 					if (piece << 9) & self.all_piece_bitboards[other_color] & NOT_H_FILE != 0 {
 						if will_promote {
 							for promotion in PROMOTABLE_PIECES.iter() {
-								result.push(build_move(*promotion, self.board[piece_index + 9] as u32, piece_index, piece_index + 9));
+								result.push(build_move(*promotion, self.board[piece_index + 9], piece_index, piece_index + 9));
 							}
 						} else {
-							result.push(build_move(0, self.board[piece_index + 9] as u32, piece_index, piece_index + 9));
+							result.push(build_move(0, self.board[piece_index + 9], piece_index, piece_index + 9));
 						}
 					}
 
@@ -390,7 +390,7 @@ impl Board {
 						if pawn_index == piece_index - 1
 						|| (pawn_index == piece_index + 1
 						&& piece_index % 8 != 7) {
-							result.push(build_move(EN_PASSANT_FLAG, self.board[pawn_index] as u32, piece_index, pawn_index + 8));
+							result.push(build_move(EN_PASSANT_FLAG, self.board[pawn_index], piece_index, pawn_index + 8));
 						}
 					}
 
@@ -406,9 +406,15 @@ impl Board {
 			KNIGHT => {
 				let bitboard = self.precomputed_data.knight_bitboards[piece_index] & !self.all_piece_bitboards[piece_color];
 
-				for i in 0..64 {
+				for offset in [10, 17, 15, 6] {
+					let i = piece_index - offset;
 					if (bitboard >> i) & 1 == 1 {
-						result.push(build_move(0, self.board[i] as u32, piece_index, i));
+						result.push(build_move(0, self.board[i], piece_index, i));
+					}
+
+					let i = piece_index + offset;
+					if (bitboard >> i) & 1 == 1 {
+						result.push(build_move(0, self.board[i], piece_index, i));
 					}
 				}
 			}
@@ -440,9 +446,15 @@ impl Board {
 			KING => {
 				let bitboard = self.precomputed_data.king_bitboards[piece_index] & !self.all_piece_bitboards[piece_color];
 
-				for i in 0..64 {
+				for offset in [9, 8, 7, 1] {
+					let i = piece_index - offset;
 					if (bitboard >> i) & 1 == 1 {
-						result.push(build_move(0, self.board[i] as u32, piece_index, i));
+						result.push(build_move(0, self.board[i], piece_index, i));
+					}
+
+					let i = piece_index + offset;
+					if (bitboard >> i) & 1 == 1 {
+						result.push(build_move(0, self.board[i], piece_index, i));
 					}
 				}
 
@@ -503,12 +515,11 @@ impl Board {
 	}
 
 	pub fn play_move(&mut self, promotion: u8, from: usize, to: usize) {
+		let promoting = promotion != 0;
+
 		for m in self.get_legal_moves_for_piece(from) {
-			let flag = get_move_flag(m);
-			if (!PROMOTABLE_PIECES.contains(&flag)
-			|| flag == promotion)
-			&& get_move_from(m) == from
-			&& get_move_to(m) == to {
+			if (!promoting || get_move_flag(m) == promotion)
+			&& get_move_from(m) == from && get_move_to(m) == to {
 				self.make_move(m);
 				break;
 			}

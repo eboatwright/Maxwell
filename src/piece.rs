@@ -51,10 +51,10 @@ pub const EN_PASSANT_FLAG: u8       = 0b_0110;
 pub const CASTLE_SHORT_FLAG: u8     = 0b_0111;
 pub const CASTLE_LONG_FLAG: u8      = 0b_1000;
 
-pub const MOVE_FLAG_MASK: u32    = 0b_00_1111_0000_000000_000000;
-pub const MOVE_CAPTURE_MASK: u32 = 0b_00_0000_1111_000000_000000;
-pub const MOVE_FROM_MASK: u32    = 0b_00_0000_0000_111111_000000;
-pub const MOVE_TO_MASK: u32      = 0b_00_0000_0000_000000_111111;
+pub const MOVE_FLAG_MASK: u32    = 0b_1111_0000_000000_000000;
+pub const MOVE_CAPTURE_MASK: u32 = 0b_0000_1111_000000_000000;
+pub const MOVE_FROM_MASK: u32    = 0b_0000_0000_111111_000000;
+pub const MOVE_TO_MASK: u32      = 0b_0000_0000_000000_111111;
 
 pub fn get_move_flag(m: u32) -> u8 {
 	((m & MOVE_FLAG_MASK) >> 16) as u8
@@ -72,6 +72,6 @@ pub fn get_move_to(m: u32) -> usize {
 	(m & MOVE_TO_MASK) as usize
 }
 
-pub fn build_move(flag: u8, capture: u32, from: usize, to: usize) -> u32 {
-	(((flag as u32) << 16) as usize | (capture << 12) as usize | (from << 6) | to) as u32
+pub fn build_move(flag: u8, capture: u8, from: usize, to: usize) -> u32 {
+	(((flag as u32) << 16) as usize | ((capture as u32) << 12) as usize | (from << 6) | to) as u32
 }
