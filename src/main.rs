@@ -1,4 +1,5 @@
 /* TODO
+remove [u8; 64] board representation and only use bitboards?
 zobrist hashing
 transposition table
 searching all captures after the depth is reached
@@ -37,6 +38,8 @@ use crate::resources::Resources;
 pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
+pub const RAND_SEED: u64 = 8675309822993167;
+
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const TESTING_FEN: &'static str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
 
@@ -63,7 +66,7 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-	srand(miniquad::date::now() as u64);
+	srand(RAND_SEED);
 
 	let resources = Resources::load().await;
 
