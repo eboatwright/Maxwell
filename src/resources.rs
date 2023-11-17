@@ -16,24 +16,24 @@ impl Resources {
 			pieces_tex: load_texture("resources/pieces.png").await.unwrap(),
 
 			transparent_color: Color {
-				r: 0.8,
-				g: 0.8,
-				b: 0.82,
+				r: 0.92,
+				g: 0.94,
+				b: 0.96,
 				a: 0.5,
 			},
 
 			checkmated_color: Color {
-				r: 0.9,
-				g: 0.4,
-				b: 0.4,
+				r: 0.8,
+				g: 0.16,
+				b: 0.16,
 				a: 0.5,
 			},
 
 			last_move_color: Color {
-				r: 0.8,
-				g: 0.8,
-				b: 0.5,
-				a: 0.4,
+				r: 0.82,
+				g: 0.70,
+				b: 0.24,
+				a: 0.5,
 			},
 		}
 	}

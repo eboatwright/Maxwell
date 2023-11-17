@@ -262,9 +262,10 @@ impl Board {
 
 		let mut result = vec![];
 
+		let piece = 1 << piece_index;
+
 		match piece_type {
 			PAWN => {
-				let piece = 1 << piece_index;
 				let empty_squares = !(self.all_piece_bitboards[0] | self.all_piece_bitboards[1]);
 
 				if piece_color == 1 {
@@ -284,11 +285,11 @@ impl Board {
 							}
 						} else {
 							result.push(build_move(0, 0, piece_index, piece_index - 8));
-						}
 
-						if rank_of_index(piece_index) == 2
-						&& (piece >> 16) & empty_squares != 0 {
-							result.push(build_move(DOUBLE_PAWN_PUSH_FLAG, 0, piece_index, piece_index - 16));
+							if rank_of_index(piece_index) == 2
+							&& (piece >> 16) & empty_squares != 0 {
+								result.push(build_move(DOUBLE_PAWN_PUSH_FLAG, 0, piece_index, piece_index - 16));
+							}
 						}
 					}
 
@@ -349,11 +350,11 @@ impl Board {
 							}
 						} else {
 							result.push(build_move(0, 0, piece_index, piece_index + 8));
-						}
 
-						if rank_of_index(piece_index) == 7
-						&& (piece << 16) & empty_squares != 0 {
-							result.push(build_move(DOUBLE_PAWN_PUSH_FLAG, 0, piece_index, piece_index + 16));
+							if rank_of_index(piece_index) == 7
+							&& (piece << 16) & empty_squares != 0 {
+								result.push(build_move(DOUBLE_PAWN_PUSH_FLAG, 0, piece_index, piece_index + 16));
+							}
 						}
 					}
 
@@ -407,13 +408,13 @@ impl Board {
 				let bitboard = self.precomputed_data.knight_bitboards[piece_index] & !self.all_piece_bitboards[piece_color];
 
 				for offset in [10, 17, 15, 6] {
-					let i = piece_index - offset;
-					if (bitboard >> i) & 1 == 1 {
+					if (piece >> offset) & bitboard != 0 {
+						let i = piece_index - offset;
 						result.push(build_move(0, self.board[i], piece_index, i));
 					}
 
-					let i = piece_index + offset;
-					if (bitboard >> i) & 1 == 1 {
+					if (piece << offset) & bitboard != 0 {
+						let i = piece_index + offset;
 						result.push(build_move(0, self.board[i], piece_index, i));
 					}
 				}
@@ -444,16 +445,20 @@ impl Board {
 
 
 			KING => {
-				let bitboard = self.precomputed_data.king_bitboards[piece_index] & !self.all_piece_bitboards[piece_color];
+				/* !!!!!!!!!!IMPORTANT!!!!!!!!!!
+				This bitboard excludes squares the opponent attacks to skip over squares that will put the king into check,
+				this will affect the # of nodes in a search test! (I'm probably gonna forget this anyways and lose my mind over why I get the wrong numbers :P)
+				*/
+				let bitboard = self.precomputed_data.king_bitboards[piece_index] & !self.all_piece_bitboards[piece_color] & !self.attacked_squares_bitboards[other_color];
 
 				for offset in [9, 8, 7, 1] {
-					let i = piece_index - offset;
-					if (bitboard >> i) & 1 == 1 {
+					if (piece >> offset) & bitboard != 0 {
+						let i = piece_index - offset;
 						result.push(build_move(0, self.board[i], piece_index, i));
 					}
 
-					let i = piece_index + offset;
-					if (bitboard >> i) & 1 == 1 {
+					if (piece << offset) & bitboard != 0 {
+						let i = piece_index + offset;
 						result.push(build_move(0, self.board[i], piece_index, i));
 					}
 				}
@@ -704,6 +709,9 @@ impl Board {
 		let mut white_material = 0;
 		let mut black_material = 0;
 
+		let mut white_attacked_squares = 0;
+		let mut black_attacked_squares = 0;
+
 		for i in 0..64 {
 			let piece = self.board[i];
 
@@ -716,9 +724,17 @@ impl Board {
 					black_material += worth;
 				}
 			}
+
+			if (1 << i) & self.attacked_squares_bitboards[0] != 0 {
+				black_attacked_squares += 1;
+			}
+
+			if (1 << i) & self.attacked_squares_bitboards[1] != 0 {
+				white_attacked_squares += 1;
+			}
 		}
 
 		let perspective = if self.whites_turn { 1 } else { -1 };
-		(white_material - black_material) * perspective
+		((white_material + white_attacked_squares) - (black_material + black_attacked_squares)) * perspective
 	}
 }

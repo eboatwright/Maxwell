@@ -1,11 +1,13 @@
 /* TODO
-try to optimize legal move generation
-searching all captures after the depth is reached
-better evaluation function
-detect endgames, and change king heatmaps accordingly
 zobrist hashing
 transposition table
-3 fold repetition table
+searching all captures after the depth is reached
+detect endgames, and change king heatmaps accordingly
+
+50 move draw
+3 fold repetition
+
+evaluate pawn structures (including isolated and passed pawns)
 */
 
 
@@ -16,6 +18,7 @@ transposition table
 mod resources;
 mod precomputed_data;
 mod heatmaps;
+mod zobrist;
 mod piece;
 mod utils;
 mod board;
@@ -37,7 +40,7 @@ pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const TESTING_FEN: &'static str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
 
-pub const MAXWELL_PLAYING_WHITE: bool = true;
+pub const MAXWELL_PLAYING_WHITE: bool = false;
 
 #[derive(PartialEq)]
 pub enum GameOverState {
@@ -64,7 +67,7 @@ async fn main() {
 
 	let resources = Resources::load().await;
 
-	let mut game_board = Board::from_fen(TESTING_FEN);
+	let mut game_board = Board::from_fen(STARTING_FEN);
 
 
 
@@ -101,11 +104,6 @@ async fn main() {
 
 		if game_over_state == GameOverState::None {
 			if game_board.whites_turn == MAXWELL_PLAYING_WHITE {
-				/* TEST DATA
-				Depth 6, after 1. e4
-					Sorting by: capture, promotion, weak square guessing (1,018,280)
-				*/
-
 				let move_to_play = {
 					let timer = Instant::now();
 
@@ -240,19 +238,30 @@ async fn main() {
 			);
 		}
 
-		// let bitboard = viewing_board.all_piece_bitboards[1];
 		// for i in 0..64 {
-		// 	if bitboard & (1 << i) != 0 {
+		// 	if viewing_board.board[i] != 0 {
+		// 		let worth = get_full_piece_worth(viewing_board.board[i], i);
+		// 		let x = (i % 8) as f32 * SQUARE_SIZE;
+		// 		let y = (i / 8) as f32 * SQUARE_SIZE;
+
 		// 		draw_rectangle(
-		// 			(i % 8) as f32 * SQUARE_SIZE,
-		// 			(i / 8) as f32 * SQUARE_SIZE,
+		// 			x,
+		// 			y,
 		// 			SQUARE_SIZE, SQUARE_SIZE,
 		// 			Color {
 		// 				r: 0.0,
-		// 				g: 0.0,
-		// 				b: 1.0,
+		// 				g: 1.0,
+		// 				b: 0.0,
 		// 				a: 0.5,
 		// 			},
+		// 		);
+
+		// 		draw_text(
+		// 			&format!("{}", worth),
+		// 			x + 8.0,
+		// 			y + 48.0,
+		// 			32.0,
+		// 			macroquad::prelude::WHITE,
 		// 		);
 		// 	}
 		// }

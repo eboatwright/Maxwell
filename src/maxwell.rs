@@ -45,7 +45,7 @@ impl<'a> Maxwell<'a> {
 
 
 			if captured_piece_type != 0 {
-				score += 10 * get_full_piece_worth(captured_piece_type, move_to) - get_full_piece_worth(moved_piece_type, move_from);
+				score += 15 * get_full_piece_worth(captured_piece_type, move_to) - get_full_piece_worth(moved_piece_type, move_from);
 			}
 
 			if potentially_weak_squares & (1 << move_to) != 0 {
