@@ -1,12 +1,12 @@
 /* TODO
-remove [u8; 64] board representation and only use bitboards?
-zobrist hashing
 transposition table
+iterative deepening
 searching all captures after the depth is reached
 detect endgames, and change king heatmaps accordingly
 
 50 move draw
 3 fold repetition
+draw by insufficient material
 
 evaluate pawn structures (including isolated and passed pawns)
 */
@@ -25,25 +25,23 @@ mod utils;
 mod board;
 mod maxwell;
 
+use macroquad::rand::gen_range;
 use crate::maxwell::*;
 use std::thread;
 use crate::piece::*;
 use crate::utils::*;
 use crate::board::Board;
 use std::time::{Instant, Duration};
-use macroquad::rand::{gen_range, srand};
 use macroquad::prelude::*;
 use crate::resources::Resources;
 
 pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
-pub const RAND_SEED: u64 = 8675309822993167;
-
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const TESTING_FEN: &'static str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
 
-pub const MAXWELL_PLAYING_WHITE: bool = false;
+pub const MAXWELL_PLAYING_WHITE: Option<bool> = Some(false);
 
 #[derive(PartialEq)]
 pub enum GameOverState {
@@ -66,8 +64,6 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-	srand(RAND_SEED);
-
 	let resources = Resources::load().await;
 
 	let mut game_board = Board::from_fen(STARTING_FEN);
@@ -103,10 +99,8 @@ async fn main() {
 	loop {
 		let mut made_move = false;
 
-
-
 		if game_over_state == GameOverState::None {
-			if game_board.whites_turn == MAXWELL_PLAYING_WHITE {
+			if Some(game_board.whites_turn) == MAXWELL_PLAYING_WHITE {
 				let move_to_play = {
 					let timer = Instant::now();
 
@@ -116,7 +110,7 @@ async fn main() {
 					println!("Time in seconds: {}", timer.elapsed().as_secs_f32());
 					println!("Positions searched: {}", maxwell.positions_searched);
 
-					evaluation *= if MAXWELL_PLAYING_WHITE { 1 } else { -1 };
+					evaluation *= if MAXWELL_PLAYING_WHITE.unwrap() { 1 } else { -1 };
 
 					if evaluation_is_mate(evaluation) {
 						let sign = if evaluation < 0 { "-" } else { "" };

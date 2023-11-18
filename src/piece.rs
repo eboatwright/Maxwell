@@ -20,6 +20,16 @@ pub const COLOR_MASK: u8 = 0b1000;
 pub const PIECE_MASK: u8 = 0b0111;
 
 
+pub const PIECES_IN_ORDER: [u8; 6] = [
+	PAWN,
+	KNIGHT,
+	BISHOP,
+	ROOK,
+	QUEEN,
+	KING,
+];
+
+
 pub const PAWN_WORTH: i32   = 100;
 pub const KNIGHT_WORTH: i32 = 300;
 pub const BISHOP_WORTH: i32 = 310;
@@ -41,8 +51,16 @@ pub fn is_white(piece: u8) -> bool {
 	piece & COLOR_MASK == WHITE
 }
 
+pub fn get_piece_color(piece: u8) -> u8 {
+	(piece & COLOR_MASK) >> 3
+}
+
 pub fn get_piece_type(piece: u8) -> u8 {
 	piece & PIECE_MASK
+}
+
+pub fn build_piece(is_white: bool, piece_type: u8) -> u8 {
+	((is_white as u8) << 3) | piece_type
 }
 
 
@@ -75,3 +93,14 @@ pub fn get_move_to(m: u32) -> usize {
 pub fn build_move(flag: u8, capture: u8, from: usize, to: usize) -> u32 {
 	(((flag as u32) << 16) as usize | ((capture as u32) << 12) as usize | (from << 6) | to) as u32
 }
+
+
+pub const WHITE_LONGCASTLE: u8  = 0b_1000;
+pub const WHITE_SHORTCASTLE: u8 = 0b_0100;
+pub const BLACK_LONGCASTLE: u8  = 0b_0010;
+pub const BLACK_SHORTCASTLE: u8 = 0b_0001;
+
+pub const CASTLING: [u8; 2] = [
+	0b_0011, // Black
+	0b_1100, // White
+];

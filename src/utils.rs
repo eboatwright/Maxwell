@@ -67,22 +67,9 @@ pub fn index_from_coordinate(coordinate: &'static str) -> Option<usize> {
 		return None;
 	}
 
-
 	let split = coordinate.to_string().chars().collect::<Vec<char>>();
 
-
-
-	let file_index = match split[0] {
-		'a' => 0,
-		'b' => 1,
-		'c' => 2,
-		'd' => 3,
-		'e' => 4,
-		'f' => 5,
-		'g' => 6,
-		'h' => 7,
-		_ => 69,
-	};
+	let file_index = file_index_from_coordinate(coordinate).unwrap_or(69) - 1;
 
 	let rank = if split[1].is_digit(10) {
 		split[1].to_digit(10).unwrap() as usize
@@ -90,16 +77,32 @@ pub fn index_from_coordinate(coordinate: &'static str) -> Option<usize> {
 		69
 	};
 
-
-
 	let full_index = file_index + rank * 8;
-
-
 
 	if full_index >= 64 {
 		return None;
 	}
 	Some(full_index)
+}
+
+pub fn file_index_from_coordinate(coordinate: &'static str) -> Option<usize> {
+	if coordinate.len() != 2 {
+		return None;
+	}
+
+
+	let split = coordinate.to_string().chars().collect::<Vec<char>>();
+	match split[0] {
+		'a' => Some(1),
+		'b' => Some(2),
+		'c' => Some(3),
+		'd' => Some(4),
+		'e' => Some(5),
+		'f' => Some(6),
+		'g' => Some(7),
+		'h' => Some(8),
+		_ => None,
+	}
 }
 
 // This is only here for Rust borrowing reasons :P
