@@ -1,5 +1,5 @@
 use crate::utils::*;
-use crate::Board;
+use crate::board::*;
 use std::cmp::{max, min};
 use crate::piece::*;
 
@@ -71,18 +71,26 @@ impl<'a> Maxwell<'a> {
 		ordered
 	}
 
-	pub fn search_moves(&mut self, depth_left: i16, depth: i8, mut alpha: i32, beta: i32) -> i32 {
-		self.positions_searched += 1;
-
+	pub fn search_moves(&mut self, depth_left: u16, depth: u16, mut alpha: i32, beta: i32) -> i32 {
 		let legal_moves = self.get_sorted_moves();
 
 		if legal_moves.is_empty() {
+			self.positions_searched += 1;
 			if self.board.king_in_check(self.board.whites_turn) {
 				let mate_score = CHECKMATE_EVAL - depth as i32;
 				return -mate_score;
 			}
 			return 0;
 		}
+
+		let zobrist_key = self.board.current_zobrist_key();
+		if let Some(transposition) = self.board.transposition_table.get(&zobrist_key) {
+			if transposition.depth == depth {
+				return transposition.evaluation;
+			}
+		}
+
+		self.positions_searched += 1;
 
 		if depth_left == 0 {
 			return self.board.evaluate();
@@ -101,10 +109,36 @@ impl<'a> Maxwell<'a> {
 
 			if eval_after_move > alpha {
 				alpha = eval_after_move;
+			}
+		}
 
-				if depth == 0 {
-					self.move_to_play = m;
-				}
+		self.board.transposition_table.insert(zobrist_key,
+			TranspositionData {
+				depth,
+				evaluation: alpha,
+			});
+
+		alpha
+	}
+
+	pub fn start_search(&mut self, depth: u16) -> i32 {
+		// self.board.transposition_table.clear(); // ?
+
+		let mut alpha = -i32::MAX;
+		let beta = i32::MAX;
+
+		let legal_moves = self.get_sorted_moves();
+
+		for m in legal_moves {
+			self.board.make_move(m);
+
+			let eval_after_move = -self.search_moves(depth - 1, 1, -beta, -alpha);
+
+			self.board.undo_last_move();
+
+			if eval_after_move > alpha {
+				alpha = eval_after_move;
+				self.move_to_play = m;
 			}
 		}
 

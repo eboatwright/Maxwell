@@ -3,7 +3,7 @@ use crate::Board;
 use crate::PIECES_IN_ORDER;
 use macroquad::rand::{srand, gen_range};
 
-pub const RAND_SEED: u64 = 8675309822993167;
+pub const RAND_SEED: u64 = 8022993167;
 
 #[derive(Clone)]
 pub struct Zobrist {

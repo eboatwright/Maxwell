@@ -1,5 +1,5 @@
 /* TODO
-transposition table
+opening book
 iterative deepening
 searching all captures after the depth is reached
 detect endgames, and change king heatmaps accordingly
@@ -25,7 +25,6 @@ mod utils;
 mod board;
 mod maxwell;
 
-use macroquad::rand::gen_range;
 use crate::maxwell::*;
 use std::thread;
 use crate::piece::*;
@@ -105,7 +104,7 @@ async fn main() {
 					let timer = Instant::now();
 
 					let mut maxwell = Maxwell::new(&mut game_board);
-					let mut evaluation = maxwell.search_moves(6, 0, -i32::MAX, i32::MAX);
+					let mut evaluation = maxwell.start_search(6);
 
 					println!("Time in seconds: {}", timer.elapsed().as_secs_f32());
 					println!("Positions searched: {}", maxwell.positions_searched);

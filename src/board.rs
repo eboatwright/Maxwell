@@ -1,8 +1,15 @@
+use std::collections::HashMap;
 use crate::zobrist::Zobrist;
 use std::ops::Range;
 use crate::precomputed_data::*;
 use crate::utils::*;
 use crate::piece::*;
+
+#[derive(Copy, Clone)]
+pub struct TranspositionData {
+	pub depth: u16,
+	pub evaluation: i32,
+}
 
 #[derive(Clone)]
 pub struct Board {
@@ -14,15 +21,16 @@ pub struct Board {
 	pub board: [u8; 64],
 	pub whites_turn: bool,
 
+	pub en_passant_file: usize,
 	pub moves_without_capture_or_pawn_push: u16,
 	pub fullmove_counter: u16,
 
 	pub zobrist_key_history: Vec<u64>,
-	pub en_passant_file_history: Vec<usize>,
 	pub castle_rights_history: Vec<u8>,
 	pub moves: Vec<u32>,
 
 	pub zobrist: Zobrist,
+	pub transposition_table: HashMap<u64, TranspositionData>,
 }
 
 impl Board {
@@ -75,7 +83,7 @@ impl Board {
 
 
 
-		let en_passant_file_index = file_index_from_coordinate(fen_sections[3]).unwrap_or(0);
+		let en_passant_file = file_index_from_coordinate(fen_sections[3]).unwrap_or(0);
 
 
 		let moves_without_capture_or_pawn_push = fen_sections[4].parse::<u16>().expect("Invalid FEN: no 'Halfmove Clock'");
@@ -102,15 +110,16 @@ impl Board {
 			board,
 			whites_turn,
 
+			en_passant_file,
 			moves_without_capture_or_pawn_push,
 			fullmove_counter,
 
 			zobrist_key_history: vec![],
-			en_passant_file_history: vec![en_passant_file_index],
 			castle_rights_history: vec![castling_rights],
 			moves: vec![],
 
 			zobrist: Zobrist::generate(),
+			transposition_table: HashMap::new(),
 		};
 
 
@@ -627,12 +636,6 @@ impl Board {
 			self.toggle_bit(piece_is_white, ROOK, to + 1);
 		}
 
-		if flag == DOUBLE_PAWN_PUSH_FLAG {
-			self.en_passant_file_history.push((to % 8) + 1);
-		} else {
-			self.en_passant_file_history.push(0);
-		}
-
 		self.compute_all_piece_bitboards();
 		self.compute_attacked_squares_bitboards();
 
@@ -654,7 +657,6 @@ impl Board {
 		}
 
 		self.zobrist_key_history.pop();
-		self.en_passant_file_history.pop();
 		self.castle_rights_history.pop();
 		let last_move = self.moves.pop().unwrap();
 
@@ -779,7 +781,7 @@ impl Board {
 
 		key ^= self.zobrist.castling_rights[self.get_all_castle_rights() as usize];
 
-		key ^= self.zobrist.en_passant[self.en_passant_file_history[0]];
+		key ^= self.zobrist.en_passant[self.en_passant_file];
 
 		if !self.whites_turn {
 			key ^= self.zobrist.side_to_move;
@@ -820,8 +822,17 @@ impl Board {
 		key ^= self.zobrist.castling_rights[self.castle_rights_history[self.castle_rights_history.len() - 2] as usize];
 		key ^= self.zobrist.castling_rights[self.get_all_castle_rights() as usize];
 
-		key ^= self.zobrist.en_passant[self.en_passant_file_history[self.en_passant_file_history.len() - 2]];
-		key ^= self.zobrist.en_passant[self.en_passant_file_history[self.en_passant_file_history.len() - 1]];
+		let last_move = self.get_last_move();
+		if get_move_flag(last_move) == DOUBLE_PAWN_PUSH_FLAG {
+			let file = (get_move_to(last_move) % 8) + 1;
+			key ^= self.zobrist.en_passant[file];
+		}
+
+		self.en_passant_file = 0;
+		if flag == DOUBLE_PAWN_PUSH_FLAG {
+			self.en_passant_file = (to % 8) + 1;
+			key ^= self.zobrist.en_passant[self.en_passant_file];
+		}
 
 		key ^= self.zobrist.side_to_move;
 
