@@ -94,7 +94,7 @@ async fn main() {
 	let mut looking_back = false;
 
 
-	let mut maxwell = Maxwell::new(true);
+	let mut maxwell = Maxwell::new();
 
 
 	loop {
@@ -189,6 +189,7 @@ async fn main() {
 				game_board = Board::from_fen(STARTING_FEN);
 				viewing_board = game_board.clone();
 				looking_back = false;
+				maxwell.in_opening = true;
 
 				game_over_state = GameOverState::None;
 			}

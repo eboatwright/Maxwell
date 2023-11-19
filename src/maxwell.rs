@@ -12,11 +12,11 @@ pub struct Maxwell {
 }
 
 impl Maxwell {
-	pub fn new(use_openings: bool) -> Self {
+	pub fn new() -> Self {
 		Self {
 			move_to_play: 0,
 			positions_searched: 0,
-			in_opening: use_openings,
+			in_opening: true,
 		}
 	}
 
@@ -130,6 +130,8 @@ impl Maxwell {
 			return evaluation;
 		}
 
+		let mut best_move = 0;
+
 		for m in legal_moves {
 			board.make_move(m);
 
@@ -142,11 +144,14 @@ impl Maxwell {
 			}
 
 			if eval_after_move > alpha {
+				best_move = m;
 				alpha = eval_after_move;
 			}
 		}
 
 		board.transposition_table.insert(zobrist_key, alpha);
+
+		self.move_to_play = best_move;
 
 		alpha
 	}
@@ -167,24 +172,6 @@ impl Maxwell {
 
 		board.transposition_table.clear(); // ?
 
-		let mut alpha = -i32::MAX;
-		let beta = i32::MAX;
-
-		let legal_moves = self.get_sorted_moves(board);
-
-		for m in legal_moves {
-			board.make_move(m);
-
-			let eval_after_move = -self.search_moves(board, 5, 1, -beta, -alpha);
-
-			board.undo_last_move();
-
-			if eval_after_move > alpha {
-				alpha = eval_after_move;
-				self.move_to_play = m;
-			}
-		}
-
-		alpha
+		self.search_moves(board, 6, 0, -i32::MAX, i32::MAX)
 	}
 }
