@@ -3,7 +3,6 @@ iterative deepening
 searching all captures after the depth is reached
 detect endgames, and change king heatmaps accordingly
 
-50 move draw
 3 fold repetition
 draw by insufficient material
 
@@ -38,7 +37,7 @@ pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN: &'static str = "1r2k1r1/pbppnp1p/1b3P2/8/Q7/B1PB1q2/P4PPP/3R2K1 w - - 0 1";
+pub const TESTING_FEN: &'static str = "8/k7/8/8/8/8/8/K7 w - - 94 1";
 
 pub const MAXWELL_PLAYING_WHITE: Option<bool> = Some(false);
 
@@ -53,7 +52,7 @@ pub enum GameOverState {
 
 fn window_conf() -> Conf {
 	Conf {
-		window_title: "Maxwell ~ The Chess Engine v2.0".to_string(),
+		window_title: "Maxwell ~ The Chess Engine v2.1".to_string(),
 		window_width: WINDOW_SIZE as i32,
 		window_height: WINDOW_SIZE as i32,
 		window_resizable: false,
@@ -111,7 +110,7 @@ async fn main() {
 
 					let timer = Instant::now();
 
-					let mut evaluation = maxwell.start(&mut game_board);
+					maxwell.start(&mut game_board);
 
 					if maxwell.in_opening {
 						println!("Book move");
@@ -119,7 +118,7 @@ async fn main() {
 						println!("Time in seconds: {}", timer.elapsed().as_secs_f32());
 						println!("Positions searched: {}", maxwell.positions_searched);
 
-						evaluation *= if MAXWELL_PLAYING_WHITE.unwrap() { 1 } else { -1 };
+						let evaluation = maxwell.evaluation * (if MAXWELL_PLAYING_WHITE.unwrap() { 1 } else { -1 });
 
 						if evaluation_is_mate(evaluation) {
 							let sign = if evaluation < 0 { "-" } else { "" };
@@ -172,7 +171,9 @@ async fn main() {
 				viewing_board = game_board.clone();
 				looking_back = false;
 
-				if game_board.get_legal_moves_for_color(game_board.whites_turn).len() == 0 {
+				if game_board.fifty_move_draw() == 100 {
+					game_over_state = GameOverState::Draw;
+				} else if game_board.get_legal_moves_for_color(game_board.whites_turn).len() == 0 {
 					if game_board.king_in_check(game_board.whites_turn) {
 						if game_board.whites_turn {
 							game_over_state = GameOverState::BlackWins;

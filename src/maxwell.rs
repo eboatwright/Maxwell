@@ -7,16 +7,20 @@ use crate::piece::*;
 
 pub struct Maxwell {
 	pub move_to_play: u32,
-	pub positions_searched: u128,
+	pub evaluation: i32,
 	pub in_opening: bool,
+
+	pub positions_searched: u128,
 }
 
 impl Maxwell {
 	pub fn new() -> Self {
 		Self {
 			move_to_play: 0,
-			positions_searched: 0,
+			evaluation: 0,
 			in_opening: true,
+
+			positions_searched: 0,
 		}
 	}
 
@@ -83,7 +87,7 @@ impl Maxwell {
 				score -= get_full_piece_worth(moved_piece_type, move_to);
 			}
 
-			if board.fullmove_counter >= 4 // Promotions can't occur early in the game, so don't bother checking if it's still the opening
+			if board.moves.len() >= 8 // Promotions can't occur early in the game, so don't bother checking if it's still the opening
 			&& PROMOTABLE_PIECES.contains(&move_flag) {
 				score += get_full_piece_worth(move_flag, move_to);
 			}
@@ -103,10 +107,15 @@ impl Maxwell {
 	}
 
 	pub fn search_moves(&mut self, board: &mut Board, depth_left: u16, depth: u16, mut alpha: i32, beta: i32) -> i32 {
+		self.positions_searched += 1;
+
+		if board.fifty_move_draw() == 100 {
+			return 0;
+		}
+
 		let legal_moves = self.get_sorted_moves(board);
 
 		if legal_moves.is_empty() {
-			self.positions_searched += 1;
 			if board.king_in_check(board.whites_turn) {
 				let mate_score = CHECKMATE_EVAL - depth as i32;
 				return -mate_score;
@@ -116,10 +125,9 @@ impl Maxwell {
 
 		let zobrist_key = board.current_zobrist_key();
 		if let Some(evaluation) = board.transposition_table.get(&zobrist_key) {
+			self.positions_searched -= 1;
 			return *evaluation;
 		}
-
-		self.positions_searched += 1;
 
 		if depth_left == 0 {
 			if let Some(evaluation) = board.evaluation_cache.get(&zobrist_key) {
@@ -156,15 +164,17 @@ impl Maxwell {
 		alpha
 	}
 
-	pub fn start(&mut self, board: &mut Board) -> i32 { // TODO: this needs to be reworked for iterative deepening
+	pub fn start(&mut self, board: &mut Board) { // TODO: this needs to be reworked for iterative deepening
 		self.move_to_play = 0;
 		self.positions_searched = 0;
+		self.evaluation = 0;
+
 
 		if self.in_opening {
 			let opening_move = self.get_opening_move(board);
 			if opening_move != 0 {
 				self.move_to_play = opening_move;
-				return 0;
+				return;
 			}
 		}
 
@@ -172,6 +182,9 @@ impl Maxwell {
 
 		board.transposition_table.clear(); // ?
 
-		self.search_moves(board, 6, 0, -i32::MAX, i32::MAX)
+		// for depth in 1..=8 {
+			// println!("Searching depth {}", depth);
+			self.evaluation = self.search_moves(board, 6, 0, -i32::MAX, i32::MAX);
+		// }
 	}
 }
