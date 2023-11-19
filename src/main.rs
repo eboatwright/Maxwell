@@ -1,5 +1,4 @@
 /* TODO
-iterative deepening
 searching all captures after the depth is reached
 detect endgames, and change king heatmaps accordingly
 
@@ -108,28 +107,7 @@ async fn main() {
 				let move_to_play = {
 					srand(miniquad::date::now() as u64);
 
-					let timer = Instant::now();
-
 					maxwell.start(&mut game_board);
-
-					if maxwell.in_opening {
-						println!("Book move");
-					} else {
-						println!("Time in seconds: {}", timer.elapsed().as_secs_f32());
-						println!("Positions searched: {}", maxwell.positions_searched);
-
-						let evaluation = maxwell.evaluation * (if MAXWELL_PLAYING_WHITE.unwrap() { 1 } else { -1 });
-
-						if evaluation_is_mate(evaluation) {
-							let sign = if evaluation < 0 { "-" } else { "" };
-							println!("Final evaluation: {}#{}", sign, moves_from_mate(evaluation));
-						} else {
-							println!("Final evaluation: {}", evaluation as f32 * 0.01);
-						}
-					}
-
-					println!("\n");
-
 					maxwell.move_to_play
 				};
 

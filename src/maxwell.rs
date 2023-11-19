@@ -1,3 +1,5 @@
+use crate::MAXWELL_PLAYING_WHITE;
+use std::time::Instant;
 use crate::opening_repertoire::OPENING_REPERTOIRE;
 use macroquad::rand::gen_range;
 use crate::utils::*;
@@ -7,20 +9,38 @@ use crate::piece::*;
 
 pub struct Maxwell {
 	pub move_to_play: u32,
+
+	pub previous_evaluation: i32,
 	pub evaluation: i32,
+
 	pub in_opening: bool,
 
 	pub positions_searched: u128,
+
+	pub previous_best_move_at_depths: Vec<u32>,
+	pub best_move_at_depths: Vec<u32>,
+
+	pub turn_timer: Instant,
+	pub cancelled_search: bool,
 }
 
 impl Maxwell {
 	pub fn new() -> Self {
 		Self {
 			move_to_play: 0,
+
+			previous_evaluation: 0,
 			evaluation: 0,
+
 			in_opening: true,
 
 			positions_searched: 0,
+
+			previous_best_move_at_depths: vec![],
+			best_move_at_depths: vec![],
+
+			cancelled_search: false,
+			turn_timer: Instant::now(),
 		}
 	}
 
@@ -55,7 +75,7 @@ impl Maxwell {
 
 
 
-	pub fn get_sorted_moves(&mut self, board: &mut Board) -> Vec<u32> {
+	pub fn get_sorted_moves(&mut self, board: &mut Board, depth: u16) -> Vec<u32> {
 		let legal_moves = board.get_legal_moves_for_color(board.whites_turn);
 		if legal_moves.is_empty() {
 			return vec![];
@@ -67,8 +87,15 @@ impl Maxwell {
 		let potentially_weak_squares = board.attacked_squares_bitboards[!board.whites_turn as usize] & !board.attacked_squares_bitboards[board.whites_turn as usize];
 
 
+		let mut index_of_previous_best_move = None;
 		for i in 0..num_of_moves {
 			let m = legal_moves[i];
+
+			if Some(&m) == self.previous_best_move_at_depths.get(depth as usize) {
+				index_of_previous_best_move = Some(i);
+				continue;
+			}
+
 			let mut score = 0;
 
 			let move_flag = get_move_flag(m);
@@ -100,20 +127,32 @@ impl Maxwell {
 
 		let mut ordered = vec![0; num_of_moves];
 		for i in 0..num_of_moves {
-			ordered[i] = legal_moves[scores[i].1];
+			if index_of_previous_best_move == Some(i) {
+				ordered[i] = self.previous_best_move_at_depths[depth as usize];
+			} else {
+				ordered[i] = legal_moves[scores[i].1];
+			}
 		}
 
 		ordered
 	}
 
 	pub fn search_moves(&mut self, board: &mut Board, depth_left: u16, depth: u16, mut alpha: i32, beta: i32) -> i32 {
+		if self.turn_timer.elapsed().as_secs_f32() >= 30.0 {
+			self.cancelled_search = true;
+		}
+
+		if self.cancelled_search {
+			return 0;
+		}
+
 		self.positions_searched += 1;
 
 		if board.fifty_move_draw() == 100 {
 			return 0;
 		}
 
-		let legal_moves = self.get_sorted_moves(board);
+		let legal_moves = self.get_sorted_moves(board, depth);
 
 		if legal_moves.is_empty() {
 			if board.king_in_check(board.whites_turn) {
@@ -138,7 +177,7 @@ impl Maxwell {
 			return evaluation;
 		}
 
-		let mut best_move = 0;
+		let mut best_move_this_iteration = 0;
 
 		for m in legal_moves {
 			board.make_move(m);
@@ -152,39 +191,77 @@ impl Maxwell {
 			}
 
 			if eval_after_move > alpha {
-				best_move = m;
+				best_move_this_iteration = m;
 				alpha = eval_after_move;
 			}
 		}
 
-		board.transposition_table.insert(zobrist_key, alpha);
+		if best_move_this_iteration != 0 {
+			self.best_move_at_depths[depth as usize] = best_move_this_iteration;
+		}
 
-		self.move_to_play = best_move;
+		board.transposition_table.insert(zobrist_key, alpha);
 
 		alpha
 	}
 
-	pub fn start(&mut self, board: &mut Board) { // TODO: this needs to be reworked for iterative deepening
-		self.move_to_play = 0;
-		self.positions_searched = 0;
-		self.evaluation = 0;
+	pub fn start(&mut self, board: &mut Board) {
+		self.cancelled_search = false;
 
 
 		if self.in_opening {
 			let opening_move = self.get_opening_move(board);
 			if opening_move != 0 {
 				self.move_to_play = opening_move;
+				println!("Book move\n");
 				return;
 			}
 		}
 
 
+		self.turn_timer = Instant::now();
+		let mut depth = 1;
+		loop {
+			self.move_to_play = 0;
 
-		board.transposition_table.clear(); // ?
+			self.previous_evaluation = self.evaluation;
+			self.evaluation = 0;
 
-		// for depth in 1..=8 {
-			// println!("Searching depth {}", depth);
-			self.evaluation = self.search_moves(board, 6, 0, -i32::MAX, i32::MAX);
-		// }
+			self.positions_searched = 0;
+
+			self.previous_best_move_at_depths = self.best_move_at_depths.clone();
+			self.best_move_at_depths = vec![0; depth];
+
+			println!("Searching depth {}...", depth);
+			board.transposition_table.clear(); // ?
+
+			self.evaluation = self.search_moves(board, depth as u16, 0, -i32::MAX, i32::MAX);
+
+
+			if self.cancelled_search {
+				println!("Search cancelled\n");
+
+				self.evaluation = self.previous_evaluation;
+				self.best_move_at_depths = self.previous_best_move_at_depths.clone();
+				break;
+			} else {
+				println!("Time since start of turn: {}", self.turn_timer.elapsed().as_secs_f32());
+				println!("Positions searched: {}", self.positions_searched);
+
+				let evaluation = self.evaluation * (if MAXWELL_PLAYING_WHITE.unwrap() { 1 } else { -1 });
+
+				if evaluation_is_mate(evaluation) {
+					let sign = if evaluation < 0 { "-" } else { "" };
+					println!("Final evaluation: {}#{}", sign, moves_from_mate(evaluation));
+				} else {
+					println!("Final evaluation: {}", evaluation as f32 * 0.01);
+				}
+			}
+
+			println!("\n");
+			depth += 1;
+		}
+
+		self.move_to_play = self.best_move_at_depths[0];
 	}
 }
