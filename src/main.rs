@@ -1,5 +1,4 @@
 /* TODO
-opening book
 iterative deepening
 searching all captures after the depth is reached
 detect endgames, and change king heatmaps accordingly
@@ -16,6 +15,7 @@ evaluate pawn structures (including isolated and passed pawns)
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 
+mod opening_repertoire;
 mod resources;
 mod precomputed_data;
 mod heatmaps;
@@ -31,14 +31,14 @@ use crate::piece::*;
 use crate::utils::*;
 use crate::board::Board;
 use std::time::{Instant, Duration};
-use macroquad::prelude::*;
+use macroquad::{prelude::*, rand::srand};
 use crate::resources::Resources;
 
 pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN: &'static str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
+pub const TESTING_FEN: &'static str = "1r2k1r1/pbppnp1p/1b3P2/8/Q7/B1PB1q2/P4PPP/3R2K1 w - - 0 1";
 
 pub const MAXWELL_PLAYING_WHITE: Option<bool> = Some(false);
 
@@ -94,28 +94,39 @@ async fn main() {
 	let mut looking_back = false;
 
 
+	let mut maxwell = Maxwell::new(true);
+
 
 	loop {
+		// if is_key_pressed(KeyCode::Space) {
+		// 	println!("{}", viewing_board.current_zobrist_key());
+		// }
+
 		let mut made_move = false;
 
 		if game_over_state == GameOverState::None {
 			if Some(game_board.whites_turn) == MAXWELL_PLAYING_WHITE {
 				let move_to_play = {
+					srand(miniquad::date::now() as u64);
+
 					let timer = Instant::now();
 
-					let mut maxwell = Maxwell::new(&mut game_board);
-					let mut evaluation = maxwell.start_search(6);
+					let mut evaluation = maxwell.start(&mut game_board);
 
-					println!("Time in seconds: {}", timer.elapsed().as_secs_f32());
-					println!("Positions searched: {}", maxwell.positions_searched);
-
-					evaluation *= if MAXWELL_PLAYING_WHITE.unwrap() { 1 } else { -1 };
-
-					if evaluation_is_mate(evaluation) {
-						let sign = if evaluation < 0 { "-" } else { "" };
-						println!("Final evaluation: {}#{}", sign, moves_from_mate(evaluation));
+					if maxwell.in_opening {
+						println!("Book move");
 					} else {
-						println!("Final evaluation: {}", evaluation as f32 * 0.01);
+						println!("Time in seconds: {}", timer.elapsed().as_secs_f32());
+						println!("Positions searched: {}", maxwell.positions_searched);
+
+						evaluation *= if MAXWELL_PLAYING_WHITE.unwrap() { 1 } else { -1 };
+
+						if evaluation_is_mate(evaluation) {
+							let sign = if evaluation < 0 { "-" } else { "" };
+							println!("Final evaluation: {}#{}", sign, moves_from_mate(evaluation));
+						} else {
+							println!("Final evaluation: {}", evaluation as f32 * 0.01);
+						}
 					}
 
 					println!("\n");
@@ -262,60 +273,62 @@ async fn main() {
 		// 	}
 		// }
 
-		match game_over_state {
-			GameOverState::None => {}
+		if !looking_back {
+			match game_over_state {
+				GameOverState::None => {}
 
-			GameOverState::WhiteWins => {
+				GameOverState::WhiteWins => {
+					draw_text_ex(
+						"White Wins!",
+						32.0,
+						240.0,
+						TextParams {
+							font_size: 96,
+							color: GOLD,
+							..Default::default()
+						},
+					);
+				}
+
+				GameOverState::Draw => {
+					draw_text_ex(
+						"Draw",
+						32.0,
+						240.0,
+						TextParams {
+							font_size: 96,
+							color: GOLD,
+							..Default::default()
+						},
+					);
+				}
+
+				GameOverState::BlackWins => {
+					draw_text_ex(
+						"Black Wins!",
+						32.0,
+						240.0,
+						TextParams {
+							font_size: 96,
+							color: GOLD,
+							..Default::default()
+						},
+					);
+				}
+			}
+
+			if game_over_state != GameOverState::None {
 				draw_text_ex(
-					"White Wins!",
+					"Press Enter to reset...",
 					32.0,
-					240.0,
+					320.0,
 					TextParams {
-						font_size: 96,
+						font_size: 48,
 						color: GOLD,
 						..Default::default()
 					},
 				);
 			}
-
-			GameOverState::Draw => {
-				draw_text_ex(
-					"Draw",
-					32.0,
-					240.0,
-					TextParams {
-						font_size: 96,
-						color: GOLD,
-						..Default::default()
-					},
-				);
-			}
-
-			GameOverState::BlackWins => {
-				draw_text_ex(
-					"Black Wins!",
-					32.0,
-					240.0,
-					TextParams {
-						font_size: 96,
-						color: GOLD,
-						..Default::default()
-					},
-				);
-			}
-		}
-
-		if game_over_state != GameOverState::None {
-			draw_text_ex(
-				"Press Enter to reset...",
-				32.0,
-				320.0,
-				TextParams {
-					font_size: 48,
-					color: GOLD,
-					..Default::default()
-				},
-			);
 		}
 
 		next_frame().await

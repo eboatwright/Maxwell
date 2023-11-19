@@ -5,12 +5,6 @@ use crate::precomputed_data::*;
 use crate::utils::*;
 use crate::piece::*;
 
-#[derive(Copy, Clone)]
-pub struct TranspositionData {
-	pub depth: u16,
-	pub evaluation: i32,
-}
-
 #[derive(Clone)]
 pub struct Board {
 	pub precomputed_data: PrecomputedData,
@@ -30,7 +24,8 @@ pub struct Board {
 	pub moves: Vec<u32>,
 
 	pub zobrist: Zobrist,
-	pub transposition_table: HashMap<u64, TranspositionData>,
+	pub transposition_table: HashMap<u64, i32>,
+	pub evaluation_cache: HashMap<u64, i32>,
 }
 
 impl Board {
@@ -120,6 +115,7 @@ impl Board {
 
 			zobrist: Zobrist::generate(),
 			transposition_table: HashMap::new(),
+			evaluation_cache: HashMap::new(),
 		};
 
 

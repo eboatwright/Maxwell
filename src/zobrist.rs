@@ -3,7 +3,7 @@ use crate::Board;
 use crate::PIECES_IN_ORDER;
 use macroquad::rand::{srand, gen_range};
 
-pub const RAND_SEED: u64 = 8022993167;
+pub const RAND_SEED: u64 = 3141592653589793238;
 
 #[derive(Clone)]
 pub struct Zobrist {
@@ -16,6 +16,7 @@ pub struct Zobrist {
 impl Zobrist {
 	pub fn generate() -> Self {
 		srand(RAND_SEED);
+
 
 		let mut pieces = [[[0; 64]; 6]; 2];
 		for color in 0..2 {
@@ -35,6 +36,7 @@ impl Zobrist {
 		for i in 1..9 {
 			en_passant[i] = gen_range(0, u64::MAX);
 		}
+
 
 		Self {
 			pieces,
