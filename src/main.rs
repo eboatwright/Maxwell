@@ -1,6 +1,7 @@
 /* TODO
 searching all captures after the depth is reached
 detect endgames, and change king heatmaps accordingly
+evaluate king safety
 
 3 fold repetition
 draw by insufficient material

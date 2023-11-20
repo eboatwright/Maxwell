@@ -220,7 +220,7 @@ impl Maxwell {
 
 
 		self.turn_timer = Instant::now();
-		let mut depth = 1;
+		let mut depth = 2;
 		loop {
 			self.move_to_play = 0;
 
@@ -239,7 +239,7 @@ impl Maxwell {
 
 
 			if self.cancelled_search {
-				println!("Search cancelled\n");
+				println!("Search cancelled\n\n\n");
 
 				self.evaluation = self.previous_evaluation;
 				self.best_move_at_depths = self.previous_best_move_at_depths.clone();
@@ -259,7 +259,7 @@ impl Maxwell {
 			}
 
 			println!("\n");
-			depth += 1;
+			depth += 2;
 		}
 
 		self.move_to_play = self.best_move_at_depths[0];

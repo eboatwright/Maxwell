@@ -267,7 +267,8 @@ impl Board {
 		for i in 0..64 {
 			if self.board[i] != 0
 			&& is_white(self.board[i]) == white_pieces {
-				result.append(&mut self.get_legal_moves_for_piece(i));
+				// result.append(&mut self.get_legal_moves_for_piece(i));
+				result = [result, self.get_legal_moves_for_piece(i)].concat();
 			}
 		}
 
