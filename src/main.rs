@@ -39,8 +39,6 @@ pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const TESTING_FEN: &'static str = "8/k7/8/8/8/8/8/K7 w - - 94 1";
 
-pub const MAXWELL_PLAYING_WHITE: Option<bool> = Some(false);
-
 #[derive(PartialEq)]
 pub enum GameOverState {
 	None,
@@ -169,7 +167,7 @@ async fn main() {
 				game_board = Board::from_fen(STARTING_FEN);
 				viewing_board = game_board.clone();
 				looking_back = false;
-				maxwell.in_opening = true;
+				maxwell = Maxwell::new();
 
 				game_over_state = GameOverState::None;
 			}

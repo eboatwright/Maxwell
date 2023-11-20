@@ -5,6 +5,13 @@ use crate::precomputed_data::*;
 use crate::utils::*;
 use crate::piece::*;
 
+#[derive(Copy, Clone)]
+pub struct TranspositionData {
+	pub depth: u16,
+	pub evaluation: i32,
+	pub best_move: u32,
+}
+
 #[derive(Clone)]
 pub struct Board {
 	pub precomputed_data: PrecomputedData,
@@ -23,8 +30,7 @@ pub struct Board {
 	pub moves: Vec<u32>,
 
 	pub zobrist: Zobrist,
-	pub transposition_table: HashMap<u64, i32>,
-	pub evaluation_cache: HashMap<u64, i32>,
+	pub transposition_table: HashMap<u64, TranspositionData>,
 }
 
 impl Board {
@@ -113,7 +119,6 @@ impl Board {
 
 			zobrist: Zobrist::generate(),
 			transposition_table: HashMap::new(),
-			evaluation_cache: HashMap::new(),
 		};
 
 
@@ -840,4 +845,31 @@ impl Board {
 	}
 
 	pub fn current_zobrist_key(&self) -> u64 { self.zobrist_key_history[self.zobrist_key_history.len() - 1] }
+
+
+
+
+
+
+
+	pub fn store_transposition(&mut self, depth: u16, evaluation: i32, best_move: u32) {
+		self.transposition_table.insert(self.current_zobrist_key(),
+			TranspositionData {
+				depth,
+				evaluation,
+				best_move,
+			}
+		);
+	}
+
+	pub fn lookup_transposition(&mut self, depth: u16) -> Option<TranspositionData> {
+		let zobrist_key = self.current_zobrist_key();
+		if let Some(data) = self.transposition_table.get(&zobrist_key) {
+			if data.depth >= depth {
+				return Some(*data);
+			}
+			self.transposition_table.remove(&zobrist_key);
+		}
+		None
+	}
 }

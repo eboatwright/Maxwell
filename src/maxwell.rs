@@ -1,4 +1,3 @@
-use crate::MAXWELL_PLAYING_WHITE;
 use std::time::Instant;
 use crate::opening_repertoire::OPENING_REPERTOIRE;
 use macroquad::rand::gen_range;
@@ -6,6 +5,9 @@ use crate::utils::*;
 use crate::board::*;
 use std::cmp::{max, min};
 use crate::piece::*;
+
+pub const MAXWELL_PLAYING_WHITE: Option<bool> = Some(true);
+pub const MAXWELL_THINKING_TIME: f32 = 30.0;
 
 pub struct Maxwell {
 	pub move_to_play: u32,
@@ -107,11 +109,11 @@ impl Maxwell {
 
 
 			if captured_piece_type != 0 {
-				score += 15 * get_full_piece_worth(captured_piece_type, move_to) - get_full_piece_worth(moved_piece_type, move_from);
+				score += 20 * get_full_piece_worth(captured_piece_type, move_to) - get_full_piece_worth(moved_piece_type, move_from);
 			}
 
 			if potentially_weak_squares & (1 << move_to) != 0 {
-				score -= get_full_piece_worth(moved_piece_type, move_to);
+				score -= get_full_piece_worth(moved_piece_type, move_to) / 4;
 			}
 
 			if board.moves.len() >= 8 // Promotions can't occur early in the game, so don't bother checking if it's still the opening
@@ -138,7 +140,7 @@ impl Maxwell {
 	}
 
 	pub fn search_moves(&mut self, board: &mut Board, depth_left: u16, depth: u16, mut alpha: i32, beta: i32) -> i32 {
-		if self.turn_timer.elapsed().as_secs_f32() >= 30.0 {
+		if self.turn_timer.elapsed().as_secs_f32() >= MAXWELL_THINKING_TIME {
 			self.cancelled_search = true;
 		}
 
@@ -162,19 +164,16 @@ impl Maxwell {
 			return 0;
 		}
 
-		let zobrist_key = board.current_zobrist_key();
-		if let Some(evaluation) = board.transposition_table.get(&zobrist_key) {
+		if let Some(data) = board.lookup_transposition(depth_left) {
 			self.positions_searched -= 1;
-			return *evaluation;
+
+			self.best_move_at_depths[depth as usize - 1] = data.best_move;
+
+			return data.evaluation;
 		}
 
 		if depth_left == 0 {
-			if let Some(evaluation) = board.evaluation_cache.get(&zobrist_key) {
-				return *evaluation;
-			}
-			let evaluation = board.evaluate();
-			board.evaluation_cache.insert(zobrist_key, evaluation);
-			return evaluation;
+			return board.evaluate();
 		}
 
 		let mut best_move_this_iteration = 0;
@@ -200,7 +199,7 @@ impl Maxwell {
 			self.best_move_at_depths[depth as usize] = best_move_this_iteration;
 		}
 
-		board.transposition_table.insert(zobrist_key, alpha);
+		board.store_transposition(depth_left, alpha, best_move_this_iteration);
 
 		alpha
 	}
@@ -219,7 +218,11 @@ impl Maxwell {
 		}
 
 
+		board.transposition_table.clear();
+
+
 		self.turn_timer = Instant::now();
+
 		let mut depth = 2;
 		loop {
 			self.move_to_play = 0;
@@ -233,7 +236,6 @@ impl Maxwell {
 			self.best_move_at_depths = vec![0; depth];
 
 			println!("Searching depth {}...", depth);
-			board.transposition_table.clear(); // ?
 
 			self.evaluation = self.search_moves(board, depth as u16, 0, -i32::MAX, i32::MAX);
 
