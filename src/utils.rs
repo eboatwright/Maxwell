@@ -40,10 +40,7 @@ pub fn get_image_index_for_piece(piece: u8) -> usize {
 }
 
 pub fn get_full_piece_worth(piece: u8, mut i: usize) -> i32 {
-	if !is_white(piece) {
-		// let mut p = Point::from_index(i);
-		// p.y = 7 - p.y;
-		// i = (p.x + p.y * 8) as usize;
+	if !is_white(piece) { // This assumes that the heatmap is symmetrical
 		i = 63 - i;
 	}
 
@@ -60,6 +57,11 @@ pub fn get_full_piece_worth(piece: u8, mut i: usize) -> i32 {
 
 	worth
 }
+
+
+
+
+
 
 // If somebody knows a better way to do this please @ me :/
 pub fn index_from_coordinate(coordinate: &'static str) -> Option<usize> {
@@ -84,6 +86,30 @@ pub fn index_from_coordinate(coordinate: &'static str) -> Option<usize> {
 	}
 	Some(full_index)
 }
+
+pub fn coordinate_from_index(index: usize) -> String {
+	format!("{}{}",
+		match index % 8 {
+			0 => 'a',
+			1 => 'b',
+			2 => 'c',
+			3 => 'd',
+			4 => 'e',
+			5 => 'f',
+			6 => 'g',
+			7 => 'h',
+			_ => '?',
+		},
+		8 - (index / 8),
+	)
+}
+
+
+
+
+
+
+
 
 pub fn file_index_from_coordinate(coordinate: &'static str) -> Option<usize> {
 	if coordinate.len() != 2 {

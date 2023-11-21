@@ -6,7 +6,7 @@ use crate::board::*;
 use std::cmp::{max, min};
 use crate::piece::*;
 
-pub const MAXWELL_PLAYING_WHITE: Option<bool> = Some(true);
+pub const MAXWELL_PLAYING_WHITE: Option<bool> = Some(false);
 pub const MAXWELL_THINKING_TIME: f32 = 30.0;
 
 pub struct Maxwell {
@@ -89,36 +89,34 @@ impl Maxwell {
 		let potentially_weak_squares = board.attacked_squares_bitboards[!board.whites_turn as usize] & !board.attacked_squares_bitboards[board.whites_turn as usize];
 
 
-		let mut index_of_previous_best_move = None;
 		for i in 0..num_of_moves {
 			let m = legal_moves[i];
 
-			if Some(&m) == self.previous_best_move_at_depths.get(depth as usize) {
-				index_of_previous_best_move = Some(i);
-				continue;
-			}
-
 			let mut score = 0;
 
-			let move_flag = get_move_flag(m);
-			let move_from = get_move_from(m);
-			let move_to = get_move_to(m);
+			if Some(&m) == self.previous_best_move_at_depths.get(depth as usize) {
+				score = 9999;
+			} else {
+				let move_flag = get_move_flag(m);
+				let move_from = get_move_from(m);
+				let move_to = get_move_to(m);
 
-			let moved_piece_type = board.board[move_from];
-			let captured_piece_type = board.board[move_to];
+				let moved_piece = board.board[move_from];
+				let captured_piece = board.board[move_to];
 
 
-			if captured_piece_type != 0 {
-				score += 20 * get_full_piece_worth(captured_piece_type, move_to) - get_full_piece_worth(moved_piece_type, move_from);
-			}
+				if captured_piece != 0 {
+					score += 20 * get_full_piece_worth(captured_piece, move_to) - get_full_piece_worth(moved_piece, move_from);
+				}
 
-			if potentially_weak_squares & (1 << move_to) != 0 {
-				score -= get_full_piece_worth(moved_piece_type, move_to) / 4;
-			}
+				if potentially_weak_squares & (1 << move_to) != 0 {
+					score -= get_full_piece_worth(moved_piece, move_to) / 4;
+				}
 
-			if board.moves.len() >= 8 // Promotions can't occur early in the game, so don't bother checking if it's still the opening
-			&& PROMOTABLE_PIECES.contains(&move_flag) {
-				score += get_full_piece_worth(move_flag, move_to);
+				if board.moves.len() >= 8 // Promotions can't occur early in the game, so don't bother checking if it's still the opening
+				&& PROMOTABLE_PIECES.contains(&move_flag) {
+					score += get_full_piece_worth(move_flag, move_to);
+				}
 			}
 
 
@@ -129,11 +127,7 @@ impl Maxwell {
 
 		let mut ordered = vec![0; num_of_moves];
 		for i in 0..num_of_moves {
-			if index_of_previous_best_move == Some(i) {
-				ordered[i] = self.previous_best_move_at_depths[depth as usize];
-			} else {
-				ordered[i] = legal_moves[scores[i].1];
-			}
+			ordered[i] = legal_moves[scores[i].1];
 		}
 
 		ordered
@@ -167,7 +161,7 @@ impl Maxwell {
 		if let Some(data) = board.lookup_transposition(depth_left) {
 			self.positions_searched -= 1;
 
-			self.best_move_at_depths[depth as usize - 1] = data.best_move;
+			self.best_move_at_depths[depth as usize] = data.best_move;
 
 			return data.evaluation;
 		}
@@ -185,6 +179,10 @@ impl Maxwell {
 
 			board.undo_last_move();
 
+			if self.cancelled_search {
+				return 0;
+			}
+
 			if eval_after_move >= beta {
 				return beta;
 			}
@@ -197,6 +195,7 @@ impl Maxwell {
 
 		if best_move_this_iteration != 0 {
 			self.best_move_at_depths[depth as usize] = best_move_this_iteration;
+
 		}
 
 		board.store_transposition(depth_left, alpha, best_move_this_iteration);
@@ -205,6 +204,8 @@ impl Maxwell {
 	}
 
 	pub fn start(&mut self, board: &mut Board) {
+		self.move_to_play = 0;
+		self.evaluation = 0;
 		self.cancelled_search = false;
 
 
@@ -218,33 +219,27 @@ impl Maxwell {
 		}
 
 
-		board.transposition_table.clear();
-
-
 		self.turn_timer = Instant::now();
 
 		let mut depth = 2;
 		loop {
-			self.move_to_play = 0;
-
 			self.previous_evaluation = self.evaluation;
-			self.evaluation = 0;
-
 			self.positions_searched = 0;
 
 			self.previous_best_move_at_depths = self.best_move_at_depths.clone();
-			self.best_move_at_depths = vec![0; depth];
+			self.best_move_at_depths = vec![0; depth + 1];
 
 			println!("Searching depth {}...", depth);
 
-			self.evaluation = self.search_moves(board, depth as u16, 0, -i32::MAX, i32::MAX);
+			let evaluation_this_iteration = self.search_moves(board, depth as u16, 0, -i32::MAX, i32::MAX);
+			if self.best_move_at_depths[0] != 0 {
+				self.move_to_play = self.best_move_at_depths[0];
+				self.evaluation = evaluation_this_iteration;
+			}
 
 
 			if self.cancelled_search {
 				println!("Search cancelled\n\n\n");
-
-				self.evaluation = self.previous_evaluation;
-				self.best_move_at_depths = self.previous_best_move_at_depths.clone();
 				break;
 			} else {
 				println!("Time since start of turn: {}", self.turn_timer.elapsed().as_secs_f32());
@@ -264,6 +259,14 @@ impl Maxwell {
 			depth += 2;
 		}
 
-		self.move_to_play = self.best_move_at_depths[0];
+
+		if self.move_to_play == 0 {
+			self.move_to_play = board.get_legal_moves_for_color(MAXWELL_PLAYING_WHITE.unwrap())[0];
+			println!("Could not search in time, defaulting to first legal move :(\n\n\n");
+		}
+
+
+		let size: usize = board.transposition_table.capacity() * (std::mem::size_of::<u64>() + std::mem::size_of::<TranspositionData>());
+		println!("Transposition table size: {} MB\n\n\n", size as f32 / 1_000_000.0);
 	}
 }

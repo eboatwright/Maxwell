@@ -5,6 +5,8 @@ use crate::precomputed_data::*;
 use crate::utils::*;
 use crate::piece::*;
 
+pub const MAX_TRANSPOSITION_TABLE_SIZE: u64 = 3355440; // This is roughly 64 MB
+
 #[derive(Copy, Clone)]
 pub struct TranspositionData {
 	pub depth: u16,
@@ -845,8 +847,6 @@ impl Board {
 	}
 
 	pub fn current_zobrist_key(&self) -> u64 { self.zobrist_key_history[self.zobrist_key_history.len() - 1] }
-
-
 
 
 

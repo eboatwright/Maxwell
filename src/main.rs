@@ -2,6 +2,7 @@
 searching all captures after the depth is reached
 detect endgames, and change king heatmaps accordingly
 evaluate king safety
+limit size of transposition table
 
 3 fold repetition
 draw by insufficient material
@@ -28,7 +29,7 @@ use crate::maxwell::*;
 use std::thread;
 use crate::piece::*;
 use crate::utils::*;
-use crate::board::Board;
+use crate::board::*;
 use std::time::{Instant, Duration};
 use macroquad::{prelude::*, rand::srand};
 use crate::resources::Resources;
@@ -37,7 +38,7 @@ pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN: &'static str = "8/k7/8/8/8/8/8/K7 w - - 94 1";
+pub const TESTING_FEN: &'static str = "8/4B3/1kb2r1p/3p1p2/2p1nP2/2P4P/6P1/R3R1K1 b - - 1 37";
 
 #[derive(PartialEq)]
 pub enum GameOverState {
@@ -315,7 +316,11 @@ async fn main() {
 }
 
 fn render_board(resources: &Resources, board: &Board, looking_back: bool, piece_dragging: Option<usize>) {
-	draw_texture(&resources.board_tex, 0.0, 0.0, macroquad::prelude::WHITE);
+	draw_texture(
+		&resources.board_tex,
+		0.0, 0.0,
+		macroquad::prelude::WHITE,
+	);
 	if looking_back {
 		draw_rectangle(
 			0.0, 0.0,
