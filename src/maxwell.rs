@@ -219,6 +219,9 @@ impl Maxwell {
 		}
 
 
+		board.transposition_table.clear();
+
+
 		self.turn_timer = Instant::now();
 
 		let mut depth = 2;
@@ -266,7 +269,14 @@ impl Maxwell {
 		}
 
 
-		let size: usize = board.transposition_table.capacity() * (std::mem::size_of::<u64>() + std::mem::size_of::<TranspositionData>());
-		println!("Transposition table size: {} MB\n\n\n", size as f32 / 1_000_000.0);
+		// let size: usize = board.transposition_table.capacity() * (std::mem::size_of::<u64>() + std::mem::size_of::<TranspositionData>());
+		// println!("Transposition table size before filter: {} MB\n", size as f32 / 1_000_000.0);
+
+		// let timer = Instant::now();
+		// board.filter_transposition_table();
+		// println!("Time to filter transposition table: {} secs\n", timer.elapsed().as_secs_f32());
+
+		// let size: usize = board.transposition_table.capacity() * (std::mem::size_of::<u64>() + std::mem::size_of::<TranspositionData>());
+		// println!("Transposition table size after filter: {} MB\n\n\n", size as f32 / 1_000_000.0);
 	}
 }

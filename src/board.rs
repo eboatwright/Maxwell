@@ -5,10 +5,9 @@ use crate::precomputed_data::*;
 use crate::utils::*;
 use crate::piece::*;
 
-pub const MAX_TRANSPOSITION_TABLE_SIZE: u64 = 3355440; // This is roughly 64 MB
-
 #[derive(Copy, Clone)]
 pub struct TranspositionData {
+	// pub overall_move_index: usize,
 	pub depth: u16,
 	pub evaluation: i32,
 	pub best_move: u32,
@@ -855,6 +854,7 @@ impl Board {
 	pub fn store_transposition(&mut self, depth: u16, evaluation: i32, best_move: u32) {
 		self.transposition_table.insert(self.current_zobrist_key(),
 			TranspositionData {
+				// overall_move_index: self.moves.len(),
 				depth,
 				evaluation,
 				best_move,
@@ -872,4 +872,8 @@ impl Board {
 		}
 		None
 	}
+
+	// pub fn filter_transposition_table(&mut self) {
+	// 	self.transposition_table.retain(|_, v| v.overall_move_index > self.moves.len());
+	// }
 }

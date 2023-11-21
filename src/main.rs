@@ -2,7 +2,6 @@
 searching all captures after the depth is reached
 detect endgames, and change king heatmaps accordingly
 evaluate king safety
-limit size of transposition table
 
 3 fold repetition
 draw by insufficient material
