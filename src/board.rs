@@ -5,6 +5,14 @@ use crate::precomputed_data::*;
 use crate::utils::*;
 use crate::piece::*;
 
+#[derive(Copy, Clone)]
+pub struct TranspositionData {
+	// pub overall_move_index: usize,
+	pub depth: u16,
+	pub evaluation: i32,
+	pub best_move: u32,
+}
+
 #[derive(Clone)]
 pub struct Board {
 	pub precomputed_data: PrecomputedData,
@@ -16,16 +24,14 @@ pub struct Board {
 	pub whites_turn: bool,
 
 	pub en_passant_file: usize,
-	pub moves_without_capture_or_pawn_push: u16,
-	pub fullmove_counter: u16,
 
 	pub zobrist_key_history: Vec<u64>,
 	pub castle_rights_history: Vec<u8>,
+	pub fifty_move_draw_history: Vec<u8>,
 	pub moves: Vec<u32>,
 
 	pub zobrist: Zobrist,
-	pub transposition_table: HashMap<u64, i32>,
-	pub evaluation_cache: HashMap<u64, i32>,
+	pub transposition_table: HashMap<u64, TranspositionData>,
 }
 
 impl Board {
@@ -81,7 +87,7 @@ impl Board {
 		let en_passant_file = file_index_from_coordinate(fen_sections[3]).unwrap_or(0);
 
 
-		let moves_without_capture_or_pawn_push = fen_sections[4].parse::<u16>().expect("Invalid FEN: no 'Halfmove Clock'");
+		let fifty_move_draw = fen_sections[4].parse::<u8>().expect("Invalid FEN: no 'Halfmove Clock'");
 		let fullmove_counter = fen_sections[5].parse::<u16>().expect("Invalid FEN: no 'Fullmove Counter'");
 
 
@@ -106,16 +112,14 @@ impl Board {
 			whites_turn,
 
 			en_passant_file,
-			moves_without_capture_or_pawn_push,
-			fullmove_counter,
 
 			zobrist_key_history: vec![],
 			castle_rights_history: vec![castling_rights],
+			fifty_move_draw_history: vec![fifty_move_draw],
 			moves: vec![],
 
 			zobrist: Zobrist::generate(),
 			transposition_table: HashMap::new(),
-			evaluation_cache: HashMap::new(),
 		};
 
 
@@ -154,6 +158,8 @@ impl Board {
 
 		println!("\n\n");
 	}
+
+	pub fn fifty_move_draw(&self) -> u8 { self.fifty_move_draw_history[self.fifty_move_draw_history.len() - 1] }
 
 	pub fn compute_all_piece_bitboards(&mut self) {
 		self.all_piece_bitboards = [
@@ -267,7 +273,8 @@ impl Board {
 		for i in 0..64 {
 			if self.board[i] != 0
 			&& is_white(self.board[i]) == white_pieces {
-				result.append(&mut self.get_legal_moves_for_piece(i));
+				// result.append(&mut self.get_legal_moves_for_piece(i));
+				result = [result, self.get_legal_moves_for_piece(i)].concat();
 			}
 		}
 
@@ -639,10 +646,16 @@ impl Board {
 		self.make_move_on_zobrist_key(piece_move);
 		self.moves.push(piece_move);
 
-		if !self.whites_turn {
-			self.moves_without_capture_or_pawn_push += 1;
-			self.fullmove_counter += 1;
+
+		let mut new_fifty_move_draw = self.fifty_move_draw();
+		if piece_type == PAWN
+		|| capture != 0 {
+			new_fifty_move_draw = 0;
+		} else {
+			new_fifty_move_draw += 1;
 		}
+		self.fifty_move_draw_history.push(new_fifty_move_draw);
+
 
 		self.whites_turn = !self.whites_turn;
 	}
@@ -654,6 +667,7 @@ impl Board {
 
 		self.zobrist_key_history.pop();
 		self.castle_rights_history.pop();
+		self.fifty_move_draw_history.pop();
 		let last_move = self.moves.pop().unwrap();
 
 		let flag = get_move_flag(last_move);
@@ -711,11 +725,6 @@ impl Board {
 
 		self.compute_all_piece_bitboards();
 		self.compute_attacked_squares_bitboards();
-
-		if !self.whites_turn {
-			self.moves_without_capture_or_pawn_push -= 1;
-			self.fullmove_counter -= 1;
-		}
 
 		self.whites_turn = !self.whites_turn;
 	}
@@ -837,4 +846,34 @@ impl Board {
 	}
 
 	pub fn current_zobrist_key(&self) -> u64 { self.zobrist_key_history[self.zobrist_key_history.len() - 1] }
+
+
+
+
+
+	pub fn store_transposition(&mut self, depth: u16, evaluation: i32, best_move: u32) {
+		self.transposition_table.insert(self.current_zobrist_key(),
+			TranspositionData {
+				// overall_move_index: self.moves.len(),
+				depth,
+				evaluation,
+				best_move,
+			}
+		);
+	}
+
+	pub fn lookup_transposition(&mut self, depth: u16) -> Option<TranspositionData> {
+		let zobrist_key = self.current_zobrist_key();
+		if let Some(data) = self.transposition_table.get(&zobrist_key) {
+			if data.depth >= depth {
+				return Some(*data);
+			}
+			self.transposition_table.remove(&zobrist_key);
+		}
+		None
+	}
+
+	// pub fn filter_transposition_table(&mut self) {
+	// 	self.transposition_table.retain(|_, v| v.overall_move_index > self.moves.len());
+	// }
 }

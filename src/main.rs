@@ -1,9 +1,8 @@
 /* TODO
-iterative deepening
 searching all captures after the depth is reached
 detect endgames, and change king heatmaps accordingly
+evaluate king safety
 
-50 move draw
 3 fold repetition
 draw by insufficient material
 
@@ -29,7 +28,7 @@ use crate::maxwell::*;
 use std::thread;
 use crate::piece::*;
 use crate::utils::*;
-use crate::board::Board;
+use crate::board::*;
 use std::time::{Instant, Duration};
 use macroquad::{prelude::*, rand::srand};
 use crate::resources::Resources;
@@ -38,9 +37,7 @@ pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN: &'static str = "1r2k1r1/pbppnp1p/1b3P2/8/Q7/B1PB1q2/P4PPP/3R2K1 w - - 0 1";
-
-pub const MAXWELL_PLAYING_WHITE: Option<bool> = Some(false);
+pub const TESTING_FEN: &'static str = "8/4B3/1kb2r1p/3p1p2/2p1nP2/2P4P/6P1/R3R1K1 b - - 1 37";
 
 #[derive(PartialEq)]
 pub enum GameOverState {
@@ -53,7 +50,7 @@ pub enum GameOverState {
 
 fn window_conf() -> Conf {
 	Conf {
-		window_title: "Maxwell ~ The Chess Engine v2.0".to_string(),
+		window_title: "Maxwell ~ The Chess Engine v2.1".to_string(),
 		window_width: WINDOW_SIZE as i32,
 		window_height: WINDOW_SIZE as i32,
 		window_resizable: false,
@@ -109,28 +106,7 @@ async fn main() {
 				let move_to_play = {
 					srand(miniquad::date::now() as u64);
 
-					let timer = Instant::now();
-
-					let mut evaluation = maxwell.start(&mut game_board);
-
-					if maxwell.in_opening {
-						println!("Book move");
-					} else {
-						println!("Time in seconds: {}", timer.elapsed().as_secs_f32());
-						println!("Positions searched: {}", maxwell.positions_searched);
-
-						evaluation *= if MAXWELL_PLAYING_WHITE.unwrap() { 1 } else { -1 };
-
-						if evaluation_is_mate(evaluation) {
-							let sign = if evaluation < 0 { "-" } else { "" };
-							println!("Final evaluation: {}#{}", sign, moves_from_mate(evaluation));
-						} else {
-							println!("Final evaluation: {}", evaluation as f32 * 0.01);
-						}
-					}
-
-					println!("\n");
-
+					maxwell.start(&mut game_board);
 					maxwell.move_to_play
 				};
 
@@ -172,7 +148,9 @@ async fn main() {
 				viewing_board = game_board.clone();
 				looking_back = false;
 
-				if game_board.get_legal_moves_for_color(game_board.whites_turn).len() == 0 {
+				if game_board.fifty_move_draw() == 100 {
+					game_over_state = GameOverState::Draw;
+				} else if game_board.get_legal_moves_for_color(game_board.whites_turn).len() == 0 {
 					if game_board.king_in_check(game_board.whites_turn) {
 						if game_board.whites_turn {
 							game_over_state = GameOverState::BlackWins;
@@ -189,7 +167,7 @@ async fn main() {
 				game_board = Board::from_fen(STARTING_FEN);
 				viewing_board = game_board.clone();
 				looking_back = false;
-				maxwell.in_opening = true;
+				maxwell = Maxwell::new();
 
 				game_over_state = GameOverState::None;
 			}
@@ -337,7 +315,11 @@ async fn main() {
 }
 
 fn render_board(resources: &Resources, board: &Board, looking_back: bool, piece_dragging: Option<usize>) {
-	draw_texture(&resources.board_tex, 0.0, 0.0, macroquad::prelude::WHITE);
+	draw_texture(
+		&resources.board_tex,
+		0.0, 0.0,
+		macroquad::prelude::WHITE,
+	);
 	if looking_back {
 		draw_rectangle(
 			0.0, 0.0,
