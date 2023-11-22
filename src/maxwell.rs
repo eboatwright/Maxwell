@@ -14,7 +14,7 @@ pub enum MaxwellPlaying {
 	Both,
 }
 
-pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::Both;
+pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::None;
 pub const MAXWELL_THINKING_TIME: f32 = 30.0;
 
 pub struct Maxwell {

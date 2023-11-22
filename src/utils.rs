@@ -134,9 +134,15 @@ pub fn file_index_from_coordinate(coordinate: &'static str) -> Option<usize> {
 // This is only here for Rust borrowing reasons :P
 pub fn mouse_position_vec2() -> Vec2 { mouse_position().into() }
 
-pub fn get_mouse_position_as_index() -> usize {
+pub fn get_mouse_position_as_index(board_flipped: bool) -> usize {
 	let square_mouse = (mouse_position_vec2() / SQUARE_SIZE).floor();
-	(square_mouse.x + square_mouse.y * 8.0) as usize
+	let index = (square_mouse.x + square_mouse.y * 8.0) as usize;
+
+	if board_flipped {
+		63 - index
+	} else {
+		index
+	}
 }
 
 pub fn rank_of_index(index: usize) -> u8 {
