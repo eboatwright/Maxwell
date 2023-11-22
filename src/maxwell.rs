@@ -6,7 +6,15 @@ use crate::board::*;
 use std::cmp::{max, min};
 use crate::piece::*;
 
-pub const MAXWELL_PLAYING_WHITE: Option<bool> = Some(false);
+#[derive(PartialEq)]
+pub enum MaxwellPlaying {
+	None,
+	White,
+	Black,
+	Both,
+}
+
+pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::Both;
 pub const MAXWELL_THINKING_TIME: f32 = 30.0;
 
 pub struct Maxwell {
@@ -86,6 +94,7 @@ impl Maxwell {
 		let num_of_moves = legal_moves.len();
 		let mut scores = vec![(0, 0); num_of_moves];
 
+		let endgame = board.endgame_multiplier();
 		let potentially_weak_squares = board.attacked_squares_bitboards[!board.whites_turn as usize] & !board.attacked_squares_bitboards[board.whites_turn as usize];
 
 
@@ -106,16 +115,16 @@ impl Maxwell {
 
 
 				if captured_piece != 0 {
-					score += 20 * get_full_piece_worth(captured_piece, move_to) - get_full_piece_worth(moved_piece, move_from);
+					score += 20 * get_full_piece_worth(captured_piece, move_to, endgame) - get_full_piece_worth(moved_piece, move_from, endgame);
 				}
 
 				if potentially_weak_squares & (1 << move_to) != 0 {
-					score -= get_full_piece_worth(moved_piece, move_to) / 4;
+					score -= get_full_piece_worth(moved_piece, move_to, endgame) / 4;
 				}
 
 				if board.moves.len() >= 8 // Promotions can't occur early in the game, so don't bother checking if it's still the opening
 				&& PROMOTABLE_PIECES.contains(&move_flag) {
-					score += get_full_piece_worth(move_flag, move_to);
+					score += get_full_piece_worth(move_flag, move_to, endgame);
 				}
 			}
 
@@ -248,7 +257,7 @@ impl Maxwell {
 				println!("Time since start of turn: {}", self.turn_timer.elapsed().as_secs_f32());
 				println!("Positions searched: {}", self.positions_searched);
 
-				let evaluation = self.evaluation * (if MAXWELL_PLAYING_WHITE.unwrap() { 1 } else { -1 });
+				let evaluation = self.evaluation * (if board.whites_turn { 1 } else { -1 });
 
 				if evaluation_is_mate(evaluation) {
 					let sign = if evaluation < 0 { "-" } else { "" };
@@ -264,7 +273,7 @@ impl Maxwell {
 
 
 		if self.move_to_play == 0 {
-			self.move_to_play = board.get_legal_moves_for_color(MAXWELL_PLAYING_WHITE.unwrap())[0];
+			self.move_to_play = board.get_legal_moves_for_color(board.whites_turn)[0];
 			println!("Could not search in time, defaulting to first legal move :(\n\n\n");
 		}
 

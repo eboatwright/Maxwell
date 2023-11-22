@@ -1,7 +1,7 @@
 /* TODO
 searching all captures after the depth is reached
-detect endgames, and change king heatmaps accordingly
-evaluate king safety
+search extensions
+allow flipping board
 
 3 fold repetition
 draw by insufficient material
@@ -24,6 +24,7 @@ mod utils;
 mod board;
 mod maxwell;
 
+use crate::heatmaps::*;
 use crate::maxwell::*;
 use std::thread;
 use crate::piece::*;
@@ -50,7 +51,7 @@ pub enum GameOverState {
 
 fn window_conf() -> Conf {
 	Conf {
-		window_title: "Maxwell ~ The Chess Engine v2.1".to_string(),
+		window_title: "Maxwell ~ The Chess Engine v2.2".to_string(),
 		window_width: WINDOW_SIZE as i32,
 		window_height: WINDOW_SIZE as i32,
 		window_resizable: false,
@@ -96,13 +97,18 @@ async fn main() {
 
 	loop {
 		// if is_key_pressed(KeyCode::Space) {
-		// 	println!("{}", viewing_board.current_zobrist_key());
+		// 	game_board.undo_last_move();
+		// 	viewing_board.undo_last_move();
 		// }
 
 		let mut made_move = false;
 
 		if game_over_state == GameOverState::None {
-			if Some(game_board.whites_turn) == MAXWELL_PLAYING_WHITE {
+			if (game_board.whites_turn
+			&& MAXWELL_PLAYING == MaxwellPlaying::White)
+			|| (!game_board.whites_turn
+			&& MAXWELL_PLAYING == MaxwellPlaying::Black)
+			|| MAXWELL_PLAYING == MaxwellPlaying::Both {
 				let move_to_play = {
 					srand(miniquad::date::now() as u64);
 
@@ -225,31 +231,28 @@ async fn main() {
 		}
 
 		// for i in 0..64 {
-		// 	if viewing_board.board[i] != 0 {
-		// 		let worth = get_full_piece_worth(viewing_board.board[i], i);
-		// 		let x = (i % 8) as f32 * SQUARE_SIZE;
-		// 		let y = (i / 8) as f32 * SQUARE_SIZE;
+		// 	let x = (i % 8) as f32 * SQUARE_SIZE;
+		// 	let y = (i / 8) as f32 * SQUARE_SIZE;
 
-		// 		draw_rectangle(
-		// 			x,
-		// 			y,
-		// 			SQUARE_SIZE, SQUARE_SIZE,
-		// 			Color {
-		// 				r: 0.0,
-		// 				g: 1.0,
-		// 				b: 0.0,
-		// 				a: 0.5,
-		// 			},
-		// 		);
+		// 	draw_rectangle(
+		// 		x,
+		// 		y,
+		// 		SQUARE_SIZE, SQUARE_SIZE,
+		// 		Color {
+		// 			r: 0.0,
+		// 			g: 1.0,
+		// 			b: 0.0,
+		// 			a: 0.5,
+		// 		},
+		// 	);
 
-		// 		draw_text(
-		// 			&format!("{}", worth),
-		// 			x + 8.0,
-		// 			y + 48.0,
-		// 			32.0,
-		// 			macroquad::prelude::WHITE,
-		// 		);
-		// 	}
+		// 	draw_text(
+		// 		&format!("{}", (KING_MIDDLEGAME_HEATMAP[i] as f32 * (1.0 - viewing_board.endgame_multiplier()) + KING_ENDGAME_HEATMAP[i] as f32 * viewing_board.endgame_multiplier()) as i32),
+		// 		x + 8.0,
+		// 		y + 48.0,
+		// 		32.0,
+		// 		macroquad::prelude::WHITE,
+		// 	);
 		// }
 
 		if !looking_back {

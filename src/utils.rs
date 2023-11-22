@@ -39,18 +39,18 @@ pub fn get_image_index_for_piece(piece: u8) -> usize {
 	}
 }
 
-pub fn get_full_piece_worth(piece: u8, mut i: usize) -> i32 {
+pub fn get_full_piece_worth(piece: u8, mut i: usize, endgame: f32) -> i32 {
 	if !is_white(piece) { // This assumes that the heatmap is symmetrical
 		i = 63 - i;
 	}
 
 	let worth = match get_piece_type(piece) {
-		PAWN => PAWN_WORTH     + PAWN_HEATMAP[i],
+		PAWN => PAWN_WORTH     + (PAWN_MIDDLEGAME_HEATMAP[i] as f32 * (1.0 - endgame) + PAWN_ENDGAME_HEATMAP[i] as f32 * endgame) as i32,
 		KNIGHT => KNIGHT_WORTH + KNIGHT_HEATMAP[i],
 		BISHOP => BISHOP_WORTH + BISHOP_HEATMAP[i],
 		ROOK => ROOK_WORTH     + ROOK_HEATMAP[i],
 		QUEEN => QUEEN_WORTH   + QUEEN_HEATMAP[i],
-		KING => KING_WORTH     + KING_MIDDLEGAME_HEATMAP[i],
+		KING => KING_WORTH     + (KING_MIDDLEGAME_HEATMAP[i] as f32 * (1.0 - endgame) + KING_ENDGAME_HEATMAP[i] as f32 * endgame) as i32,
 
 		_ => 0,
 	};

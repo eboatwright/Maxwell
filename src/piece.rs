@@ -46,6 +46,9 @@ pub const PIECE_WORTH: [i32; 6] = [
 	KING_WORTH,
 ];
 
+// A rook and a bishop for each side
+pub const MAX_ENDGAME_MATERIAL: i32 = ROOK_WORTH * 2 + BISHOP_WORTH * 2;
+
 
 pub fn is_white(piece: u8) -> bool {
 	piece & COLOR_MASK == WHITE
