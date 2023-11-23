@@ -3,7 +3,6 @@ searching all captures after the depth is reached
 search extensions
 
 3 fold repetition
-draw by insufficient material
 
 evaluate pawn structures (including isolated and passed pawns)
 */
@@ -166,6 +165,8 @@ async fn main() {
 					} else {
 						game_over_state = GameOverState::Draw;
 					}
+				} else if !game_board.checkmating_material_on_board() {
+					game_over_state = GameOverState::Draw;
 				}
 			}
 		} else {

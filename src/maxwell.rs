@@ -153,7 +153,7 @@ impl Maxwell {
 
 		self.positions_searched += 1;
 
-		if board.fifty_move_draw() == 100 {
+		if board.fifty_move_draw() == 100 { // 50 moves for each side = 100 total moves :)
 			return 0;
 		}
 
@@ -164,6 +164,10 @@ impl Maxwell {
 				let mate_score = CHECKMATE_EVAL - depth as i32;
 				return -mate_score;
 			}
+			return 0;
+		}
+
+		if !board.checkmating_material_on_board() {
 			return 0;
 		}
 
