@@ -1,6 +1,5 @@
 /* TODO
 searching all captures after the depth is reached
-search extensions
 
 3 fold repetition
 
