@@ -1,9 +1,11 @@
 /* TODO
 searching all captures after the depth is reached
 
-3 fold repetition
-
 evaluate pawn structures (including isolated and passed pawns)
+insentivise pushing the opponent's king to the edge of the board in endgames,
+	and bringing your king closer to the opponent's king if it's trying to checkmate
+
+if you start from a non starting FEN position with en passant on the board, it won't be processed as a legal move
 */
 
 
@@ -152,7 +154,9 @@ async fn main() {
 				viewing_board = game_board.clone();
 				looking_back = false;
 
-				if game_board.fifty_move_draw() == 100 {
+				if game_board.fifty_move_draw() == 100
+				|| !game_board.checkmating_material_on_board()
+				|| *game_board.repetition_table.get(&game_board.current_zobrist_key()).unwrap_or(&0) >= 3 {
 					game_over_state = GameOverState::Draw;
 				} else if game_board.get_legal_moves_for_color(game_board.whites_turn).len() == 0 {
 					if game_board.king_in_check(game_board.whites_turn) {
@@ -164,8 +168,6 @@ async fn main() {
 					} else {
 						game_over_state = GameOverState::Draw;
 					}
-				} else if !game_board.checkmating_material_on_board() {
-					game_over_state = GameOverState::Draw;
 				}
 			}
 		} else {

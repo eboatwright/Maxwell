@@ -32,6 +32,7 @@ pub struct Board {
 
 	pub zobrist: Zobrist,
 	pub transposition_table: HashMap<u64, TranspositionData>,
+	pub repetition_table: HashMap<u64, u8>,
 
 	pub total_material_without_pawns: i32,
 }
@@ -123,6 +124,7 @@ impl Board {
 
 			zobrist: Zobrist::generate(),
 			transposition_table: HashMap::new(),
+			repetition_table: HashMap::new(),
 
 			total_material_without_pawns,
 		};
@@ -143,6 +145,7 @@ impl Board {
 
 
 		final_board.calculate_initial_zobrist_key();
+		final_board.repetition_table.insert(final_board.current_zobrist_key(), 1);
 
 
 		final_board
@@ -668,6 +671,13 @@ impl Board {
 		}
 		self.fifty_move_draw_history.push(new_fifty_move_draw);
 
+		let zobrist = self.current_zobrist_key();
+		if self.repetition_table.contains_key(&zobrist) {
+			*self.repetition_table.get_mut(&zobrist).unwrap() += 1;
+		} else {
+			self.repetition_table.insert(zobrist, 1);
+		}
+
 
 		self.whites_turn = !self.whites_turn;
 	}
@@ -676,6 +686,15 @@ impl Board {
 		if self.moves.len() == 0 {
 			return;
 		}
+
+
+		let zobrist = self.current_zobrist_key();
+		let repetition = self.repetition_table.get_mut(&zobrist).unwrap();
+		*repetition -= 1;
+		if *repetition == 0 {
+			self.repetition_table.remove(&zobrist);
+		}
+
 
 		self.zobrist_key_history.pop();
 		self.castle_rights_history.pop();
@@ -744,6 +763,7 @@ impl Board {
 
 		self.compute_all_piece_bitboards();
 		self.compute_attacked_squares_bitboards();
+
 
 		self.whites_turn = !self.whites_turn;
 	}

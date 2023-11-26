@@ -15,7 +15,7 @@ pub enum MaxwellPlaying {
 }
 
 pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::Both;
-const MAXWELL_THINKING_TIME: f32 = 5.0;
+const MAXWELL_THINKING_TIME: f32 = 1.0;
 const MAX_SEARCH_EXTENSIONS: usize = 16;
 
 pub struct Maxwell {
@@ -123,8 +123,7 @@ impl Maxwell {
 					score -= get_full_piece_worth(moved_piece, move_to, endgame) / 4;
 				}
 
-				if board.moves.len() >= 8 // Promotions can't occur early in the game, so don't bother checking if it's still the opening
-				&& PROMOTABLE_PIECES.contains(&move_flag) {
+				if PROMOTABLE_PIECES.contains(&move_flag) {
 					score += get_full_piece_worth(move_flag, move_to, endgame);
 				}
 			}
@@ -162,7 +161,8 @@ impl Maxwell {
 
 		self.positions_searched += 1;
 
-		if board.fifty_move_draw() == 100 { // 50 moves for each side = 100 total moves :)
+		if board.fifty_move_draw() == 100 // 50 moves for each side = 100 total moves :)
+		|| *board.repetition_table.get(&board.current_zobrist_key()).unwrap_or(&0) >= 3 {
 			return 0;
 		}
 
