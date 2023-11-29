@@ -1,12 +1,11 @@
 /* TODO
 searching all captures after the depth is reached
-detect endgames, and change king heatmaps accordingly
-evaluate king safety
-
-3 fold repetition
-draw by insufficient material
 
 evaluate pawn structures (including isolated and passed pawns)
+insentivise pushing the opponent's king to the edge of the board in endgames,
+	and bringing your king closer to the opponent's king if it's trying to checkmate
+
+if you start from a non starting FEN position with en passant on the board, it won't be processed as a legal move
 */
 
 
@@ -24,6 +23,7 @@ mod utils;
 mod board;
 mod maxwell;
 
+use crate::heatmaps::*;
 use crate::maxwell::*;
 use std::thread;
 use crate::piece::*;
@@ -37,7 +37,7 @@ pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN: &'static str = "8/4B3/1kb2r1p/3p1p2/2p1nP2/2P4P/6P1/R3R1K1 b - - 1 37";
+pub const TESTING_FEN: &'static str = "1k2r2r/ppp2p1p/3p1np1/1q1p4/3P1b2/1PQ2PN1/PBP1P1PP/RN2K2R b KQ - 0 1";
 
 #[derive(PartialEq)]
 pub enum GameOverState {
@@ -50,7 +50,7 @@ pub enum GameOverState {
 
 fn window_conf() -> Conf {
 	Conf {
-		window_title: "Maxwell ~ The Chess Engine v2.1".to_string(),
+		window_title: "Maxwell ~ The Chess Engine v2.2".to_string(),
 		window_width: WINDOW_SIZE as i32,
 		window_height: WINDOW_SIZE as i32,
 		window_resizable: false,
@@ -62,6 +62,7 @@ fn window_conf() -> Conf {
 async fn main() {
 	let resources = Resources::load().await;
 
+	let mut board_flipped = false;
 	let mut game_board = Board::from_fen(STARTING_FEN);
 
 
@@ -96,13 +97,18 @@ async fn main() {
 
 	loop {
 		// if is_key_pressed(KeyCode::Space) {
-		// 	println!("{}", viewing_board.current_zobrist_key());
+		// 	game_board.undo_last_move();
+		// 	viewing_board.undo_last_move();
 		// }
 
 		let mut made_move = false;
 
 		if game_over_state == GameOverState::None {
-			if Some(game_board.whites_turn) == MAXWELL_PLAYING_WHITE {
+			if (game_board.whites_turn
+			&& MAXWELL_PLAYING == MaxwellPlaying::White)
+			|| (!game_board.whites_turn
+			&& MAXWELL_PLAYING == MaxwellPlaying::Black)
+			|| MAXWELL_PLAYING == MaxwellPlaying::Both {
 				let move_to_play = {
 					srand(miniquad::date::now() as u64);
 
@@ -114,7 +120,7 @@ async fn main() {
 				made_move = true;
 			} else if !looking_back {
 				if is_mouse_button_pressed(MouseButton::Left) {
-					let mouse_index = get_mouse_position_as_index();
+					let mouse_index = get_mouse_position_as_index(board_flipped);
 					if game_board.board[mouse_index] != 0
 					&& is_white(game_board.board[mouse_index]) == game_board.whites_turn {
 						piece_dragging = Some(mouse_index);
@@ -123,13 +129,13 @@ async fn main() {
 
 				if is_mouse_button_released(MouseButton::Left) {
 					if let Some(from) = piece_dragging {
-						let to = get_mouse_position_as_index();
+						let to = get_mouse_position_as_index(board_flipped);
 						if from != to {
 							let promotion =
 								if get_piece_type(game_board.board[from]) == PAWN
 								&& (rank_of_index(to) == 1
 								|| rank_of_index(to) == 8) {
-									handle_promotion(&resources, &game_board, from, to).await
+									handle_promotion(&resources, &game_board, from, to, board_flipped).await
 								} else {
 									Some(0)
 								};
@@ -148,7 +154,9 @@ async fn main() {
 				viewing_board = game_board.clone();
 				looking_back = false;
 
-				if game_board.fifty_move_draw() == 100 {
+				if game_board.fifty_move_draw() == 100
+				|| !game_board.checkmating_material_on_board()
+				|| game_board.is_threefold_repetition() {
 					game_over_state = GameOverState::Draw;
 				} else if game_board.get_legal_moves_for_color(game_board.whites_turn).len() == 0 {
 					if game_board.king_in_check(game_board.whites_turn) {
@@ -189,15 +197,24 @@ async fn main() {
 			looking_back = true;
 		}
 
+		if is_key_pressed(KeyCode::F) {
+			board_flipped = !board_flipped;
+		}
+
 
 
 		clear_background(macroquad::prelude::BLACK);
 
-		render_board(&resources, &viewing_board, looking_back, piece_dragging);
+		render_board(&resources, &viewing_board, looking_back, piece_dragging, board_flipped);
 
 		if let Some(piece_dragging) = piece_dragging {
 			for legal_move in viewing_board.get_legal_moves_for_piece(piece_dragging) {
-				let to = get_move_to(legal_move);
+				let mut to = get_move_to(legal_move);
+
+				if board_flipped {
+					to = 63 - to;
+				}
+
 				draw_circle(
 					((to % 8) as f32 + 0.5) * SQUARE_SIZE,
 					((to / 8) as f32 + 0.5) * SQUARE_SIZE,
@@ -225,31 +242,28 @@ async fn main() {
 		}
 
 		// for i in 0..64 {
-		// 	if viewing_board.board[i] != 0 {
-		// 		let worth = get_full_piece_worth(viewing_board.board[i], i);
-		// 		let x = (i % 8) as f32 * SQUARE_SIZE;
-		// 		let y = (i / 8) as f32 * SQUARE_SIZE;
+		// 	let x = (i % 8) as f32 * SQUARE_SIZE;
+		// 	let y = (i / 8) as f32 * SQUARE_SIZE;
 
-		// 		draw_rectangle(
-		// 			x,
-		// 			y,
-		// 			SQUARE_SIZE, SQUARE_SIZE,
-		// 			Color {
-		// 				r: 0.0,
-		// 				g: 1.0,
-		// 				b: 0.0,
-		// 				a: 0.5,
-		// 			},
-		// 		);
+		// 	draw_rectangle(
+		// 		x,
+		// 		y,
+		// 		SQUARE_SIZE, SQUARE_SIZE,
+		// 		Color {
+		// 			r: 0.0,
+		// 			g: 1.0,
+		// 			b: 0.0,
+		// 			a: 0.5,
+		// 		},
+		// 	);
 
-		// 		draw_text(
-		// 			&format!("{}", worth),
-		// 			x + 8.0,
-		// 			y + 48.0,
-		// 			32.0,
-		// 			macroquad::prelude::WHITE,
-		// 		);
-		// 	}
+		// 	draw_text(
+		// 		&format!("{}", (KING_MIDDLEGAME_HEATMAP[i] as f32 * (1.0 - viewing_board.endgame_multiplier()) + KING_ENDGAME_HEATMAP[i] as f32 * viewing_board.endgame_multiplier()) as i32),
+		// 		x + 8.0,
+		// 		y + 48.0,
+		// 		32.0,
+		// 		macroquad::prelude::WHITE,
+		// 	);
 		// }
 
 		if !looking_back {
@@ -314,12 +328,13 @@ async fn main() {
 	}
 }
 
-fn render_board(resources: &Resources, board: &Board, looking_back: bool, piece_dragging: Option<usize>) {
+fn render_board(resources: &Resources, board: &Board, looking_back: bool, piece_dragging: Option<usize>, board_flipped: bool) {
 	draw_texture(
 		&resources.board_tex,
 		0.0, 0.0,
 		macroquad::prelude::WHITE,
 	);
+
 	if looking_back {
 		draw_rectangle(
 			0.0, 0.0,
@@ -335,7 +350,12 @@ fn render_board(resources: &Resources, board: &Board, looking_back: bool, piece_
 
 	for y in 0..8 {
 		for x in 0..8 {
-			let index = x + y * 8;
+			let mut index = x + y * 8;
+
+			if board_flipped {
+				index = 63 - index;
+			}
+
 			let piece = get_image_index_for_piece(board.board[index]);
 
 			// if (board.all_piece_bitboards[1] >> index) & 1 == 1 {
@@ -403,12 +423,19 @@ fn render_board(resources: &Resources, board: &Board, looking_back: bool, piece_
 
 
 
-async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: usize, promoting_to: usize) -> Option<u8> {
-	let x = (promoting_to % 8) as f32 * SQUARE_SIZE;
-	let mut y = (promoting_to / 8) as f32 * SQUARE_SIZE;
-	let pawn_is_white = y == 0.0;
+async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: usize, promoting_to: usize, board_flipped: bool) -> Option<u8> {
+	let render_index = if board_flipped {
+		63 - promoting_to
+	} else {
+		promoting_to
+	};
 
-	y -= if pawn_is_white { 0.0 } else { 3.0 * SQUARE_SIZE };
+	let x = (render_index % 8) as f32 * SQUARE_SIZE;
+	let mut y = (render_index / 8) as f32 * SQUARE_SIZE;
+	let render_on_top = y == 0.0;
+	let pawn_is_white = promoting_to / 8 == 0;
+
+	y -= if render_on_top { 0.0 } else { 3.0 * SQUARE_SIZE };
 
 	loop {
 		if is_mouse_button_pressed(MouseButton::Left) {
@@ -421,7 +448,7 @@ async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: 
 			};
 
 			for i in 1..=4 {
-				let j = if pawn_is_white { 4 - i } else { i - 1 };
+				let j = if render_on_top { 4 - i } else { i - 1 };
 
 				if mouse_rect.overlaps(&Rect {
 					x: x,
@@ -438,7 +465,7 @@ async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: 
 
 		clear_background(macroquad::prelude::BLACK);
 
-		render_board(resources, board, false, Some(promoting_from));
+		render_board(resources, board, false, Some(promoting_from), board_flipped);
 
 		draw_rectangle(
 			x,
@@ -454,7 +481,7 @@ async fn handle_promotion(resources: &Resources, board: &Board, promoting_from: 
 		);
 
 		for i in 1..=4 {
-			let j = if pawn_is_white { 4 - i } else { i - 1 };
+			let j = if render_on_top { 4 - i } else { i - 1 };
 
 			draw_texture_ex(
 				&resources.pieces_tex,

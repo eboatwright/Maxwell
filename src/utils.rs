@@ -39,18 +39,18 @@ pub fn get_image_index_for_piece(piece: u8) -> usize {
 	}
 }
 
-pub fn get_full_piece_worth(piece: u8, mut i: usize) -> i32 {
+pub fn get_full_piece_worth(piece: u8, mut i: usize, endgame: f32) -> i32 {
 	if !is_white(piece) { // This assumes that the heatmap is symmetrical
 		i = 63 - i;
 	}
 
 	let worth = match get_piece_type(piece) {
-		PAWN => PAWN_WORTH     + PAWN_HEATMAP[i],
+		PAWN => PAWN_WORTH     + (PAWN_MIDDLEGAME_HEATMAP[i] as f32 * (1.0 - endgame) + PAWN_ENDGAME_HEATMAP[i] as f32 * endgame) as i32,
 		KNIGHT => KNIGHT_WORTH + KNIGHT_HEATMAP[i],
 		BISHOP => BISHOP_WORTH + BISHOP_HEATMAP[i],
 		ROOK => ROOK_WORTH     + ROOK_HEATMAP[i],
 		QUEEN => QUEEN_WORTH   + QUEEN_HEATMAP[i],
-		KING => KING_WORTH     + KING_MIDDLEGAME_HEATMAP[i],
+		KING => KING_WORTH     + (KING_MIDDLEGAME_HEATMAP[i] as f32 * (1.0 - endgame) + KING_ENDGAME_HEATMAP[i] as f32 * endgame) as i32,
 
 		_ => 0,
 	};
@@ -134,9 +134,15 @@ pub fn file_index_from_coordinate(coordinate: &'static str) -> Option<usize> {
 // This is only here for Rust borrowing reasons :P
 pub fn mouse_position_vec2() -> Vec2 { mouse_position().into() }
 
-pub fn get_mouse_position_as_index() -> usize {
+pub fn get_mouse_position_as_index(board_flipped: bool) -> usize {
 	let square_mouse = (mouse_position_vec2() / SQUARE_SIZE).floor();
-	(square_mouse.x + square_mouse.y * 8.0) as usize
+	let index = (square_mouse.x + square_mouse.y * 8.0) as usize;
+
+	if board_flipped {
+		63 - index
+	} else {
+		index
+	}
 }
 
 pub fn rank_of_index(index: usize) -> u8 {

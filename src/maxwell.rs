@@ -6,8 +6,17 @@ use crate::board::*;
 use std::cmp::{max, min};
 use crate::piece::*;
 
-pub const MAXWELL_PLAYING_WHITE: Option<bool> = Some(false);
-pub const MAXWELL_THINKING_TIME: f32 = 30.0;
+#[derive(PartialEq)]
+pub enum MaxwellPlaying {
+	None,
+	White,
+	Black,
+	Both,
+}
+
+pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::Black;
+const MAXWELL_THINKING_TIME: f32 = 30.0;
+const MAX_SEARCH_EXTENSIONS: usize = 16;
 
 pub struct Maxwell {
 	pub move_to_play: u32,
@@ -86,6 +95,7 @@ impl Maxwell {
 		let num_of_moves = legal_moves.len();
 		let mut scores = vec![(0, 0); num_of_moves];
 
+		let endgame = board.endgame_multiplier();
 		let potentially_weak_squares = board.attacked_squares_bitboards[!board.whites_turn as usize] & !board.attacked_squares_bitboards[board.whites_turn as usize];
 
 
@@ -106,16 +116,15 @@ impl Maxwell {
 
 
 				if captured_piece != 0 {
-					score += 20 * get_full_piece_worth(captured_piece, move_to) - get_full_piece_worth(moved_piece, move_from);
+					score += 20 * get_full_piece_worth(captured_piece, move_to, endgame) - get_full_piece_worth(moved_piece, move_from, endgame);
 				}
 
 				if potentially_weak_squares & (1 << move_to) != 0 {
-					score -= get_full_piece_worth(moved_piece, move_to) / 4;
+					score -= get_full_piece_worth(moved_piece, move_to, endgame) / 4;
 				}
 
-				if board.moves.len() >= 8 // Promotions can't occur early in the game, so don't bother checking if it's still the opening
-				&& PROMOTABLE_PIECES.contains(&move_flag) {
-					score += get_full_piece_worth(move_flag, move_to);
+				if PROMOTABLE_PIECES.contains(&move_flag) {
+					score += get_full_piece_worth(move_flag, move_to, endgame);
 				}
 			}
 
@@ -133,7 +142,66 @@ impl Maxwell {
 		ordered
 	}
 
-	pub fn search_moves(&mut self, board: &mut Board, depth_left: u16, depth: u16, mut alpha: i32, beta: i32) -> i32 {
+
+	pub fn search_only_captures(&mut self, board: &mut Board, mut alpha: i32, beta: i32) -> i32 {
+		if self.turn_timer.elapsed().as_secs_f32() >= MAXWELL_THINKING_TIME {
+			self.cancelled_search = true;
+		}
+
+		if self.cancelled_search {
+			return 0;
+		}
+
+
+		self.positions_searched += 1;
+
+
+		if !board.checkmating_material_on_board() {
+			return 0;
+		}
+
+
+		let evaluation = board.evaluate();
+		if evaluation >= beta {
+			return beta;
+		}
+
+		if evaluation > alpha {
+			alpha = evaluation;
+		}
+
+
+		let legal_moves = board.get_legal_captures_for_color(board.whites_turn);
+
+		for m in legal_moves {
+			board.make_move(m);
+
+			let eval_after_move = -self.search_only_captures(board, -beta, -alpha);
+
+			board.undo_last_move();
+
+			if eval_after_move >= beta {
+				return beta;
+			}
+
+			if eval_after_move > alpha {
+				alpha = eval_after_move;
+			}
+		}
+
+		return alpha;
+	}
+
+
+	pub fn search_moves(
+		&mut self,
+		board: &mut Board,
+		depth_left: u16,
+		depth: u16,
+		number_of_extensions: u16,
+		mut alpha: i32,
+		beta: i32,
+	) -> i32 {
 		if self.turn_timer.elapsed().as_secs_f32() >= MAXWELL_THINKING_TIME {
 			self.cancelled_search = true;
 		}
@@ -144,7 +212,9 @@ impl Maxwell {
 
 		self.positions_searched += 1;
 
-		if board.fifty_move_draw() == 100 {
+		if board.fifty_move_draw() == 100
+		|| board.is_threefold_repetition()
+		|| !board.checkmating_material_on_board() {
 			return 0;
 		}
 
@@ -167,7 +237,7 @@ impl Maxwell {
 		}
 
 		if depth_left == 0 {
-			return board.evaluate();
+			return self.search_only_captures(board, alpha, beta);
 		}
 
 		let mut best_move_this_iteration = 0;
@@ -175,7 +245,20 @@ impl Maxwell {
 		for m in legal_moves {
 			board.make_move(m);
 
-			let eval_after_move = -self.search_moves(board, depth_left - 1, depth + 1, -beta, -alpha);
+			let mut search_extension = 0;
+			if number_of_extensions < MAX_SEARCH_EXTENSIONS as u16 {
+				if board.king_in_check(board.whites_turn) {
+					search_extension += 1;
+				} else {
+					let to = get_move_to(m);
+					let rank = to / 8;
+					if get_piece_type(board.board[to]) == PAWN && (to == 1 || to == 7) {
+						search_extension += 1;
+					}
+				}
+			}
+
+			let eval_after_move = -self.search_moves(board, depth_left - 1 + search_extension, depth + 1, number_of_extensions + search_extension, -beta, -alpha);
 
 			board.undo_last_move();
 
@@ -195,7 +278,6 @@ impl Maxwell {
 
 		if best_move_this_iteration != 0 {
 			self.best_move_at_depths[depth as usize] = best_move_this_iteration;
-
 		}
 
 		board.store_transposition(depth_left, alpha, best_move_this_iteration);
@@ -230,11 +312,11 @@ impl Maxwell {
 			self.positions_searched = 0;
 
 			self.previous_best_move_at_depths = self.best_move_at_depths.clone();
-			self.best_move_at_depths = vec![0; depth + 1];
+			self.best_move_at_depths = vec![0; depth + 1 + MAX_SEARCH_EXTENSIONS];
 
 			println!("Searching depth {}...", depth);
 
-			let evaluation_this_iteration = self.search_moves(board, depth as u16, 0, -i32::MAX, i32::MAX);
+			let evaluation_this_iteration = self.search_moves(board, depth as u16, 0, 0, -i32::MAX, i32::MAX);
 			if self.best_move_at_depths[0] != 0 {
 				self.move_to_play = self.best_move_at_depths[0];
 				self.evaluation = evaluation_this_iteration;
@@ -248,7 +330,7 @@ impl Maxwell {
 				println!("Time since start of turn: {}", self.turn_timer.elapsed().as_secs_f32());
 				println!("Positions searched: {}", self.positions_searched);
 
-				let evaluation = self.evaluation * (if MAXWELL_PLAYING_WHITE.unwrap() { 1 } else { -1 });
+				let evaluation = self.evaluation * (if board.whites_turn { 1 } else { -1 });
 
 				if evaluation_is_mate(evaluation) {
 					let sign = if evaluation < 0 { "-" } else { "" };
@@ -264,7 +346,7 @@ impl Maxwell {
 
 
 		if self.move_to_play == 0 {
-			self.move_to_play = board.get_legal_moves_for_color(MAXWELL_PLAYING_WHITE.unwrap())[0];
+			self.move_to_play = board.get_legal_moves_for_color(board.whites_turn)[0];
 			println!("Could not search in time, defaulting to first legal move :(\n\n\n");
 		}
 

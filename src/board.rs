@@ -1,3 +1,4 @@
+use macroquad::prelude::clamp;
 use std::collections::HashMap;
 use crate::zobrist::Zobrist;
 use std::ops::Range;
@@ -7,7 +8,6 @@ use crate::piece::*;
 
 #[derive(Copy, Clone)]
 pub struct TranspositionData {
-	// pub overall_move_index: usize,
 	pub depth: u16,
 	pub evaluation: i32,
 	pub best_move: u32,
@@ -32,6 +32,8 @@ pub struct Board {
 
 	pub zobrist: Zobrist,
 	pub transposition_table: HashMap<u64, TranspositionData>,
+
+	pub total_material_without_pawns: i32,
 }
 
 impl Board {
@@ -47,6 +49,7 @@ impl Board {
 		let pieces = fen_sections[0].chars().collect::<Vec<char>>();
 		let mut board = [0; 64];
 		let mut board_index = 0usize;
+		let mut total_material_without_pawns = 0;
 
 		for i in 0..pieces.len() {
 			if let Ok(number_of_empty_squares) = pieces[i].to_string().parse::<usize>() {
@@ -54,17 +57,17 @@ impl Board {
 			} else {
 				board[board_index] = match pieces[i] {
 					'P' => WHITE | PAWN,
-					'N' => WHITE | KNIGHT,
-					'B' => WHITE | BISHOP,
-					'R' => WHITE | ROOK,
-					'Q' => WHITE | QUEEN,
+					'N' => { total_material_without_pawns += KNIGHT_WORTH; WHITE | KNIGHT },
+					'B' => { total_material_without_pawns += BISHOP_WORTH; WHITE | BISHOP },
+					'R' => { total_material_without_pawns += ROOK_WORTH; WHITE | ROOK },
+					'Q' => { total_material_without_pawns += QUEEN_WORTH; WHITE | QUEEN },
 					'K' => WHITE | KING,
 
 					'p' => BLACK | PAWN,
-					'n' => BLACK | KNIGHT,
-					'b' => BLACK | BISHOP,
-					'r' => BLACK | ROOK,
-					'q' => BLACK | QUEEN,
+					'n' => { total_material_without_pawns += KNIGHT_WORTH; BLACK | KNIGHT },
+					'b' => { total_material_without_pawns += BISHOP_WORTH; BLACK | BISHOP },
+					'r' => { total_material_without_pawns += ROOK_WORTH; BLACK | ROOK },
+					'q' => { total_material_without_pawns += QUEEN_WORTH; BLACK | QUEEN },
 					'k' => BLACK | KING,
 
 					_ => 0,
@@ -120,6 +123,8 @@ impl Board {
 
 			zobrist: Zobrist::generate(),
 			transposition_table: HashMap::new(),
+
+			total_material_without_pawns,
 		};
 
 
@@ -160,6 +165,19 @@ impl Board {
 	}
 
 	pub fn fifty_move_draw(&self) -> u8 { self.fifty_move_draw_history[self.fifty_move_draw_history.len() - 1] }
+
+	pub fn is_threefold_repetition(&self) -> bool {
+		let current = self.current_zobrist_key();
+		let mut count = 0;
+
+		for zobrist_key in self.zobrist_key_history.iter() {
+			if *zobrist_key == current {
+				count += 1;
+			}
+		}
+
+		return count >= 3;
+	}
 
 	pub fn compute_all_piece_bitboards(&mut self) {
 		self.all_piece_bitboards = [
@@ -265,6 +283,27 @@ impl Board {
 			return 0;
 		}
 		self.moves[self.moves.len() - 1]
+	}
+
+	pub fn get_legal_captures_for_color(&mut self, white_pieces: bool) -> Vec<u32> {
+		let mut result = vec![];
+
+		for i in 0..64 {
+			if self.board[i] != 0
+			&& is_white(self.board[i]) == white_pieces {
+				let mut moves_for_piece = self.get_legal_moves_for_piece(i);
+
+				for i in (0..moves_for_piece.len()).rev() {
+					if get_move_capture(moves_for_piece[i]) == 0 {
+						moves_for_piece.remove(i);
+					}
+				}
+
+				result = [result, moves_for_piece].concat();
+			}
+		}
+
+		result
 	}
 
 	pub fn get_legal_moves_for_color(&mut self, white_pieces: bool) -> Vec<u32> {
@@ -589,6 +628,8 @@ impl Board {
 			self.toggle_bit(piece_is_white, flag, to);
 
 			self.board[to] = (piece_is_white as u8) << 3 | flag;
+
+			self.total_material_without_pawns += PIECE_WORTH[flag as usize - 1];
 		} else {
 			self.toggle_bit(piece_is_white, piece_type, to);
 			self.toggle_bit(piece_is_white, piece_type, from);
@@ -604,7 +645,12 @@ impl Board {
 			self.board[pawn_square] = 0;
 			self.toggle_bit(is_white(capture), get_piece_type(capture), pawn_square);
 		} else if capture != 0 {
-			self.toggle_bit(is_white(capture), get_piece_type(capture), to);
+			let captured_piece_type = get_piece_type(capture);
+			self.toggle_bit(is_white(capture), captured_piece_type, to);
+
+			if captured_piece_type > PAWN {
+				self.total_material_without_pawns -= PIECE_WORTH[captured_piece_type as usize - 1];
+			}
 		}
 
 		if piece_type == KING {
@@ -665,6 +711,10 @@ impl Board {
 			return;
 		}
 
+
+		let zobrist = self.current_zobrist_key();
+
+
 		self.zobrist_key_history.pop();
 		self.castle_rights_history.pop();
 		self.fifty_move_draw_history.pop();
@@ -687,6 +737,8 @@ impl Board {
 			self.toggle_bit(piece_is_white, flag, to);
 
 			self.board[from] = build_piece(piece_is_white, PAWN);
+
+			self.total_material_without_pawns -= PIECE_WORTH[flag as usize - 1];
 		} else {
 			self.toggle_bit(piece_is_white, piece_type, to);
 			self.toggle_bit(piece_is_white, piece_type, from);
@@ -704,7 +756,12 @@ impl Board {
 
 			self.toggle_bit(is_white(capture), get_piece_type(capture), pawn_square);
 		} else if capture != 0 {
-			self.toggle_bit(is_white(capture), get_piece_type(capture), to);
+			let captured_piece_type = get_piece_type(capture);
+			self.toggle_bit(is_white(capture), captured_piece_type, to);
+
+			if captured_piece_type > PAWN {
+				self.total_material_without_pawns += PIECE_WORTH[captured_piece_type as usize - 1];
+			}
 		}
 
 
@@ -726,12 +783,15 @@ impl Board {
 		self.compute_all_piece_bitboards();
 		self.compute_attacked_squares_bitboards();
 
+
 		self.whites_turn = !self.whites_turn;
 	}
 
 
 
 	pub fn evaluate(&self) -> i32 {
+		let endgame = self.endgame_multiplier();
+
 		let mut white_material = 0;
 		let mut black_material = 0;
 
@@ -742,7 +802,7 @@ impl Board {
 			let piece = self.board[i];
 
 			if piece != 0 {
-				let worth = get_full_piece_worth(piece, i);
+				let worth = get_full_piece_worth(piece, i, endgame);
 
 				if is_white(piece) {
 					white_material += worth;
@@ -761,16 +821,15 @@ impl Board {
 		}
 
 		let perspective = if self.whites_turn { 1 } else { -1 };
-		((white_material + white_attacked_squares) - (black_material + black_attacked_squares)) * perspective
+		((white_material + white_attacked_squares * 5) - (black_material + black_attacked_squares * 5)) * perspective
 	}
 
 
-
-
-
-
-
-
+	// Returns a value between 0.0 and 1.0 to reflect whether you're in an endgame or not
+	// the closer to 1.0, the more of an endgame it is
+	pub fn endgame_multiplier(&self) -> f32 {
+		clamp(1.5 - self.total_material_without_pawns as f32 * (0.9 / MAX_ENDGAME_MATERIAL as f32), 0.0, 1.0)
+	}
 
 
 
@@ -854,7 +913,6 @@ impl Board {
 	pub fn store_transposition(&mut self, depth: u16, evaluation: i32, best_move: u32) {
 		self.transposition_table.insert(self.current_zobrist_key(),
 			TranspositionData {
-				// overall_move_index: self.moves.len(),
 				depth,
 				evaluation,
 				best_move,
@@ -873,7 +931,10 @@ impl Board {
 		None
 	}
 
-	// pub fn filter_transposition_table(&mut self) {
-	// 	self.transposition_table.retain(|_, v| v.overall_move_index > self.moves.len());
-	// }
+
+	pub fn checkmating_material_on_board(&self) -> bool {
+		   self.total_material_without_pawns >= ROOK_WORTH
+		|| self.board.contains(&(WHITE | PAWN))
+		|| self.board.contains(&(BLACK | PAWN))
+	}
 }
