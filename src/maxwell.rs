@@ -14,7 +14,7 @@ pub enum MaxwellPlaying {
 	Both,
 }
 
-pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::Both;
+pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::Black;
 const MAXWELL_THINKING_TIME: f32 = 30.0;
 const MAX_SEARCH_EXTENSIONS: usize = 16;
 
@@ -142,6 +142,57 @@ impl Maxwell {
 		ordered
 	}
 
+
+	pub fn search_only_captures(&mut self, board: &mut Board, mut alpha: i32, beta: i32) -> i32 {
+		if self.turn_timer.elapsed().as_secs_f32() >= MAXWELL_THINKING_TIME {
+			self.cancelled_search = true;
+		}
+
+		if self.cancelled_search {
+			return 0;
+		}
+
+
+		self.positions_searched += 1;
+
+
+		if !board.checkmating_material_on_board() {
+			return 0;
+		}
+
+
+		let evaluation = board.evaluate();
+		if evaluation >= beta {
+			return beta;
+		}
+
+		if evaluation > alpha {
+			alpha = evaluation;
+		}
+
+
+		let legal_moves = board.get_legal_captures_for_color(board.whites_turn);
+
+		for m in legal_moves {
+			board.make_move(m);
+
+			let eval_after_move = -self.search_only_captures(board, -beta, -alpha);
+
+			board.undo_last_move();
+
+			if eval_after_move >= beta {
+				return beta;
+			}
+
+			if eval_after_move > alpha {
+				alpha = eval_after_move;
+			}
+		}
+
+		return alpha;
+	}
+
+
 	pub fn search_moves(
 		&mut self,
 		board: &mut Board,
@@ -161,8 +212,9 @@ impl Maxwell {
 
 		self.positions_searched += 1;
 
-		if board.fifty_move_draw() == 100 // 50 moves for each side = 100 total moves :)
-		|| board.is_threefold_repetition() {
+		if board.fifty_move_draw() == 100
+		|| board.is_threefold_repetition()
+		|| !board.checkmating_material_on_board() {
 			return 0;
 		}
 
@@ -176,10 +228,6 @@ impl Maxwell {
 			return 0;
 		}
 
-		if !board.checkmating_material_on_board() {
-			return 0;
-		}
-
 		if let Some(data) = board.lookup_transposition(depth_left) {
 			self.positions_searched -= 1;
 
@@ -189,7 +237,7 @@ impl Maxwell {
 		}
 
 		if depth_left == 0 {
-			return board.evaluate();
+			return self.search_only_captures(board, alpha, beta);
 		}
 
 		let mut best_move_this_iteration = 0;
@@ -230,7 +278,6 @@ impl Maxwell {
 
 		if best_move_this_iteration != 0 {
 			self.best_move_at_depths[depth as usize] = best_move_this_iteration;
-
 		}
 
 		board.store_transposition(depth_left, alpha, best_move_this_iteration);

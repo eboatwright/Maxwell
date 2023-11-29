@@ -285,6 +285,27 @@ impl Board {
 		self.moves[self.moves.len() - 1]
 	}
 
+	pub fn get_legal_captures_for_color(&mut self, white_pieces: bool) -> Vec<u32> {
+		let mut result = vec![];
+
+		for i in 0..64 {
+			if self.board[i] != 0
+			&& is_white(self.board[i]) == white_pieces {
+				let mut moves_for_piece = self.get_legal_moves_for_piece(i);
+
+				for i in (0..moves_for_piece.len()).rev() {
+					if get_move_capture(moves_for_piece[i]) == 0 {
+						moves_for_piece.remove(i);
+					}
+				}
+
+				result = [result, moves_for_piece].concat();
+			}
+		}
+
+		result
+	}
+
 	pub fn get_legal_moves_for_color(&mut self, white_pieces: bool) -> Vec<u32> {
 		let mut result = vec![];
 
