@@ -15,7 +15,7 @@ pub enum MaxwellPlaying {
 }
 
 pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::Both;
-const MAXWELL_THINKING_TIME: f32 = 1.0;
+const MAXWELL_THINKING_TIME: f32 = 30.0;
 const MAX_SEARCH_EXTENSIONS: usize = 16;
 
 pub struct Maxwell {
@@ -162,7 +162,7 @@ impl Maxwell {
 		self.positions_searched += 1;
 
 		if board.fifty_move_draw() == 100 // 50 moves for each side = 100 total moves :)
-		|| *board.repetition_table.get(&board.current_zobrist_key()).unwrap_or(&0) >= 3 {
+		|| board.is_threefold_repetition() {
 			return 0;
 		}
 

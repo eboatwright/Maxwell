@@ -32,7 +32,6 @@ pub struct Board {
 
 	pub zobrist: Zobrist,
 	pub transposition_table: HashMap<u64, TranspositionData>,
-	pub repetition_table: HashMap<u64, u8>,
 
 	pub total_material_without_pawns: i32,
 }
@@ -124,7 +123,6 @@ impl Board {
 
 			zobrist: Zobrist::generate(),
 			transposition_table: HashMap::new(),
-			repetition_table: HashMap::new(),
 
 			total_material_without_pawns,
 		};
@@ -145,7 +143,6 @@ impl Board {
 
 
 		final_board.calculate_initial_zobrist_key();
-		final_board.repetition_table.insert(final_board.current_zobrist_key(), 1);
 
 
 		final_board
@@ -168,6 +165,19 @@ impl Board {
 	}
 
 	pub fn fifty_move_draw(&self) -> u8 { self.fifty_move_draw_history[self.fifty_move_draw_history.len() - 1] }
+
+	pub fn is_threefold_repetition(&self) -> bool {
+		let current = self.current_zobrist_key();
+		let mut count = 0;
+
+		for zobrist_key in self.zobrist_key_history.iter() {
+			if *zobrist_key == current {
+				count += 1;
+			}
+		}
+
+		return count >= 3;
+	}
 
 	pub fn compute_all_piece_bitboards(&mut self) {
 		self.all_piece_bitboards = [
@@ -671,13 +681,6 @@ impl Board {
 		}
 		self.fifty_move_draw_history.push(new_fifty_move_draw);
 
-		let zobrist = self.current_zobrist_key();
-		if self.repetition_table.contains_key(&zobrist) {
-			*self.repetition_table.get_mut(&zobrist).unwrap() += 1;
-		} else {
-			self.repetition_table.insert(zobrist, 1);
-		}
-
 
 		self.whites_turn = !self.whites_turn;
 	}
@@ -689,11 +692,6 @@ impl Board {
 
 
 		let zobrist = self.current_zobrist_key();
-		let repetition = self.repetition_table.get_mut(&zobrist).unwrap();
-		*repetition -= 1;
-		if *repetition == 0 {
-			self.repetition_table.remove(&zobrist);
-		}
 
 
 		self.zobrist_key_history.pop();

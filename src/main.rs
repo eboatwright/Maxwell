@@ -37,7 +37,7 @@ pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN: &'static str = "8/4B3/1kb2r1p/3p1p2/2p1nP2/2P4P/6P1/R3R1K1 b - - 1 37";
+pub const TESTING_FEN: &'static str = "1k2r2r/ppp2p1p/3p1np1/1q1p4/3P1b2/1PQ2PN1/PBP1P1PP/RN2K2R b KQ - 0 1";
 
 #[derive(PartialEq)]
 pub enum GameOverState {
@@ -156,7 +156,7 @@ async fn main() {
 
 				if game_board.fifty_move_draw() == 100
 				|| !game_board.checkmating_material_on_board()
-				|| *game_board.repetition_table.get(&game_board.current_zobrist_key()).unwrap_or(&0) >= 3 {
+				|| game_board.is_threefold_repetition() {
 					game_over_state = GameOverState::Draw;
 				} else if game_board.get_legal_moves_for_color(game_board.whites_turn).len() == 0 {
 					if game_board.king_in_check(game_board.whites_turn) {
