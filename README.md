@@ -4,12 +4,15 @@
  View the code at your own discretion, it's very messy<br><br>
  If you do use this code verbatim, or as reference, please credit me!
 
+# YOU CAN NOW PLAY AGAINST MAXWELL ON LICHESS!!
+ https://lichess.org/@/MaxwellOnLC
+
 # DISCLAIMER
  I have the engine thinking for 30 seconds per move, if you have a slow computer,
  it's not going to have enough time to calculate at a decent depth, therefore making it weaker.<br>
  (I'm on a 2012 Macbook Pro that's running Ubuntu 22.04 Linux, so anything newer than that is great)
 
-# A Chess.com Collection of Maxwell's Games
+# Some of Maxwell's Games
  https://www.chess.com/library/collections/maxwells-games-my-chess-engine-2FFU82NM4
 
 # Helpful Sources
