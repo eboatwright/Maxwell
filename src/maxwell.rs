@@ -1,6 +1,6 @@
 use std::time::Instant;
 use crate::opening_repertoire::OPENING_REPERTOIRE;
-use macroquad::rand::gen_range;
+use macroquad::rand::{srand, gen_range};
 use crate::utils::*;
 use crate::board::*;
 use std::cmp::{max, min};
@@ -16,7 +16,7 @@ pub enum MaxwellPlaying {
 
 pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::Black;
 const MAXWELL_THINKING_TIME: f32 = 30.0;
-const MAX_SEARCH_EXTENSIONS: usize = 16;
+const MAX_SEARCH_EXTENSIONS: usize = 12;
 
 pub struct Maxwell {
 	pub move_to_play: u32,
@@ -69,8 +69,7 @@ impl Maxwell {
 		for m in legal_moves {
 			board.make_move(m);
 
-			let zobrist_key = board.current_zobrist_key();
-			if OPENING_REPERTOIRE.contains(&zobrist_key) {
+			if OPENING_REPERTOIRE.contains(&board.current_zobrist_key) {
 				moves.push(m);
 			}
 
@@ -292,6 +291,7 @@ impl Maxwell {
 
 
 		if self.in_opening {
+			srand(macroquad::miniquad::date::now() as u64);
 			let opening_move = self.get_opening_move(board);
 			if opening_move != 0 {
 				self.move_to_play = opening_move;

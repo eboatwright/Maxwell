@@ -23,12 +23,11 @@ mod maxwell;
 
 use crate::heatmaps::*;
 use crate::maxwell::*;
-use std::thread;
 use crate::piece::*;
 use crate::utils::*;
 use crate::board::*;
 use std::time::{Instant, Duration};
-use macroquad::{prelude::*, rand::srand};
+use macroquad::prelude::*;
 use crate::resources::Resources;
 
 pub const SQUARE_SIZE: f32 = 64.0;
@@ -48,7 +47,7 @@ pub enum GameOverState {
 
 fn window_conf() -> Conf {
 	Conf {
-		window_title: "Maxwell ~ The Chess Engine v2.2".to_string(),
+		window_title: "Maxwell ~ The Chess Engine v2.3".to_string(),
 		window_width: WINDOW_SIZE as i32,
 		window_height: WINDOW_SIZE as i32,
 		window_resizable: false,
@@ -95,8 +94,7 @@ async fn main() {
 
 	loop {
 		// if is_key_pressed(KeyCode::Space) {
-		// 	game_board.undo_last_move();
-		// 	viewing_board.undo_last_move();
+		// 	println!("{}", viewing_board.current_zobrist_key);
 		// }
 
 		let mut made_move = false;
@@ -108,8 +106,6 @@ async fn main() {
 			&& MAXWELL_PLAYING == MaxwellPlaying::Black)
 			|| MAXWELL_PLAYING == MaxwellPlaying::Both {
 				let move_to_play = {
-					srand(miniquad::date::now() as u64);
-
 					maxwell.start(&mut game_board);
 					maxwell.move_to_play
 				};

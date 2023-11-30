@@ -26,6 +26,8 @@ pub struct Board {
 	pub en_passant_file: usize,
 
 	pub zobrist_key_history: Vec<u64>,
+	pub current_zobrist_key: u64,
+
 	pub castle_rights_history: Vec<u8>,
 	pub fifty_move_draw_history: Vec<u8>,
 	pub moves: Vec<u32>,
@@ -117,6 +119,8 @@ impl Board {
 			en_passant_file,
 
 			zobrist_key_history: vec![],
+			current_zobrist_key: 0,
+
 			castle_rights_history: vec![castling_rights],
 			fifty_move_draw_history: vec![fifty_move_draw],
 			moves: vec![],
@@ -167,11 +171,10 @@ impl Board {
 	pub fn fifty_move_draw(&self) -> u8 { self.fifty_move_draw_history[self.fifty_move_draw_history.len() - 1] }
 
 	pub fn is_threefold_repetition(&self) -> bool {
-		let current = self.current_zobrist_key();
 		let mut count = 0;
 
 		for zobrist_key in self.zobrist_key_history.iter() {
-			if *zobrist_key == current {
+			if *zobrist_key == self.current_zobrist_key {
 				count += 1;
 			}
 		}
@@ -712,10 +715,9 @@ impl Board {
 		}
 
 
-		let zobrist = self.current_zobrist_key();
-
-
 		self.zobrist_key_history.pop();
+		self.current_zobrist_key = self.zobrist_key_history[self.zobrist_key_history.len() - 1];
+
 		self.castle_rights_history.pop();
 		self.fifty_move_draw_history.pop();
 		let last_move = self.moves.pop().unwrap();
@@ -834,24 +836,22 @@ impl Board {
 
 
 	pub fn calculate_initial_zobrist_key(&mut self) {
-		let mut key = 0;
-
 		for i in 0..64 {
 			let piece = self.board[i];
 			if piece != 0 {
-				key ^= self.zobrist.pieces[get_piece_color(piece) as usize][get_piece_type(piece) as usize - 1][i];
+				self.current_zobrist_key ^= self.zobrist.pieces[get_piece_color(piece) as usize][get_piece_type(piece) as usize - 1][i];
 			}
 		}
 
-		key ^= self.zobrist.castling_rights[self.get_all_castle_rights() as usize];
+		self.current_zobrist_key ^= self.zobrist.castling_rights[self.get_all_castle_rights() as usize];
 
-		key ^= self.zobrist.en_passant[self.en_passant_file];
+		self.current_zobrist_key ^= self.zobrist.en_passant[self.en_passant_file];
 
 		if !self.whites_turn {
-			key ^= self.zobrist.side_to_move;
+			self.current_zobrist_key ^= self.zobrist.side_to_move;
 		}
 
-		self.zobrist_key_history.push(key);
+		self.zobrist_key_history.push(self.current_zobrist_key);
 	}
 
 	pub fn make_move_on_zobrist_key(&mut self, m: u32) {
@@ -865,53 +865,48 @@ impl Board {
 		let piece_type = get_piece_type(piece) as usize;
 
 
-		let mut key = self.current_zobrist_key();
-
-
-		key ^= self.zobrist.pieces[piece_is_white as usize][piece_type - 1][from];
-		key ^= self.zobrist.pieces[piece_is_white as usize][piece_type - 1][to];
+		self.current_zobrist_key ^= self.zobrist.pieces[piece_is_white as usize][piece_type - 1][from];
+		self.current_zobrist_key ^= self.zobrist.pieces[piece_is_white as usize][piece_type - 1][to];
 
 		if flag == CASTLE_SHORT_FLAG {
-			key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to + 1];
-			key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to - 1];
+			self.current_zobrist_key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to + 1];
+			self.current_zobrist_key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to - 1];
 		} else if flag == CASTLE_LONG_FLAG {
-			key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to - 2];
-			key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to + 1];
+			self.current_zobrist_key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to - 2];
+			self.current_zobrist_key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to + 1];
 		}
 
 		if capture != 0 {
-			key ^= self.zobrist.pieces[(!piece_is_white) as usize][capture as usize - 1][to];
+			self.current_zobrist_key ^= self.zobrist.pieces[(!piece_is_white) as usize][capture as usize - 1][to];
 		}
 
-		key ^= self.zobrist.castling_rights[self.castle_rights_history[self.castle_rights_history.len() - 2] as usize];
-		key ^= self.zobrist.castling_rights[self.get_all_castle_rights() as usize];
+		self.current_zobrist_key ^= self.zobrist.castling_rights[self.castle_rights_history[self.castle_rights_history.len() - 2] as usize];
+		self.current_zobrist_key ^= self.zobrist.castling_rights[self.get_all_castle_rights() as usize];
 
 		let last_move = self.get_last_move();
 		if get_move_flag(last_move) == DOUBLE_PAWN_PUSH_FLAG {
 			let file = (get_move_to(last_move) % 8) + 1;
-			key ^= self.zobrist.en_passant[file];
+			self.current_zobrist_key ^= self.zobrist.en_passant[file];
 		}
 
 		self.en_passant_file = 0;
 		if flag == DOUBLE_PAWN_PUSH_FLAG {
 			self.en_passant_file = (to % 8) + 1;
-			key ^= self.zobrist.en_passant[self.en_passant_file];
+			self.current_zobrist_key ^= self.zobrist.en_passant[self.en_passant_file];
 		}
 
-		key ^= self.zobrist.side_to_move;
+		self.current_zobrist_key ^= self.zobrist.side_to_move;
 
 
-		self.zobrist_key_history.push(key);
+		self.zobrist_key_history.push(self.current_zobrist_key);
 	}
-
-	pub fn current_zobrist_key(&self) -> u64 { self.zobrist_key_history[self.zobrist_key_history.len() - 1] }
 
 
 
 
 
 	pub fn store_transposition(&mut self, depth: u16, evaluation: i32, best_move: u32) {
-		self.transposition_table.insert(self.current_zobrist_key(),
+		self.transposition_table.insert(self.current_zobrist_key,
 			TranspositionData {
 				depth,
 				evaluation,
@@ -921,7 +916,7 @@ impl Board {
 	}
 
 	pub fn lookup_transposition(&mut self, depth: u16) -> Option<TranspositionData> {
-		let zobrist_key = self.current_zobrist_key();
+		let zobrist_key = self.current_zobrist_key;
 		if let Some(data) = self.transposition_table.get(&zobrist_key) {
 			if data.depth >= depth {
 				return Some(*data);
