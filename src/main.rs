@@ -1,6 +1,4 @@
 /* TODO
-searching all captures after the depth is reached
-
 evaluate pawn structures (including isolated and passed pawns)
 insentivise pushing the opponent's king to the edge of the board in endgames,
 	and bringing your king closer to the opponent's king if it's trying to checkmate
