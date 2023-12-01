@@ -15,8 +15,8 @@ pub enum MaxwellPlaying {
 }
 
 pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::Black;
-const MAXWELL_THINKING_TIME: f32 = 30.0;
-const MAX_SEARCH_EXTENSIONS: usize = 12;
+const MAXWELL_THINKING_TIME: f32 = 5.0;
+const MAX_SEARCH_EXTENSIONS: usize = 8;
 
 pub struct Maxwell {
 	pub move_to_play: u32,
@@ -31,6 +31,7 @@ pub struct Maxwell {
 	pub previous_best_move_at_depths: Vec<u32>,
 	pub best_move_at_depths: Vec<u32>,
 
+	pub base_depth_reached: usize,
 	pub turn_timer: Instant,
 	pub cancelled_search: bool,
 }
@@ -50,6 +51,7 @@ impl Maxwell {
 			previous_best_move_at_depths: vec![],
 			best_move_at_depths: vec![],
 
+			base_depth_reached: 0,
 			cancelled_search: false,
 			turn_timer: Instant::now(),
 		}
@@ -115,7 +117,7 @@ impl Maxwell {
 
 
 				if captured_piece != 0 {
-					score += 20 * get_full_piece_worth(captured_piece, move_to, endgame) - get_full_piece_worth(moved_piece, move_from, endgame);
+					score += 10 * get_full_piece_worth(captured_piece, move_to, endgame) - get_full_piece_worth(moved_piece, move_from, endgame);
 				}
 
 				if potentially_weak_squares & (1 << move_to) != 0 {
@@ -142,10 +144,16 @@ impl Maxwell {
 	}
 
 
-	pub fn search_only_captures(&mut self, board: &mut Board, mut alpha: i32, beta: i32) -> i32 {
-		if self.turn_timer.elapsed().as_secs_f32() >= MAXWELL_THINKING_TIME {
+	pub fn check_if_search_should_cancel(&mut self) {
+		if self.turn_timer.elapsed().as_secs_f32() >= MAXWELL_THINKING_TIME
+		&& self.base_depth_reached > 0 {
 			self.cancelled_search = true;
 		}
+	}
+
+
+	pub fn search_only_captures(&mut self, board: &mut Board, mut alpha: i32, beta: i32) -> i32 {
+		self.check_if_search_should_cancel();
 
 		if self.cancelled_search {
 			return 0;
@@ -201,9 +209,7 @@ impl Maxwell {
 		mut alpha: i32,
 		beta: i32,
 	) -> i32 {
-		if self.turn_timer.elapsed().as_secs_f32() >= MAXWELL_THINKING_TIME {
-			self.cancelled_search = true;
-		}
+		self.check_if_search_should_cancel();
 
 		if self.cancelled_search {
 			return 0;
@@ -341,6 +347,7 @@ impl Maxwell {
 			}
 
 			println!("\n");
+			self.base_depth_reached = depth;
 			depth += 2;
 		}
 

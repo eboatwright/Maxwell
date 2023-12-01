@@ -823,7 +823,7 @@ impl Board {
 		}
 
 		let perspective = if self.whites_turn { 1 } else { -1 };
-		((white_material + white_attacked_squares * 5) - (black_material + black_attacked_squares * 5)) * perspective
+		((white_material + white_attacked_squares * 2) - (black_material + black_attacked_squares * 2)) * perspective
 	}
 
 

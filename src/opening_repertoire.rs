@@ -1,4 +1,4 @@
-pub const OPENING_REPERTOIRE: [u64; 80] = [
+pub const OPENING_REPERTOIRE: [u64; 86] = [
 	8171786471666089984, // 1. e4
 	9423734941272768512, // 1. e4 e5
 
@@ -32,10 +32,13 @@ pub const OPENING_REPERTOIRE: [u64; 80] = [
 	13142705753754173440, // 1. e4 e5, 2. Nf3 Nc6, 3. Bb5 a6, 4. Ba4
 	6083992612698587136,  // 1. e4 e5, 2. Nf3 Nc6, 3. Bb5 a6, 4. Ba4 b5
 	7610213931436474368,  // 1. e4 e5, 2. Nf3 Nc6, 3. Bb5 a6, 4. Ba4 b5, 5. Bb3
-	// 1. e4 e5, 2. Nf3 Nc6, 3. Bb5 a6, 4. Ba4 b5, 5. Bb3 Nf6, 6. O-O
-	// 1. e4 e5, 2. Nf3 Nc6, 3. Bb5 a6, 4. Ba4 b5, 5. Bb3 Nf6, 6. O-O Bc5
+	6671718359844782080, // 1. e4 e5, 2. Nf3 Nc6, 3. Bb5 a6, 4. Ba4 b5, 5. Bb3 Nf6
+	1399347074280980480, // 1. e4 e5, 2. Nf3 Nc6, 3. Bb5 a6, 4. Ba4 b5, 5. Bb3 Nf6, 6. O-O
+	1181987506803965952, // 1. e4 e5, 2. Nf3 Nc6, 3. Bb5 a6, 4. Ba4 b5, 5. Bb3 Nf6, 6. O-O Bc5
+	17607316011608965120, // 1. e4 e5, 2. Nf3 Nc6, 3. Bb5 a6, 4. Ba4 b5, 5. Bb3 Nf6, 6. O-O Bc5, 7. d3
 
-	// 1. e4 e5, 2. Nf3 Nc6, 3. Bb5 a6, 4. Ba4 b5, 5. Bb3 Nf6, 6. O-O Nxe4, 7. Re1
+	11348064320639467520, // 1. e4 e5, 2. Nf3 Nc6, 3. Bb5 a6, 4. Ba4 b5, 5. Bb3 Nf6, 6. O-O Nxe4, 7. Re1
+	5194504559279472640, // 1. e4 e5, 2. Nf3 Nc6, 3. Bb5 a6, 4. Ba4 b5, 5. Bb3 Nf6, 6. O-O Nxe4, 7. Re1 d5, 8. d3
 
 
 	// The Scandinavian
