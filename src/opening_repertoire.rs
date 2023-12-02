@@ -1,4 +1,4 @@
-pub const OPENING_REPERTOIRE: [u64; 86] = [
+pub const OPENING_REPERTOIRE: [u64; 85] = [
 	8171786471666089984, // 1. e4
 	9423734941272768512, // 1. e4 e5
 
@@ -42,7 +42,6 @@ pub const OPENING_REPERTOIRE: [u64; 86] = [
 
 
 	// The Scandinavian
-	16178009307055390720, // 1. e4 d5, 2.
 	16891299969288372224, // 1. e4 d5, 2. exd5
 	16813911032345919488, // 1. e4 d5, 2. exd5 Qxd5
 	11251074063491137536, // 1. e4 d5, 2. exd5 Qxd5, 3. Nc3

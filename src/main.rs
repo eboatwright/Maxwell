@@ -34,7 +34,7 @@ pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN: &'static str = "1k2r2r/ppp2p1p/3p1np1/1q1p4/3P1b2/1PQ2PN1/PBP1P1PP/RN2K2R b KQ - 0 1";
+pub const TESTING_FEN: &'static str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
 
 #[derive(PartialEq)]
 pub enum GameOverState {
@@ -107,7 +107,7 @@ async fn main() {
 			|| MAXWELL_PLAYING == MaxwellPlaying::Both {
 				let move_to_play = {
 					maxwell.start(&mut game_board);
-					maxwell.move_to_play
+					maxwell.best_move
 				};
 
 				game_board.make_move(move_to_play);
@@ -148,7 +148,7 @@ async fn main() {
 				viewing_board = game_board.clone();
 				looking_back = false;
 
-				if game_board.fifty_move_draw() == 100
+				if game_board.current_fifty_move_draw == 100
 				|| !game_board.checkmating_material_on_board()
 				|| game_board.is_threefold_repetition() {
 					game_over_state = GameOverState::Draw;

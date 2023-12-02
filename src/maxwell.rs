@@ -15,23 +15,18 @@ pub enum MaxwellPlaying {
 }
 
 pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::Black;
-const MAXWELL_THINKING_TIME: f32 = 5.0;
-const MAX_SEARCH_EXTENSIONS: usize = 8;
+const MAXWELL_THINKING_TIME: f32 = 10.0;
+const MAX_SEARCH_EXTENSIONS: usize = 16;
 
 pub struct Maxwell {
-	pub move_to_play: u32,
+	pub best_move: u32,
+	pub best_move_this_iteration: u32,
 
-	pub previous_evaluation: i32,
 	pub evaluation: i32,
 
 	pub in_opening: bool,
-
 	pub positions_searched: u128,
 
-	pub previous_best_move_at_depths: Vec<u32>,
-	pub best_move_at_depths: Vec<u32>,
-
-	pub base_depth_reached: usize,
 	pub turn_timer: Instant,
 	pub cancelled_search: bool,
 }
@@ -39,19 +34,14 @@ pub struct Maxwell {
 impl Maxwell {
 	pub fn new() -> Self {
 		Self {
-			move_to_play: 0,
+			best_move: 0,
+			best_move_this_iteration: 0,
 
-			previous_evaluation: 0,
 			evaluation: 0,
 
 			in_opening: true,
-
 			positions_searched: 0,
 
-			previous_best_move_at_depths: vec![],
-			best_move_at_depths: vec![],
-
-			base_depth_reached: 0,
 			cancelled_search: false,
 			turn_timer: Instant::now(),
 		}
@@ -99,13 +89,23 @@ impl Maxwell {
 		let endgame = board.endgame_multiplier();
 		let potentially_weak_squares = board.attacked_squares_bitboards[!board.whites_turn as usize] & !board.attacked_squares_bitboards[board.whites_turn as usize];
 
+		let hash_move = if depth == 0 {
+			self.best_move
+		} else {
+			if let Some(data) = board.transposition_table.get(&board.current_zobrist_key) {
+				data.best_move
+			} else {
+				0
+			}
+		};
+
 
 		for i in 0..num_of_moves {
 			let m = legal_moves[i];
 
 			let mut score = 0;
 
-			if Some(&m) == self.previous_best_move_at_depths.get(depth as usize) {
+			if m == hash_move {
 				score = 9999;
 			} else {
 				let move_flag = get_move_flag(m);
@@ -144,18 +144,10 @@ impl Maxwell {
 	}
 
 
-	pub fn check_if_search_should_cancel(&mut self) {
-		if self.turn_timer.elapsed().as_secs_f32() >= MAXWELL_THINKING_TIME
-		&& self.base_depth_reached > 0 {
-			self.cancelled_search = true;
-		}
-	}
-
-
 	pub fn search_only_captures(&mut self, board: &mut Board, mut alpha: i32, beta: i32) -> i32 {
-		self.check_if_search_should_cancel();
-
-		if self.cancelled_search {
+		if self.cancelled_search
+		|| self.turn_timer.elapsed().as_secs_f32() >= MAXWELL_THINKING_TIME {
+			self.cancelled_search = true;
 			return 0;
 		}
 
@@ -209,16 +201,16 @@ impl Maxwell {
 		mut alpha: i32,
 		beta: i32,
 	) -> i32 {
-		self.check_if_search_should_cancel();
-
-		if self.cancelled_search {
+		if self.cancelled_search
+		|| self.turn_timer.elapsed().as_secs_f32() >= MAXWELL_THINKING_TIME {
+			self.cancelled_search = true;
 			return 0;
 		}
 
 		self.positions_searched += 1;
 
-		if board.fifty_move_draw() == 100
-		|| board.is_threefold_repetition()
+		if board.current_fifty_move_draw == 100
+		|| board.is_repetition()
 		|| !board.checkmating_material_on_board() {
 			return 0;
 		}
@@ -233,10 +225,12 @@ impl Maxwell {
 			return 0;
 		}
 
-		if let Some(data) = board.lookup_transposition(depth_left) {
+		if let Some(data) = board.lookup_transposition(depth_left, alpha) {
 			self.positions_searched -= 1;
 
-			self.best_move_at_depths[depth as usize] = data.best_move;
+			if depth == 0 {
+				self.best_move_this_iteration = data.best_move;
+			}
 
 			return data.evaluation;
 		}
@@ -245,7 +239,8 @@ impl Maxwell {
 			return self.search_only_captures(board, alpha, beta);
 		}
 
-		let mut best_move_this_iteration = 0;
+		let mut best_move_this_search = 0;
+		let mut best_move_depth_searched_at = depth_left;
 
 		for m in legal_moves {
 			board.make_move(m);
@@ -256,9 +251,11 @@ impl Maxwell {
 					search_extension += 1;
 				} else {
 					let to = get_move_to(m);
-					let rank = to / 8;
-					if get_piece_type(board.board[to]) == PAWN && (to == 1 || to == 7) {
-						search_extension += 1;
+					if get_piece_type(board.board[to]) == PAWN {
+						let rank = to / 8;
+						if rank == 1 || rank == 7 {
+							search_extension += 1;
+						}
 					}
 				}
 			}
@@ -276,96 +273,96 @@ impl Maxwell {
 			}
 
 			if eval_after_move > alpha {
-				best_move_this_iteration = m;
+				best_move_this_search = m;
+				best_move_depth_searched_at = depth_left + search_extension;
 				alpha = eval_after_move;
+
+				if depth == 0 {
+					self.best_move_this_iteration = best_move_this_search;
+				}
 			}
 		}
 
-		if best_move_this_iteration != 0 {
-			self.best_move_at_depths[depth as usize] = best_move_this_iteration;
-		}
-
-		board.store_transposition(depth_left, alpha, best_move_this_iteration);
+		board.store_transposition(best_move_depth_searched_at, alpha, best_move_this_search, self.best_move_this_iteration == best_move_this_search);
 
 		alpha
 	}
 
 	pub fn start(&mut self, board: &mut Board) {
-		self.move_to_play = 0;
+		self.best_move = 0;
+		self.best_move_this_iteration = 0;
 		self.evaluation = 0;
 		self.cancelled_search = false;
+		self.positions_searched = 0;
 
 
 		if self.in_opening {
-			srand(macroquad::miniquad::date::now() as u64);
+			srand(macroquad::miniquad::date::now() as u64); // to randomize openings :D
 			let opening_move = self.get_opening_move(board);
 			if opening_move != 0 {
-				self.move_to_play = opening_move;
+				self.best_move = opening_move;
 				println!("Book move\n");
 				return;
 			}
 		}
 
 
-		board.transposition_table.clear();
+		// board.transposition_table.clear();
 
 
 		self.turn_timer = Instant::now();
 
-		let mut depth = 2;
-		loop {
-			self.previous_evaluation = self.evaluation;
-			self.positions_searched = 0;
-
-			self.previous_best_move_at_depths = self.best_move_at_depths.clone();
-			self.best_move_at_depths = vec![0; depth + 1 + MAX_SEARCH_EXTENSIONS];
-
+		for depth in 1..256 {
 			println!("Searching depth {}...", depth);
 
-			let evaluation_this_iteration = self.search_moves(board, depth as u16, 0, 0, -i32::MAX, i32::MAX);
-			if self.best_move_at_depths[0] != 0 {
-				self.move_to_play = self.best_move_at_depths[0];
-				self.evaluation = evaluation_this_iteration;
+			let evaluation_this_search = self.search_moves(board, depth as u16, 0, 0, -i32::MAX, i32::MAX);
+			if self.best_move_this_iteration != 0 {
+				self.best_move = self.best_move_this_iteration;
+				self.evaluation = evaluation_this_search;
 			}
 
 
 			if self.cancelled_search {
 				println!("Search cancelled\n\n\n");
 				break;
-			} else {
-				println!("Time since start of turn: {}", self.turn_timer.elapsed().as_secs_f32());
-				println!("Positions searched: {}", self.positions_searched);
-
-				let evaluation = self.evaluation * (if board.whites_turn { 1 } else { -1 });
-
-				if evaluation_is_mate(evaluation) {
-					let sign = if evaluation < 0 { "-" } else { "" };
-					println!("Final evaluation: {}#{}", sign, moves_from_mate(evaluation));
-				} else {
-					println!("Final evaluation: {}", evaluation as f32 * 0.01);
-				}
 			}
 
+
+			println!("Time since start of turn: {}", self.turn_timer.elapsed().as_secs_f32());
+			println!("Positions searched: {}", self.positions_searched);
+
+			let evaluation = self.evaluation * (if board.whites_turn { 1 } else { -1 });
+
+			if evaluation_is_mate(evaluation) {
+				let sign = if evaluation < 0 { "-" } else { "" };
+				println!("Final evaluation: {}#{}\n\n\n", sign, moves_from_mate(evaluation));
+				break;
+			}
+			println!("Final evaluation: {}", evaluation as f32 * 0.01);
+
+
 			println!("\n");
-			self.base_depth_reached = depth;
-			depth += 2;
 		}
 
 
-		if self.move_to_play == 0 {
-			self.move_to_play = board.get_legal_moves_for_color(board.whites_turn)[0];
+		if self.best_move == 0 {
+			self.best_move = board.get_legal_moves_for_color(board.whites_turn)[0];
 			println!("Could not search in time, defaulting to first legal move :(\n\n\n");
 		}
 
 
-		// let size: usize = board.transposition_table.capacity() * (std::mem::size_of::<u64>() + std::mem::size_of::<TranspositionData>());
-		// println!("Transposition table size before filter: {} MB\n", size as f32 / 1_000_000.0);
+		let size_of_entry = std::mem::size_of::<u64>() + std::mem::size_of::<TranspositionData>();
 
-		// let timer = Instant::now();
-		// board.filter_transposition_table();
-		// println!("Time to filter transposition table: {} secs\n", timer.elapsed().as_secs_f32());
+		let size: usize = board.transposition_table.capacity() * size_of_entry;
+		println!("Transposition table size before filter: {} MB\n", size as f32 / 1_000_000.0);
 
-		// let size: usize = board.transposition_table.capacity() * (std::mem::size_of::<u64>() + std::mem::size_of::<TranspositionData>());
-		// println!("Transposition table size after filter: {} MB\n\n\n", size as f32 / 1_000_000.0);
+		let timer = Instant::now();
+
+		board.update_transposition_table();
+
+		println!("Time to filter table: {}\n", timer.elapsed().as_secs_f32());
+
+		let size: usize = board.transposition_table.capacity() * size_of_entry;
+		println!("Transposition table size after filter: {} MB\n\n\n", size as f32 / 1_000_000.0);
 	}
 }
