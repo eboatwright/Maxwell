@@ -8,7 +8,7 @@
  https://lichess.org/@/MaxwellOnLC
 
 # DISCLAIMER
- I have the engine thinking for 30 seconds per move, if you have a slow computer,
+ I have the engine thinking for 10 seconds per move, if you have a slow computer,
  it's not going to have enough time to calculate at a decent depth, therefore making it weaker.<br>
  (I'm on a 2012 Macbook Pro that's running Ubuntu 22.04 Linux, so anything newer than that is great)
 
