@@ -31,8 +31,8 @@ pub const PIECES_IN_ORDER: [u8; 6] = [
 
 
 pub const PAWN_WORTH: i32   = 100;
-pub const KNIGHT_WORTH: i32 = 300;
-pub const BISHOP_WORTH: i32 = 310;
+pub const KNIGHT_WORTH: i32 = 320;
+pub const BISHOP_WORTH: i32 = 330;
 pub const ROOK_WORTH: i32   = 500;
 pub const QUEEN_WORTH: i32  = 900;
 pub const KING_WORTH: i32   = 20000;

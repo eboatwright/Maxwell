@@ -11,6 +11,8 @@ pub struct TranspositionData {
 	pub depth: u16,
 	pub evaluation: i32,
 	pub best_move: u32,
+	pub age: u8,
+	pub is_exact: bool,
 }
 
 #[derive(Clone)]
@@ -26,8 +28,14 @@ pub struct Board {
 	pub en_passant_file: usize,
 
 	pub zobrist_key_history: Vec<u64>,
+	pub current_zobrist_key: u64,
+
 	pub castle_rights_history: Vec<u8>,
+	pub current_castle_rights: u8,
+
 	pub fifty_move_draw_history: Vec<u8>,
+	pub current_fifty_move_draw: u8,
+
 	pub moves: Vec<u32>,
 
 	pub zobrist: Zobrist,
@@ -117,8 +125,14 @@ impl Board {
 			en_passant_file,
 
 			zobrist_key_history: vec![],
+			current_zobrist_key: 0,
+
 			castle_rights_history: vec![castling_rights],
+			current_castle_rights: castling_rights,
+
 			fifty_move_draw_history: vec![fifty_move_draw],
+			current_fifty_move_draw: fifty_move_draw,
+
 			moves: vec![],
 
 			zobrist: Zobrist::generate(),
@@ -164,19 +178,34 @@ impl Board {
 		println!("\n\n");
 	}
 
-	pub fn fifty_move_draw(&self) -> u8 { self.fifty_move_draw_history[self.fifty_move_draw_history.len() - 1] }
-
 	pub fn is_threefold_repetition(&self) -> bool {
-		let current = self.current_zobrist_key();
 		let mut count = 0;
 
 		for zobrist_key in self.zobrist_key_history.iter() {
-			if *zobrist_key == current {
+			if *zobrist_key == self.current_zobrist_key {
 				count += 1;
+				if count >= 3 {
+					return true;
+				}
 			}
 		}
 
-		return count >= 3;
+		return false;
+	}
+
+	pub fn is_repetition(&self) -> bool {
+		let mut count = 0;
+
+		for zobrist_key in self.zobrist_key_history.iter() {
+			if *zobrist_key == self.current_zobrist_key {
+				count += 1;
+				if count > 1 {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	pub fn compute_all_piece_bitboards(&mut self) {
@@ -291,15 +320,7 @@ impl Board {
 		for i in 0..64 {
 			if self.board[i] != 0
 			&& is_white(self.board[i]) == white_pieces {
-				let mut moves_for_piece = self.get_legal_moves_for_piece(i);
-
-				for i in (0..moves_for_piece.len()).rev() {
-					if get_move_capture(moves_for_piece[i]) == 0 {
-						moves_for_piece.remove(i);
-					}
-				}
-
-				result = [result, moves_for_piece].concat();
+				result = [result, self.get_legal_moves_for_piece(i).into_iter().filter(|m| get_move_capture(*m) != 0).collect()].concat();
 			}
 		}
 
@@ -312,7 +333,6 @@ impl Board {
 		for i in 0..64 {
 			if self.board[i] != 0
 			&& is_white(self.board[i]) == white_pieces {
-				// result.append(&mut self.get_legal_moves_for_piece(i));
 				result = [result, self.get_legal_moves_for_piece(i)].concat();
 			}
 		}
@@ -596,21 +616,15 @@ impl Board {
 		self.piece_bitboards[is_white as usize][piece as usize - 1] ^= 1 << index;
 	}
 
-	pub fn get_all_castle_rights(&self) -> u8 {
-		self.castle_rights_history[self.castle_rights_history.len() - 1]
-	}
-
 	pub fn can_castle_short(&self, is_white: bool) -> bool {
-		self.get_all_castle_rights() >> (if is_white { 2 } else { 0 }) & 1 == 1
+		self.current_castle_rights >> (if is_white { 2 } else { 0 }) & 1 == 1
 	}
 
 	pub fn can_castle_long(&self, is_white: bool) -> bool {
-		self.get_all_castle_rights() >> (if is_white { 3 } else { 1 }) & 1 == 1
+		self.current_castle_rights >> (if is_white { 3 } else { 1 }) & 1 == 1
 	}
 
 	pub fn make_move(&mut self, piece_move: u32) {
-		let mut new_castle_rights = self.get_all_castle_rights();
-
 		let from = get_move_from(piece_move);
 		let to = get_move_to(piece_move);
 		let flag = get_move_flag(piece_move);
@@ -654,21 +668,21 @@ impl Board {
 		}
 
 		if piece_type == KING {
-			new_castle_rights &= !CASTLING[piece_is_white as usize];
+			self.current_castle_rights &= !CASTLING[piece_is_white as usize];
 		}
 
 		if from == 0
 		|| to == 0 {
-			new_castle_rights &= !BLACK_LONGCASTLE;
+			self.current_castle_rights &= !BLACK_LONGCASTLE;
 		} else if from == 7
 		|| to == 7 {
-			new_castle_rights &= !BLACK_SHORTCASTLE;
+			self.current_castle_rights &= !BLACK_SHORTCASTLE;
 		} else if from == 56
 		|| to == 56 {
-			new_castle_rights &= !WHITE_LONGCASTLE;
+			self.current_castle_rights &= !WHITE_LONGCASTLE;
 		} else if from == 63
 		|| to == 63 {
-			new_castle_rights &= !WHITE_SHORTCASTLE;
+			self.current_castle_rights &= !WHITE_SHORTCASTLE;
 		}
 
 		if flag == CASTLE_SHORT_FLAG {
@@ -688,19 +702,18 @@ impl Board {
 		self.compute_all_piece_bitboards();
 		self.compute_attacked_squares_bitboards();
 
-		self.castle_rights_history.push(new_castle_rights);
+		self.castle_rights_history.push(self.current_castle_rights);
 		self.make_move_on_zobrist_key(piece_move);
 		self.moves.push(piece_move);
 
 
-		let mut new_fifty_move_draw = self.fifty_move_draw();
 		if piece_type == PAWN
 		|| capture != 0 {
-			new_fifty_move_draw = 0;
+			self.current_fifty_move_draw = 0;
 		} else {
-			new_fifty_move_draw += 1;
+			self.current_fifty_move_draw += 1;
 		}
-		self.fifty_move_draw_history.push(new_fifty_move_draw);
+		self.fifty_move_draw_history.push(self.current_fifty_move_draw);
 
 
 		self.whites_turn = !self.whites_turn;
@@ -712,12 +725,15 @@ impl Board {
 		}
 
 
-		let zobrist = self.current_zobrist_key();
-
-
 		self.zobrist_key_history.pop();
+		self.current_zobrist_key = self.zobrist_key_history[self.zobrist_key_history.len() - 1];
+
 		self.castle_rights_history.pop();
+		self.current_castle_rights = self.castle_rights_history[self.castle_rights_history.len() - 1];
+
 		self.fifty_move_draw_history.pop();
+		self.current_fifty_move_draw = self.fifty_move_draw_history[self.fifty_move_draw_history.len() - 1];
+
 		let last_move = self.moves.pop().unwrap();
 
 		let flag = get_move_flag(last_move);
@@ -795,9 +811,6 @@ impl Board {
 		let mut white_material = 0;
 		let mut black_material = 0;
 
-		let mut white_attacked_squares = 0;
-		let mut black_attacked_squares = 0;
-
 		for i in 0..64 {
 			let piece = self.board[i];
 
@@ -810,18 +823,10 @@ impl Board {
 					black_material += worth;
 				}
 			}
-
-			if (1 << i) & self.attacked_squares_bitboards[0] != 0 {
-				black_attacked_squares += 1;
-			}
-
-			if (1 << i) & self.attacked_squares_bitboards[1] != 0 {
-				white_attacked_squares += 1;
-			}
 		}
 
 		let perspective = if self.whites_turn { 1 } else { -1 };
-		((white_material + white_attacked_squares * 5) - (black_material + black_attacked_squares * 5)) * perspective
+		(white_material - black_material) * perspective
 	}
 
 
@@ -834,24 +839,22 @@ impl Board {
 
 
 	pub fn calculate_initial_zobrist_key(&mut self) {
-		let mut key = 0;
-
 		for i in 0..64 {
 			let piece = self.board[i];
 			if piece != 0 {
-				key ^= self.zobrist.pieces[get_piece_color(piece) as usize][get_piece_type(piece) as usize - 1][i];
+				self.current_zobrist_key ^= self.zobrist.pieces[get_piece_color(piece) as usize][get_piece_type(piece) as usize - 1][i];
 			}
 		}
 
-		key ^= self.zobrist.castling_rights[self.get_all_castle_rights() as usize];
+		self.current_zobrist_key ^= self.zobrist.castling_rights[self.current_castle_rights as usize];
 
-		key ^= self.zobrist.en_passant[self.en_passant_file];
+		self.current_zobrist_key ^= self.zobrist.en_passant[self.en_passant_file];
 
 		if !self.whites_turn {
-			key ^= self.zobrist.side_to_move;
+			self.current_zobrist_key ^= self.zobrist.side_to_move;
 		}
 
-		self.zobrist_key_history.push(key);
+		self.zobrist_key_history.push(self.current_zobrist_key);
 	}
 
 	pub fn make_move_on_zobrist_key(&mut self, m: u32) {
@@ -865,70 +868,75 @@ impl Board {
 		let piece_type = get_piece_type(piece) as usize;
 
 
-		let mut key = self.current_zobrist_key();
-
-
-		key ^= self.zobrist.pieces[piece_is_white as usize][piece_type - 1][from];
-		key ^= self.zobrist.pieces[piece_is_white as usize][piece_type - 1][to];
+		self.current_zobrist_key ^= self.zobrist.pieces[piece_is_white as usize][piece_type - 1][from];
+		self.current_zobrist_key ^= self.zobrist.pieces[piece_is_white as usize][piece_type - 1][to];
 
 		if flag == CASTLE_SHORT_FLAG {
-			key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to + 1];
-			key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to - 1];
+			self.current_zobrist_key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to + 1];
+			self.current_zobrist_key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to - 1];
 		} else if flag == CASTLE_LONG_FLAG {
-			key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to - 2];
-			key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to + 1];
+			self.current_zobrist_key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to - 2];
+			self.current_zobrist_key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to + 1];
 		}
 
 		if capture != 0 {
-			key ^= self.zobrist.pieces[(!piece_is_white) as usize][capture as usize - 1][to];
+			self.current_zobrist_key ^= self.zobrist.pieces[(!piece_is_white) as usize][capture as usize - 1][to];
 		}
 
-		key ^= self.zobrist.castling_rights[self.castle_rights_history[self.castle_rights_history.len() - 2] as usize];
-		key ^= self.zobrist.castling_rights[self.get_all_castle_rights() as usize];
+		self.current_zobrist_key ^= self.zobrist.castling_rights[self.castle_rights_history[self.castle_rights_history.len() - 2] as usize];
+		self.current_zobrist_key ^= self.zobrist.castling_rights[self.current_castle_rights as usize];
 
 		let last_move = self.get_last_move();
 		if get_move_flag(last_move) == DOUBLE_PAWN_PUSH_FLAG {
 			let file = (get_move_to(last_move) % 8) + 1;
-			key ^= self.zobrist.en_passant[file];
+			self.current_zobrist_key ^= self.zobrist.en_passant[file];
 		}
 
 		self.en_passant_file = 0;
 		if flag == DOUBLE_PAWN_PUSH_FLAG {
 			self.en_passant_file = (to % 8) + 1;
-			key ^= self.zobrist.en_passant[self.en_passant_file];
+			self.current_zobrist_key ^= self.zobrist.en_passant[self.en_passant_file];
 		}
 
-		key ^= self.zobrist.side_to_move;
+		self.current_zobrist_key ^= self.zobrist.side_to_move;
 
 
-		self.zobrist_key_history.push(key);
+		self.zobrist_key_history.push(self.current_zobrist_key);
 	}
 
-	pub fn current_zobrist_key(&self) -> u64 { self.zobrist_key_history[self.zobrist_key_history.len() - 1] }
 
 
 
 
-
-	pub fn store_transposition(&mut self, depth: u16, evaluation: i32, best_move: u32) {
-		self.transposition_table.insert(self.current_zobrist_key(),
+	pub fn store_transposition(&mut self, depth: u16, evaluation: i32, best_move: u32, is_exact: bool) {
+		self.transposition_table.insert(self.current_zobrist_key,
 			TranspositionData {
 				depth,
 				evaluation,
 				best_move,
+				age: 0,
+				is_exact,
 			}
 		);
 	}
 
-	pub fn lookup_transposition(&mut self, depth: u16) -> Option<TranspositionData> {
-		let zobrist_key = self.current_zobrist_key();
-		if let Some(data) = self.transposition_table.get(&zobrist_key) {
-			if data.depth >= depth {
+	pub fn lookup_transposition(&mut self, depth: u16, alpha: i32) -> Option<TranspositionData> {
+		if let Some(data) = self.transposition_table.get_mut(&self.current_zobrist_key) {
+			if data.depth >= depth
+			&& (data.is_exact || data.evaluation <= alpha) {
+				data.age = 0;
 				return Some(*data);
 			}
-			self.transposition_table.remove(&zobrist_key);
+			// self.transposition_table.remove(&self.current_zobrist_key);
 		}
 		None
+	}
+
+	pub fn update_transposition_table(&mut self) {
+		self.transposition_table.retain(|_, data| {
+			data.age += 1;
+			data.age < 8
+		});
 	}
 
 

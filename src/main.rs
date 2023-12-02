@@ -1,6 +1,4 @@
 /* TODO
-searching all captures after the depth is reached
-
 evaluate pawn structures (including isolated and passed pawns)
 insentivise pushing the opponent's king to the edge of the board in endgames,
 	and bringing your king closer to the opponent's king if it's trying to checkmate
@@ -25,19 +23,18 @@ mod maxwell;
 
 use crate::heatmaps::*;
 use crate::maxwell::*;
-use std::thread;
 use crate::piece::*;
 use crate::utils::*;
 use crate::board::*;
 use std::time::{Instant, Duration};
-use macroquad::{prelude::*, rand::srand};
+use macroquad::prelude::*;
 use crate::resources::Resources;
 
 pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN: &'static str = "1k2r2r/ppp2p1p/3p1np1/1q1p4/3P1b2/1PQ2PN1/PBP1P1PP/RN2K2R b KQ - 0 1";
+pub const TESTING_FEN: &'static str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
 
 #[derive(PartialEq)]
 pub enum GameOverState {
@@ -50,7 +47,7 @@ pub enum GameOverState {
 
 fn window_conf() -> Conf {
 	Conf {
-		window_title: "Maxwell ~ The Chess Engine v2.2".to_string(),
+		window_title: "Maxwell ~ The Chess Engine v2.3".to_string(),
 		window_width: WINDOW_SIZE as i32,
 		window_height: WINDOW_SIZE as i32,
 		window_resizable: false,
@@ -97,8 +94,7 @@ async fn main() {
 
 	loop {
 		// if is_key_pressed(KeyCode::Space) {
-		// 	game_board.undo_last_move();
-		// 	viewing_board.undo_last_move();
+		// 	println!("{}", viewing_board.current_zobrist_key);
 		// }
 
 		let mut made_move = false;
@@ -110,10 +106,8 @@ async fn main() {
 			&& MAXWELL_PLAYING == MaxwellPlaying::Black)
 			|| MAXWELL_PLAYING == MaxwellPlaying::Both {
 				let move_to_play = {
-					srand(miniquad::date::now() as u64);
-
 					maxwell.start(&mut game_board);
-					maxwell.move_to_play
+					maxwell.best_move
 				};
 
 				game_board.make_move(move_to_play);
@@ -154,7 +148,7 @@ async fn main() {
 				viewing_board = game_board.clone();
 				looking_back = false;
 
-				if game_board.fifty_move_draw() == 100
+				if game_board.current_fifty_move_draw == 100
 				|| !game_board.checkmating_material_on_board()
 				|| game_board.is_threefold_repetition() {
 					game_over_state = GameOverState::Draw;

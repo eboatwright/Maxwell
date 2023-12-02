@@ -1,4 +1,3 @@
-use crate::Resources;
 use crate::Board;
 use crate::SQUARE_SIZE;
 use macroquad::prelude::{Vec2, mouse_position};
@@ -64,7 +63,7 @@ pub fn get_full_piece_worth(piece: u8, mut i: usize, endgame: f32) -> i32 {
 
 
 // If somebody knows a better way to do this please @ me :/
-pub fn index_from_coordinate(coordinate: &'static str) -> Option<usize> {
+pub fn index_from_coordinate(coordinate: &str) -> Option<usize> {
 	if coordinate.len() != 2 {
 		return None;
 	}
@@ -79,7 +78,7 @@ pub fn index_from_coordinate(coordinate: &'static str) -> Option<usize> {
 		69
 	};
 
-	let full_index = file_index + rank * 8;
+	let full_index = file_index + (8 - rank) * 8;
 
 	if full_index >= 64 {
 		return None;
@@ -111,7 +110,7 @@ pub fn coordinate_from_index(index: usize) -> String {
 
 
 
-pub fn file_index_from_coordinate(coordinate: &'static str) -> Option<usize> {
+pub fn file_index_from_coordinate(coordinate: &str) -> Option<usize> {
 	if coordinate.len() != 2 {
 		return None;
 	}
