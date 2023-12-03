@@ -6,7 +6,7 @@ use crate::precomputed_data::*;
 use crate::utils::*;
 use crate::piece::*;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum NodeType {
 	UpperBound,
 	LowerBound,

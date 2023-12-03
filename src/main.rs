@@ -1,9 +1,8 @@
 /* TODO
 look into null move pruning
-encourage pawn shield around the king in evaluation
-investigate a weird bug where it hit the search move limit, and ended up choosing a null move :/
 
-evaluate pawn structures (including isolated and passed pawns)
+evaluate pawn structures (isolated, doubled, passed and shield pawns)
+
 insentivise pushing the opponent's king to the edge of the board in endgames,
 	and bringing your king closer to the opponent's king if it's trying to checkmate
 
@@ -39,7 +38,8 @@ pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const TESTING_FEN: &'static str = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
-pub const MATE_IN_5: &'static str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
+pub const DRAWN_ENDGAME_FEN: &'static str = "8/8/8/3k4/R5p1/P5r1/4K3/8 w - - 0 1";
+pub const MATE_IN_5_FEN: &'static str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
 
 #[derive(PartialEq)]
 pub enum GameOverState {

@@ -16,19 +16,23 @@ pub enum MaxwellPlaying {
 
 pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::Black;
 const MAXWELL_THINKING_TIME: f32 = 10.0;
-const MAX_SEARCH_EXTENSIONS: usize = 16;
+const MAX_SEARCH_EXTENSIONS: usize = 20;
 
 pub struct Maxwell {
 	pub best_move: u32,
 	pub best_move_this_iteration: u32,
 
 	pub evaluation: i32,
+	pub evaluation_this_iteration: i32,
 
 	pub in_opening: bool,
 	pub positions_searched: u128,
+	pub quiescence_positions_searched: u128,
 
 	pub turn_timer: Instant,
 	pub cancelled_search: bool,
+	pub has_searched_one_move: bool,
+	pub best_move_depth_searched_at: u16,
 }
 
 impl Maxwell {
@@ -38,12 +42,16 @@ impl Maxwell {
 			best_move_this_iteration: 0,
 
 			evaluation: 0,
+			evaluation_this_iteration: 0,
 
 			in_opening: true,
 			positions_searched: 0,
+			quiescence_positions_searched: 0,
 
-			cancelled_search: false,
 			turn_timer: Instant::now(),
+			cancelled_search: false,
+			has_searched_one_move: false,
+			best_move_depth_searched_at: 0,
 		}
 	}
 
@@ -77,8 +85,7 @@ impl Maxwell {
 
 
 
-	pub fn get_sorted_moves(&mut self, board: &mut Board, depth: u16) -> Vec<u32> {
-		let legal_moves = board.get_legal_moves_for_color(board.whites_turn);
+	pub fn sort_moves(&mut self, board: &mut Board, legal_moves: Vec<u32>, depth: Option<u16>) -> Vec<u32> {
 		if legal_moves.is_empty() {
 			return vec![];
 		}
@@ -89,14 +96,18 @@ impl Maxwell {
 		let endgame = board.endgame_multiplier();
 		let squares_opponent_attacks = board.attacked_squares_bitboards[!board.whites_turn as usize];
 
-		let hash_move = if depth == 0 {
-			self.best_move
-		} else {
-			if let Some(data) = board.transposition_table.get(&board.current_zobrist_key) {
-				data.best_move
+		let hash_move = if let Some(depth) = depth {
+			if depth == 0 {
+				self.best_move
 			} else {
-				0
+				if let Some(data) = board.transposition_table.get(&board.current_zobrist_key) {
+					data.best_move
+				} else {
+					0
+				}
 			}
+		} else {
+			0
 		};
 
 
@@ -145,7 +156,7 @@ impl Maxwell {
 	}
 
 
-	pub fn search_only_captures(&mut self, board: &mut Board, mut alpha: i32, beta: i32) -> i32 {
+	pub fn quiescence_search(&mut self, board: &mut Board, mut alpha: i32, beta: i32) -> i32 {
 		if self.cancelled_search
 		|| self.turn_timer.elapsed().as_secs_f32() >= MAXWELL_THINKING_TIME {
 			self.cancelled_search = true;
@@ -153,7 +164,7 @@ impl Maxwell {
 		}
 
 
-		self.positions_searched += 1;
+		self.quiescence_positions_searched += 1;
 
 
 		if !board.checkmating_material_on_board() {
@@ -172,11 +183,11 @@ impl Maxwell {
 
 
 		let legal_moves = board.get_legal_captures_for_color(board.whites_turn);
-
-		for m in legal_moves {
+		let sorted_moves = self.sort_moves(board, legal_moves, None);
+		for m in sorted_moves {
 			board.make_move(m);
 
-			let eval_after_move = -self.search_only_captures(board, -beta, -alpha);
+			let eval_after_move = -self.quiescence_search(board, -beta, -alpha);
 
 			board.undo_last_move();
 
@@ -210,15 +221,17 @@ impl Maxwell {
 
 		self.positions_searched += 1;
 
-		if board.current_fifty_move_draw == 100
+		if depth > 0
+		&& (board.current_fifty_move_draw == 100
 		|| board.is_repetition()
-		|| !board.checkmating_material_on_board() {
+		|| !board.checkmating_material_on_board()) {
 			return 0;
 		}
 
-		let legal_moves = self.get_sorted_moves(board, depth);
+		let legal_moves = board.get_legal_moves_for_color(board.whites_turn);
+		let sorted_moves = self.sort_moves(board, legal_moves, Some(depth));
 
-		if legal_moves.is_empty() {
+		if sorted_moves.is_empty() {
 			if board.king_in_check(board.whites_turn) {
 				let mate_score = CHECKMATE_EVAL - depth as i32;
 				return -mate_score;
@@ -231,18 +244,23 @@ impl Maxwell {
 
 			if depth == 0 {
 				self.best_move_this_iteration = data.best_move;
+				self.evaluation_this_iteration = data.evaluation;
+				self.best_move_depth_searched_at = data.depth;
 			}
 
 			return data.evaluation;
 		}
 
 		if depth_left == 0 {
-			return self.search_only_captures(board, alpha, beta);
+			return self.quiescence_search(board, alpha, beta);
 		}
 
 		// Razoring :D
 		if depth_left == 3
-		&& depth != 0 {
+		&& depth != 0
+		&& get_move_capture(board.get_last_move()) == 0
+		&& !board.king_in_check(board.whites_turn)
+		&& !board.king_in_check(!board.whites_turn) {
 			let eval = board.evaluate();
 			if eval + QUEEN_WORTH < alpha {
 				// return self.search_only_captures(board, alpha, beta);
@@ -254,19 +272,19 @@ impl Maxwell {
 		let mut best_move_depth_searched_at = depth_left;
 		let mut node_type = NodeType::UpperBound;
 
-		for m in legal_moves {
+		for m in sorted_moves {
 			board.make_move(m);
 
 			let mut search_extension = 0;
 			if number_of_extensions < MAX_SEARCH_EXTENSIONS as u16 {
 				if board.king_in_check(board.whites_turn) {
-					search_extension += 1;
+					search_extension = 1;
 				} else {
 					let to = get_move_to(m);
 					if get_piece_type(board.board[to]) == PAWN {
 						let rank = to / 8;
 						if rank == 1 || rank == 7 {
-							search_extension += 1;
+							search_extension = 1;
 						}
 					}
 				}
@@ -293,8 +311,10 @@ impl Maxwell {
 				alpha = eval_after_move;
 
 				if depth == 0 {
+					self.best_move_depth_searched_at = best_move_depth_searched_at;
 					self.best_move_this_iteration = best_move_this_search;
-					self.evaluation = eval_after_move;
+					self.evaluation_this_iteration = eval_after_move;
+					self.has_searched_one_move = true;
 				}
 			}
 		}
@@ -309,9 +329,14 @@ impl Maxwell {
 	pub fn start(&mut self, board: &mut Board) {
 		self.best_move = 0;
 		self.best_move_this_iteration = 0;
+		self.best_move_depth_searched_at = 0;
+
 		self.evaluation = 0;
+		self.evaluation_this_iteration = 0;
+
 		self.cancelled_search = false;
 		self.positions_searched = 0;
+		self.quiescence_positions_searched = 0;
 
 
 		if self.in_opening {
@@ -325,22 +350,44 @@ impl Maxwell {
 		}
 
 
-		// board.transposition_table.clear();
-
-
 		self.turn_timer = Instant::now();
 
-		for depth in 1..256 {
+		for depth in 1.. {
+			self.best_move_this_iteration = 0;
+			self.evaluation_this_iteration = 0;
+			self.has_searched_one_move = false;
+
 			println!("Searching depth {}...", depth);
 
-			self.best_move_this_iteration = 0;
+			let _ = self.search_moves(board, depth as u16, 0, 0, -i32::MAX, i32::MAX);
 
-			let evaluation_this_search = self.search_moves(board, depth as u16, 0, 0, -i32::MAX, i32::MAX);
-			if self.best_move_this_iteration != 0 {
-				self.best_move = self.best_move_this_iteration;
-				self.evaluation = evaluation_this_search;
+			let evaluation = self.evaluation * (if board.whites_turn { 1 } else { -1 });
+			if evaluation_is_mate(evaluation) {
+				let sign = if evaluation < 0 { "-" } else { "" };
+				println!("Final evaluation: {}#{}", sign, moves_from_mate(evaluation));
+				if moves_from_mate(evaluation) <= depth {
+					println!("\n");
+					break;
+				}
+			} else {
+				println!("Final evaluation: {}", evaluation as f32 * 0.01);
 			}
 
+			println!("Time since start of turn: {}", self.turn_timer.elapsed().as_secs_f32());
+			println!("Total positions searched: {}", self.positions_searched);
+			println!("Quiescence positions searched: {}", self.quiescence_positions_searched);
+
+			if !self.cancelled_search
+			|| self.has_searched_one_move {
+				self.best_move = self.best_move_this_iteration;
+				self.evaluation = self.evaluation_this_iteration;
+			}
+
+			let mut best_move = String::new();
+			best_move += &coordinate_from_index(get_move_from(self.best_move));
+			best_move += &coordinate_from_index(get_move_to(self.best_move));
+
+			println!("Current best move: {} (Depth {})", best_move, self.best_move_depth_searched_at);
 
 			if self.cancelled_search {
 				println!("Search cancelled\n\n\n");
@@ -348,20 +395,8 @@ impl Maxwell {
 			}
 
 
-			println!("Time since start of turn: {}", self.turn_timer.elapsed().as_secs_f32());
-			println!("Positions searched: {}", self.positions_searched);
 
-			let evaluation = self.evaluation * (if board.whites_turn { 1 } else { -1 });
-
-			if evaluation_is_mate(evaluation) {
-				let sign = if evaluation < 0 { "-" } else { "" };
-				println!("Final evaluation: {}#{}\n\n\n", sign, moves_from_mate(evaluation));
-				break;
-			}
-			println!("Final evaluation: {}", evaluation as f32 * 0.01);
-
-
-			println!("\n");
+			println!("\n\n\n");
 		}
 
 
