@@ -1,4 +1,4 @@
-pub const OPENING_REPERTOIRE: [u64; 85] = [
+pub const OPENING_REPERTOIRE: [u64; 84] = [
 	8171786471666089984, // 1. e4
 	9423734941272768512, // 1. e4 e5
 
@@ -115,7 +115,7 @@ pub const OPENING_REPERTOIRE: [u64; 85] = [
 
 
 	// The English
-	1111264857321111552, // 1. c4
+	// 1111264857321111552, // 1. c4 (Currently disabled this move, becuase it doesn't really play it well hehe)
 	2222858743496835072, // 1. c4 e5
 	11603922463129337856, // 1. c4 e5, 2. Nc3
 	10665429640316715008, // 1. c4 e5, 2. Nc3 Nf6

@@ -210,15 +210,6 @@ impl Maxwell {
 
 		self.positions_searched += 1;
 
-		if depth_left == 3
-		&& depth != 0 {
-			let eval = board.evaluate();
-			if eval + QUEEN_WORTH < alpha {
-				// return self.search_only_captures(board, alpha, beta);
-				depth_left -= 1;
-			}
-		}
-
 		if board.current_fifty_move_draw == 100
 		|| board.is_repetition()
 		|| !board.checkmating_material_on_board() {
@@ -247,6 +238,16 @@ impl Maxwell {
 
 		if depth_left == 0 {
 			return self.search_only_captures(board, alpha, beta);
+		}
+
+		// Razoring :D
+		if depth_left == 3
+		&& depth != 0 {
+			let eval = board.evaluate();
+			if eval + QUEEN_WORTH < alpha {
+				// return self.search_only_captures(board, alpha, beta);
+				depth_left -= 1;
+			}
 		}
 
 		let mut best_move_this_search = 0;
@@ -331,6 +332,8 @@ impl Maxwell {
 
 		for depth in 1..256 {
 			println!("Searching depth {}...", depth);
+
+			self.best_move_this_iteration = 0;
 
 			let evaluation_this_search = self.search_moves(board, depth as u16, 0, 0, -i32::MAX, i32::MAX);
 			if self.best_move_this_iteration != 0 {
