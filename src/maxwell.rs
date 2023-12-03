@@ -87,7 +87,7 @@ impl Maxwell {
 		let mut scores = vec![(0, 0); num_of_moves];
 
 		let endgame = board.endgame_multiplier();
-		let potentially_weak_squares = board.attacked_squares_bitboards[!board.whites_turn as usize] & !board.attacked_squares_bitboards[board.whites_turn as usize];
+		let squares_opponent_attacks = board.attacked_squares_bitboards[!board.whites_turn as usize];
 
 		let hash_move = if depth == 0 {
 			self.best_move
@@ -120,12 +120,12 @@ impl Maxwell {
 					score += 10 * get_full_piece_worth(captured_piece, move_to, endgame) - get_full_piece_worth(moved_piece, move_from, endgame);
 				}
 
-				if potentially_weak_squares & (1 << move_to) != 0 {
-					score -= get_full_piece_worth(moved_piece, move_to, endgame) / 4;
+				if squares_opponent_attacks & (1 << move_to) != 0 {
+					score -= get_full_piece_worth(moved_piece, move_to, endgame);
 				}
 
 				if PROMOTABLE_PIECES.contains(&move_flag) {
-					score += get_full_piece_worth(move_flag, move_to, endgame);
+					score += 5 * get_full_piece_worth(move_flag, move_to, endgame);
 				}
 			}
 
@@ -133,6 +133,7 @@ impl Maxwell {
 			scores[i] = (score, i);
 		}
 
+		// TODO: this can definitely be improved :/
 		scores.sort_by(|a, b| b.0.cmp(&a.0));
 
 		let mut ordered = vec![0; num_of_moves];
@@ -195,7 +196,7 @@ impl Maxwell {
 	pub fn search_moves(
 		&mut self,
 		board: &mut Board,
-		depth_left: u16,
+		mut depth_left: u16,
 		depth: u16,
 		number_of_extensions: u16,
 		mut alpha: i32,
@@ -208,6 +209,15 @@ impl Maxwell {
 		}
 
 		self.positions_searched += 1;
+
+		if depth_left == 3
+		&& depth != 0 {
+			let eval = board.evaluate();
+			if eval + QUEEN_WORTH < alpha {
+				// return self.search_only_captures(board, alpha, beta);
+				depth_left -= 1;
+			}
+		}
 
 		if board.current_fifty_move_draw == 100
 		|| board.is_repetition()
@@ -225,7 +235,7 @@ impl Maxwell {
 			return 0;
 		}
 
-		if let Some(data) = board.lookup_transposition(depth_left, alpha) {
+		if let Some(data) = board.lookup_transposition(depth_left, alpha, beta) {
 			self.positions_searched -= 1;
 
 			if depth == 0 {
@@ -241,6 +251,7 @@ impl Maxwell {
 
 		let mut best_move_this_search = 0;
 		let mut best_move_depth_searched_at = depth_left;
+		let mut node_type = NodeType::UpperBound;
 
 		for m in legal_moves {
 			board.make_move(m);
@@ -259,8 +270,9 @@ impl Maxwell {
 					}
 				}
 			}
+			let total_depth_left = depth_left + search_extension;
 
-			let eval_after_move = -self.search_moves(board, depth_left - 1 + search_extension, depth + 1, number_of_extensions + search_extension, -beta, -alpha);
+			let eval_after_move = -self.search_moves(board, total_depth_left - 1, depth + 1, number_of_extensions + search_extension, -beta, -alpha);
 
 			board.undo_last_move();
 
@@ -269,21 +281,26 @@ impl Maxwell {
 			}
 
 			if eval_after_move >= beta {
+				board.store_transposition(total_depth_left, beta, m, NodeType::LowerBound);
 				return beta;
 			}
 
 			if eval_after_move > alpha {
+				node_type = NodeType::Exact;
 				best_move_this_search = m;
-				best_move_depth_searched_at = depth_left + search_extension;
+				best_move_depth_searched_at = total_depth_left;
 				alpha = eval_after_move;
 
 				if depth == 0 {
 					self.best_move_this_iteration = best_move_this_search;
+					self.evaluation = eval_after_move;
 				}
 			}
 		}
 
-		board.store_transposition(best_move_depth_searched_at, alpha, best_move_this_search, self.best_move_this_iteration == best_move_this_search);
+		if best_move_this_search != 0 {
+			board.store_transposition(best_move_depth_searched_at, alpha, best_move_this_search, node_type);
+		}
 
 		alpha
 	}

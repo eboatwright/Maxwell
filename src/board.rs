@@ -7,12 +7,19 @@ use crate::utils::*;
 use crate::piece::*;
 
 #[derive(Copy, Clone)]
+pub enum NodeType {
+	UpperBound,
+	LowerBound,
+	Exact,
+}
+
+#[derive(Copy, Clone)]
 pub struct TranspositionData {
 	pub depth: u16,
 	pub evaluation: i32,
 	pub best_move: u32,
 	pub age: u8,
-	pub is_exact: bool,
+	pub node_type: NodeType,
 }
 
 #[derive(Clone)]
@@ -109,7 +116,6 @@ impl Board {
 		castling_rights |= (fen_sections[2].contains('K') as u8) << 2;
 		castling_rights |= (fen_sections[2].contains('q') as u8) << 1;
 		castling_rights |= fen_sections[2].contains('k') as u8;
-
 
 
 
@@ -530,11 +536,7 @@ impl Board {
 
 
 			KING => {
-				/* !!!!!!!!!!IMPORTANT!!!!!!!!!!
-				This bitboard excludes squares the opponent attacks to skip over squares that will put the king into check,
-				this will affect the # of nodes in a search test! (I'm probably gonna forget this anyways and lose my mind over why I get the wrong numbers :P)
-				*/
-				let bitboard = self.precomputed_data.king_bitboards[piece_index] & !self.all_piece_bitboards[piece_color] & !self.attacked_squares_bitboards[other_color];
+				let bitboard = self.precomputed_data.king_bitboards[piece_index] & !self.all_piece_bitboards[piece_color];
 
 				for offset in [9, 8, 7, 1] {
 					if (piece >> offset) & bitboard != 0 {
@@ -908,26 +910,42 @@ impl Board {
 
 
 
-	pub fn store_transposition(&mut self, depth: u16, evaluation: i32, best_move: u32, is_exact: bool) {
+	pub fn store_transposition(&mut self, depth: u16, evaluation: i32, best_move: u32, node_type: NodeType) {
 		self.transposition_table.insert(self.current_zobrist_key,
 			TranspositionData {
 				depth,
 				evaluation,
 				best_move,
 				age: 0,
-				is_exact,
+				node_type,
 			}
 		);
 	}
 
-	pub fn lookup_transposition(&mut self, depth: u16, alpha: i32) -> Option<TranspositionData> {
+	pub fn lookup_transposition(&mut self, depth: u16, alpha: i32, beta: i32) -> Option<TranspositionData> {
 		if let Some(data) = self.transposition_table.get_mut(&self.current_zobrist_key) {
-			if data.depth >= depth
-			&& (data.is_exact || data.evaluation <= alpha) {
-				data.age = 0;
-				return Some(*data);
+			if data.depth >= depth {
+				match data.node_type {
+					NodeType::UpperBound => {
+						if data.evaluation <= alpha {
+							data.age = 0;
+							return Some(*data);
+						}
+					}
+
+					NodeType::LowerBound => {
+						if data.evaluation >= beta {
+							data.age = 0;
+							return Some(*data);
+						}
+					}
+
+					NodeType::Exact => {
+						data.age = 0;
+						return Some(*data);
+					}
+				}
 			}
-			// self.transposition_table.remove(&self.current_zobrist_key);
 		}
 		None
 	}
@@ -935,7 +953,7 @@ impl Board {
 	pub fn update_transposition_table(&mut self) {
 		self.transposition_table.retain(|_, data| {
 			data.age += 1;
-			data.age < 8
+			data.age < 10
 		});
 	}
 

@@ -1,4 +1,6 @@
 /* TODO
+look into null move pruning
+
 evaluate pawn structures (including isolated and passed pawns)
 insentivise pushing the opponent's king to the edge of the board in endgames,
 	and bringing your king closer to the opponent's king if it's trying to checkmate
@@ -34,7 +36,7 @@ pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
 pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN: &'static str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
+pub const TESTING_FEN: &'static str = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1"; // mate in 5: 4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1
 
 #[derive(PartialEq)]
 pub enum GameOverState {
@@ -47,7 +49,7 @@ pub enum GameOverState {
 
 fn window_conf() -> Conf {
 	Conf {
-		window_title: "Maxwell ~ The Chess Engine v2.3".to_string(),
+		window_title: "Maxwell ~ The Chess Engine v2.4".to_string(),
 		window_width: WINDOW_SIZE as i32,
 		window_height: WINDOW_SIZE as i32,
 		window_resizable: false,
