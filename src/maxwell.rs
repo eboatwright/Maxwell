@@ -16,7 +16,7 @@ pub enum MaxwellPlaying {
 
 pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::Black;
 const MAXWELL_THINKING_TIME: f32 = 10.0;
-const MAX_SEARCH_EXTENSIONS: usize = 20;
+const MAX_SEARCH_EXTENSIONS: usize = 24;
 
 pub struct Maxwell {
 	pub best_move: u32,

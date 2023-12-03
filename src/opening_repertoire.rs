@@ -59,7 +59,7 @@ pub const OPENING_REPERTOIRE: [u64; 84] = [
 
 
 	// The (Open) Sicilian
-	8286592528036134912, // 1. e4 c5
+	// 8286592528036134912, // 1. e4 c5
 	7625710173440442368, // 1. e4 c5, 2. Nf3
 	2251286616632983552, // 1. e4 c5, 2. Nf3 Nc6
 	7896138562985263104, // 1. e4 c5, 2. Nf3 Nc6, 3. d4
@@ -115,7 +115,7 @@ pub const OPENING_REPERTOIRE: [u64; 84] = [
 
 
 	// The English
-	// 1111264857321111552, // 1. c4 (Currently disabled this move, becuase it doesn't really play it well hehe)
+	1111264857321111552, // 1. c4
 	2222858743496835072, // 1. c4 e5
 	11603922463129337856, // 1. c4 e5, 2. Nc3
 	10665429640316715008, // 1. c4 e5, 2. Nc3 Nf6

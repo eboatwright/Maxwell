@@ -1,5 +1,5 @@
 /* TODO
-look into null move pruning
+look into null move pruning and aspiration windows
 
 evaluate pawn structures (isolated, doubled, passed and shield pawns)
 
