@@ -761,25 +761,32 @@ impl Board {
 	pub fn evaluate(&self) -> i32 {
 		let endgame = self.endgame_multiplier();
 
-		let mut white_material = 0;
-		let mut black_material = 0;
+		let mut material = 0;
+		let mut attacked_squares = 0;
 
 		for i in 0..64 {
 			let piece = self.board[i];
 
 			if piece != 0 {
 				let worth = get_full_piece_worth(piece, i, endgame);
-
 				if is_white(piece) {
-					white_material += worth;
+					material += worth;
 				} else {
-					black_material += worth;
+					material -= worth;
 				}
+			}
+
+			if (1 << i) & self.attacked_squares_bitboards[1] != 0 {
+				attacked_squares += 1;
+			}
+
+			if (1 << i) & self.attacked_squares_bitboards[0] != 0 {
+				attacked_squares -= 1;
 			}
 		}
 
 		let perspective = if self.whites_turn { 1 } else { -1 };
-		(white_material - black_material) * perspective
+		(material + attacked_squares * 10) * perspective
 	}
 
 

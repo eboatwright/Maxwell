@@ -14,7 +14,7 @@ pub enum MaxwellPlaying {
 	Both,
 }
 
-pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::White;
+pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::Black;
 const MAXWELL_THINKING_TIME: f32 = 10.0;
 const MAX_SEARCH_EXTENSIONS: usize = 24;
 
@@ -350,7 +350,7 @@ impl Maxwell {
 
 		self.turn_timer = Instant::now();
 
-		for depth in 1.. {
+		for depth in 1..256 {
 			self.best_move_this_iteration = 0;
 			self.evaluation_this_iteration = 0;
 			self.has_searched_one_move = false;

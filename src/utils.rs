@@ -203,7 +203,7 @@ pub fn move_to_coordinates(m: u32) -> String {
 }
 
 
-pub fn bitboard_population_count(mut bitboard: u64) -> u8 {
+pub fn bitboard_population_count(mut bitboard: u64) -> i32 {
 	let mut count = 0;
 
 	while bitboard != 0 {

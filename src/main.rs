@@ -1,10 +1,8 @@
 /* TODO
 magic bitboards
-reimplement counting attacked squares (with brian kernighans bit counter)
 penalize pieces in front of e2 and d2 pawns
 use generate_sliding_moves_bitboard function to detect empty squares around king
 use opponent's attacked squares and penalize if they overlap the squares around the king
-maybe incrementally update material count / piece square tables?
 
 look into null move pruning and aspiration windows
 
@@ -14,16 +12,6 @@ insentivise pushing the opponent's king to the edge of the board in endgames,
 	and bringing your king closer to the opponent's king if it's trying to checkmate
 
 if you start from a non starting FEN position with en passant on the board, it won't be processed as a legal move
-
-
-
-Search data for test position:
-	Searching depth 7...
-	Final evaluation: -4.6
-	Time since start of turn: 8.704116
-	Total positions searched: 274130
-	Quiescence positions searched: 370744
-	Current best move: c4c5 (Depth 7)
 */
 
 
@@ -82,7 +70,7 @@ async fn main() {
 	let resources = Resources::load().await;
 
 	let mut board_flipped = false;
-	let mut game_board = Board::from_fen(TESTING_FEN);
+	let mut game_board = Board::from_fen(STARTING_FEN);
 	let mut viewing_board = game_board.clone();
 
 	let mut piece_dragging = None;
@@ -111,10 +99,10 @@ async fn main() {
 
 
 	// let timer = Instant::now();
-	// for _ in 0..1_000_000 {
+	// for _ in 0..10_000_000 {
 	// 	game_board.evaluate();
 	// }
-	// println!("1 million evaluations: {} seconds", timer.elapsed().as_secs_f32());
+	// println!("10 million evaluations: {} seconds", timer.elapsed().as_secs_f32());
 
 
 	// This is suuuuuper slow, and a big bottleneck is the "calculate_attacked_squares_bitboards" function
