@@ -14,7 +14,7 @@ pub enum MaxwellPlaying {
 	Both,
 }
 
-pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::Black;
+pub const MAXWELL_PLAYING: MaxwellPlaying = MaxwellPlaying::White;
 const MAXWELL_THINKING_TIME: f32 = 10.0;
 const MAX_SEARCH_EXTENSIONS: usize = 24;
 

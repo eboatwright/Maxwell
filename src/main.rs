@@ -7,6 +7,16 @@ insentivise pushing the opponent's king to the edge of the board in endgames,
 	and bringing your king closer to the opponent's king if it's trying to checkmate
 
 if you start from a non starting FEN position with en passant on the board, it won't be processed as a legal move
+
+
+
+Search data for test position:
+	Searching depth 7...
+	Final evaluation: -4.6
+	Time since start of turn: 8.857742
+	Total positions searched: 273911
+	Quiescence positions searched: 370408
+	Current best move: c4c5 (Depth 7)
 */
 
 
@@ -65,7 +75,7 @@ async fn main() {
 	let resources = Resources::load().await;
 
 	let mut board_flipped = false;
-	let mut game_board = Board::from_fen(STARTING_FEN);
+	let mut game_board = Board::from_fen(TESTING_FEN);
 
 
 

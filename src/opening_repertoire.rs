@@ -1,4 +1,4 @@
-pub const OPENING_REPERTOIRE: [u64; 84] = [
+pub const OPENING_REPERTOIRE: [u64; 88] = [
 	8171786471666089984, // 1. e4
 	9423734941272768512, // 1. e4 e5
 
@@ -141,4 +141,12 @@ pub const OPENING_REPERTOIRE: [u64; 84] = [
 
 	1357902357861498880, // 1. c4 Nf6
 	// TODO: continue this line a bit
+
+
+	// Take the center against passive openings (these can't transpose because of the en passant file)
+	9568112569030279168, // 1. e4 e6, 2. d4
+	10673842484817166336, // 1. e4 d6, 2. d4
+
+	2627686761496576000, // 1. d4 e6, 2. e4
+	3791665504788152320, // 1. d4 d6, 2. e4
 ];

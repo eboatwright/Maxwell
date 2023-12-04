@@ -197,3 +197,12 @@ pub fn position_counter_test(board: &mut Board, depth: u8, total_captures: &mut 
 
 	total_positions
 }
+
+pub fn move_to_coordinates(m: u32) -> String {
+	let mut coordinates = String::new();
+
+	coordinates += &coordinate_from_index(get_move_from(m));
+	coordinates += &coordinate_from_index(get_move_to(m));
+
+	coordinates
+}
