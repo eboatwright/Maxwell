@@ -520,7 +520,8 @@ impl Board {
 					}
 				}
 
-				if !only_captures {
+				if !only_captures
+				&& !self.king_in_check(self.whites_turn) {
 					let all_pieces_bitboard = self.all_piece_bitboards[0] | self.all_piece_bitboards[1];
 					let empty_and_not_attacked_squares = all_pieces_bitboard | self.attacked_squares_bitboards[other_color];
 
@@ -764,6 +765,9 @@ impl Board {
 		let mut material = 0;
 		let mut attacked_squares = 0;
 
+		let mut white_king_index = 0;
+		let mut black_king_index = 0;
+
 		for i in 0..64 {
 			let piece = self.board[i];
 
@@ -773,6 +777,12 @@ impl Board {
 					material += worth;
 				} else {
 					material -= worth;
+				}
+
+				if piece == WHITE | KING {
+					white_king_index = i;
+				} else if piece == BLACK | KING {
+					black_king_index = i;
 				}
 			}
 
@@ -785,8 +795,33 @@ impl Board {
 			}
 		}
 
+		let king_weakness = if endgame != 1.0 {
+			let weak_squares_around_king =
+				bitboard_population_count(
+					  self.precomputed_data.king_bitboards[white_king_index]
+					& self.attacked_squares_bitboards[0]
+				) -
+				bitboard_population_count(
+					  self.precomputed_data.king_bitboards[black_king_index]
+					& self.attacked_squares_bitboards[1]
+				);
+
+			// This is a bit slow, hopefully it's not too slow
+			let weak_lines_from_king =
+				bitboard_population_count(
+					self.generate_sliding_attacks_bitboard(white_king_index, 0..8),
+				) -
+				bitboard_population_count(
+					self.generate_sliding_attacks_bitboard(black_king_index, 0..8),
+				);
+
+			((weak_squares_around_king * 20 + weak_lines_from_king * 10) as f32 * (1.0 - endgame)) as i32
+		} else {
+			0
+		};
+
 		let perspective = if self.whites_turn { 1 } else { -1 };
-		(material + attacked_squares * 10) * perspective
+		(material + attacked_squares * 10 + king_weakness) * perspective
 	}
 
 

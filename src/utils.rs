@@ -39,8 +39,8 @@ pub fn get_image_index_for_piece(piece: u8) -> usize {
 }
 
 pub fn get_full_piece_worth(piece: u8, mut i: usize, endgame: f32) -> i32 {
-	if !is_white(piece) { // This assumes that the heatmap is symmetrical
-		i = 63 - i;
+	if !is_white(piece) {
+		i = flip_index(i);
 	}
 
 	match get_piece_type(piece) {
@@ -213,3 +213,5 @@ pub fn bitboard_population_count(mut bitboard: u64) -> i32 {
 
 	count
 }
+
+pub fn flip_index(i: usize) -> usize { (i % 8) + (7 - (i / 8)) * 8 }

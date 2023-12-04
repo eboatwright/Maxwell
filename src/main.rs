@@ -1,8 +1,6 @@
 /* TODO
 magic bitboards
-penalize pieces in front of e2 and d2 pawns
-use generate_sliding_moves_bitboard function to detect empty squares around king
-use opponent's attacked squares and penalize if they overlap the squares around the king
+penalize pieces in front of e2 and d2 pawns?
 
 look into null move pruning and aspiration windows
 
@@ -44,7 +42,8 @@ pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 pub const STARTING_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const TESTING_FEN: &str = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
 pub const DRAWN_ENDGAME_FEN: &str = "8/8/8/3k4/R5p1/P5r1/4K3/8 w - - 0 1";
-pub const MATE_IN_5_FEN: & str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
+pub const MATE_IN_5_FEN: &str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
+pub const KING_AND_PAWN_ENDGAME_FEN: &str = "8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1";
 
 #[derive(PartialEq)]
 pub enum GameOverState {
@@ -290,7 +289,7 @@ async fn main() {
 		// 	);
 
 		// 	draw_text(
-		// 		&format!("{}", i),
+		// 		&format!("{}", KING_MIDDLEGAME_HEATMAP[flip_index(i)]),
 		// 		x + 8.0,
 		// 		y + 48.0,
 		// 		32.0,
