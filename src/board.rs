@@ -196,7 +196,7 @@ impl Board {
 			}
 		}
 
-		return false;
+		false
 	}
 
 	pub fn is_repetition(&self) -> bool {
@@ -211,7 +211,7 @@ impl Board {
 			}
 		}
 
-		return false;
+		false
 	}
 
 	pub fn compute_all_piece_bitboards(&mut self) {
@@ -230,7 +230,6 @@ impl Board {
 
 		for i in 0..64 {
 			let piece = self.board[i];
-
 			if piece != 0 {
 				let piece_color = is_white(piece) as usize;
 
@@ -314,7 +313,7 @@ impl Board {
 
 
 	pub fn get_last_move(&self) -> u32 {
-		if self.moves.len() == 0 {
+		if self.moves.is_empty() {
 			return 0;
 		}
 		self.moves[self.moves.len() - 1]
@@ -324,8 +323,9 @@ impl Board {
 		let mut result = vec![];
 
 		for i in 0..64 {
-			if self.board[i] != 0
-			&& is_white(self.board[i]) == white_pieces {
+			let piece = self.board[i];
+			if piece != 0
+			&& is_white(piece) == white_pieces {
 				result = [result, self.get_legal_moves_for_piece(i).into_iter().filter(|m| get_move_capture(*m) != 0).collect()].concat();
 			}
 		}
@@ -337,8 +337,9 @@ impl Board {
 		let mut result = vec![];
 
 		for i in 0..64 {
-			if self.board[i] != 0
-			&& is_white(self.board[i]) == white_pieces {
+			let piece = self.board[i];
+			if piece != 0
+			&& is_white(piece) == white_pieces {
 				result = [result, self.get_legal_moves_for_piece(i)].concat();
 			}
 		}
@@ -349,13 +350,12 @@ impl Board {
 	pub fn get_legal_moves_for_piece(&mut self, piece_index: usize) -> Vec<u32> {
 		let piece_color = is_white(self.board[piece_index]) as usize;
 		let other_color = !is_white(self.board[piece_index]) as usize;
-		let piece_type = get_piece_type(self.board[piece_index]);
 
 		let mut result = vec![];
 
 		let piece = 1 << piece_index;
 
-		match piece_type {
+		match get_piece_type(self.board[piece_index]) {
 			PAWN => {
 				let empty_squares = !(self.all_piece_bitboards[0] | self.all_piece_bitboards[1]);
 
@@ -571,11 +571,18 @@ impl Board {
 			let m = result[i];
 			let move_flag = get_move_flag(m);
 
-			if (move_flag == CASTLE_SHORT_FLAG
-			|| move_flag == CASTLE_LONG_FLAG)
-			&& self.king_in_check(self.whites_turn) {
-				result.remove(i);
-				continue;
+			if move_flag == CASTLE_SHORT_FLAG {
+				if self.king_in_check(self.whites_turn)
+				|| (1 << (get_move_from(m) + 1)) & self.attacked_squares_bitboards[!self.whites_turn as usize] != 0 {
+					result.remove(i);
+					continue;
+				}
+			} else if move_flag == CASTLE_LONG_FLAG {
+				if self.king_in_check(self.whites_turn)
+				|| (1 << (get_move_from(m) - 1)) & self.attacked_squares_bitboards[!self.whites_turn as usize] != 0 {
+					result.remove(i);
+					continue;
+				}
 			}
 
 			self.make_move(result[i]);
@@ -587,16 +594,6 @@ impl Board {
 			}
 
 			self.undo_last_move();
-
-			if move_flag == CASTLE_SHORT_FLAG {
-				if (1 << (get_move_from(m) + 1)) & self.attacked_squares_bitboards[!self.whites_turn as usize] != 0 {
-					result.remove(i);
-				}
-			} else if move_flag == CASTLE_LONG_FLAG {
-				if (1 << (get_move_from(m) - 1)) & self.attacked_squares_bitboards[!self.whites_turn as usize] != 0 {
-					result.remove(i);
-				}
-			}
 		}
 
 		result
@@ -640,10 +637,10 @@ impl Board {
 		self.board[from] = 0;
 
 		if PROMOTABLE_PIECES.contains(&flag) {
-			self.toggle_bit(piece_is_white, PAWN, from);
+			self.toggle_bit(piece_is_white, piece_type, from);
 			self.toggle_bit(piece_is_white, flag, to);
 
-			self.board[to] = (piece_is_white as u8) << 3 | flag;
+			self.board[to] = build_piece(piece_is_white, flag);
 
 			self.total_material_without_pawns += PIECE_WORTH[flag as usize - 1];
 		} else {
@@ -651,7 +648,19 @@ impl Board {
 			self.toggle_bit(piece_is_white, piece_type, from);
 		}
 
-		if flag == EN_PASSANT_FLAG {
+		if flag == CASTLE_SHORT_FLAG {
+			self.board[to - 1] = self.board[to + 1];
+			self.board[to + 1] = 0;
+
+			self.toggle_bit(piece_is_white, ROOK, to + 1);
+			self.toggle_bit(piece_is_white, ROOK, to - 1);
+		} else if flag == CASTLE_LONG_FLAG {
+			self.board[to + 1] = self.board[to - 2];
+			self.board[to - 2] = 0;
+
+			self.toggle_bit(piece_is_white, ROOK, to - 2);
+			self.toggle_bit(piece_is_white, ROOK, to + 1);
+		} else if flag == EN_PASSANT_FLAG {
 			let pawn_square = if piece_is_white {
 				to + 8
 			} else {
@@ -671,9 +680,7 @@ impl Board {
 
 		if piece_type == KING {
 			self.current_castle_rights &= !CASTLING[piece_is_white as usize];
-		}
-
-		if from == 0
+		} else if from == 0
 		|| to == 0 {
 			self.current_castle_rights &= !BLACK_LONGCASTLE;
 		} else if from == 7
@@ -685,20 +692,6 @@ impl Board {
 		} else if from == 63
 		|| to == 63 {
 			self.current_castle_rights &= !WHITE_SHORTCASTLE;
-		}
-
-		if flag == CASTLE_SHORT_FLAG {
-			self.board[to - 1] = self.board[to + 1];
-			self.board[to + 1] = 0;
-
-			self.toggle_bit(piece_is_white, ROOK, to + 1);
-			self.toggle_bit(piece_is_white, ROOK, to - 1);
-		} else if flag == CASTLE_LONG_FLAG {
-			self.board[to + 1] = self.board[to - 2];
-			self.board[to - 2] = 0;
-
-			self.toggle_bit(piece_is_white, ROOK, to - 2);
-			self.toggle_bit(piece_is_white, ROOK, to + 1);
 		}
 
 		self.compute_all_piece_bitboards();
@@ -722,7 +715,7 @@ impl Board {
 	}
 
 	pub fn undo_last_move(&mut self) {
-		if self.moves.len() == 0 {
+		if self.moves.is_empty() {
 			return;
 		}
 
@@ -762,7 +755,19 @@ impl Board {
 			self.toggle_bit(piece_is_white, piece_type, from);
 		}
 
-		if flag == EN_PASSANT_FLAG {
+		if flag == CASTLE_SHORT_FLAG {
+			self.board[to + 1] = self.board[to - 1];
+			self.board[to - 1] = 0;
+
+			self.toggle_bit(piece_is_white, ROOK, to + 1);
+			self.toggle_bit(piece_is_white, ROOK, to - 1);
+		} else if flag == CASTLE_LONG_FLAG {
+			self.board[to - 2] = self.board[to + 1];
+			self.board[to + 1] = 0;
+
+			self.toggle_bit(piece_is_white, ROOK, to - 2);
+			self.toggle_bit(piece_is_white, ROOK, to + 1);
+		} else if flag == EN_PASSANT_FLAG {
 			let pawn_square = if piece_is_white {
 				to + 8
 			} else {
@@ -780,21 +785,6 @@ impl Board {
 			if captured_piece_type > PAWN {
 				self.total_material_without_pawns += PIECE_WORTH[captured_piece_type as usize - 1];
 			}
-		}
-
-
-		if flag == CASTLE_SHORT_FLAG {
-			self.board[to + 1] = self.board[to - 1];
-			self.board[to - 1] = 0;
-
-			self.toggle_bit(piece_is_white, ROOK, to + 1);
-			self.toggle_bit(piece_is_white, ROOK, to - 1);
-		} else if flag == CASTLE_LONG_FLAG {
-			self.board[to - 2] = self.board[to + 1];
-			self.board[to + 1] = 0;
-
-			self.toggle_bit(piece_is_white, ROOK, to - 2);
-			self.toggle_bit(piece_is_white, ROOK, to + 1);
 		}
 
 
@@ -879,9 +869,7 @@ impl Board {
 		} else if flag == CASTLE_LONG_FLAG {
 			self.current_zobrist_key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to - 2];
 			self.current_zobrist_key ^= self.zobrist.pieces[piece_is_white as usize][ROOK as usize - 1][to + 1];
-		}
-
-		if capture != 0 {
+		} else if capture != 0 {
 			self.current_zobrist_key ^= self.zobrist.pieces[(!piece_is_white) as usize][capture as usize - 1][to];
 		}
 

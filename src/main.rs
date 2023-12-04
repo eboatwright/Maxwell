@@ -46,10 +46,10 @@ use crate::resources::Resources;
 pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
-pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN: &'static str = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
-pub const DRAWN_ENDGAME_FEN: &'static str = "8/8/8/3k4/R5p1/P5r1/4K3/8 w - - 0 1";
-pub const MATE_IN_5_FEN: &'static str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
+pub const STARTING_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+pub const TESTING_FEN: &str = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
+pub const DRAWN_ENDGAME_FEN: &str = "8/8/8/3k4/R5p1/P5r1/4K3/8 w - - 0 1";
+pub const MATE_IN_5_FEN: & str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
 
 #[derive(PartialEq)]
 pub enum GameOverState {
@@ -167,7 +167,7 @@ async fn main() {
 				|| !game_board.checkmating_material_on_board()
 				|| game_board.is_threefold_repetition() {
 					game_over_state = GameOverState::Draw;
-				} else if game_board.get_legal_moves_for_color(game_board.whites_turn).len() == 0 {
+				} else if game_board.get_legal_moves_for_color(game_board.whites_turn).is_empty() {
 					if game_board.king_in_check(game_board.whites_turn) {
 						if game_board.whites_turn {
 							game_over_state = GameOverState::BlackWins;
@@ -179,15 +179,13 @@ async fn main() {
 					}
 				}
 			}
-		} else {
-			if is_key_pressed(KeyCode::Enter) {
-				game_board = Board::from_fen(STARTING_FEN);
-				viewing_board = game_board.clone();
-				looking_back = false;
-				maxwell = Maxwell::new();
+		} else if is_key_pressed(KeyCode::Enter) {
+			game_board = Board::from_fen(STARTING_FEN);
+			viewing_board = game_board.clone();
+			looking_back = false;
+			maxwell = Maxwell::new();
 
-				game_over_state = GameOverState::None;
-			}
+			game_over_state = GameOverState::None;
 		}
 
 
@@ -201,7 +199,7 @@ async fn main() {
 		}
 
 		if is_key_pressed(KeyCode::Left)
-		&& viewing_board.moves.len() > 0 {
+		&& !viewing_board.moves.is_empty() {
 			viewing_board.undo_last_move();
 			looking_back = true;
 		}

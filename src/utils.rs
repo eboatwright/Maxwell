@@ -32,9 +32,9 @@ pub fn get_image_index_for_piece(piece: u8) -> usize {
 	};
 
 	if is_white(piece) {
-		return base;
+		base
 	} else {
-		return base + 6;
+		base + 6
 	}
 }
 
@@ -43,7 +43,7 @@ pub fn get_full_piece_worth(piece: u8, mut i: usize, endgame: f32) -> i32 {
 		i = 63 - i;
 	}
 
-	let worth = match get_piece_type(piece) {
+	match get_piece_type(piece) {
 		PAWN => PAWN_WORTH     + (PAWN_MIDDLEGAME_HEATMAP[i] as f32 * (1.0 - endgame) + PAWN_ENDGAME_HEATMAP[i] as f32 * endgame) as i32,
 		KNIGHT => KNIGHT_WORTH + KNIGHT_HEATMAP[i],
 		BISHOP => BISHOP_WORTH + BISHOP_HEATMAP[i],
@@ -52,9 +52,7 @@ pub fn get_full_piece_worth(piece: u8, mut i: usize, endgame: f32) -> i32 {
 		KING => KING_WORTH     + (KING_MIDDLEGAME_HEATMAP[i] as f32 * (1.0 - endgame) + KING_ENDGAME_HEATMAP[i] as f32 * endgame) as i32,
 
 		_ => 0,
-	};
-
-	worth
+	}
 }
 
 
@@ -72,7 +70,7 @@ pub fn index_from_coordinate(coordinate: &str) -> Option<usize> {
 
 	let file_index = file_index_from_coordinate(coordinate).unwrap_or(69) - 1;
 
-	let rank = if split[1].is_digit(10) {
+	let rank = if split[1].is_ascii_digit() {
 		split[1].to_digit(10).unwrap() as usize
 	} else {
 		69

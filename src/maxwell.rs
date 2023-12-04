@@ -99,12 +99,10 @@ impl Maxwell {
 		let hash_move = if let Some(depth) = depth {
 			if depth == 0 {
 				self.best_move
+			} else if let Some(data) = board.transposition_table.get(&board.current_zobrist_key) {
+				data.best_move
 			} else {
-				if let Some(data) = board.transposition_table.get(&board.current_zobrist_key) {
-					data.best_move
-				} else {
-					0
-				}
+				0
 			}
 		} else {
 			0
@@ -200,7 +198,7 @@ impl Maxwell {
 			}
 		}
 
-		return alpha;
+		alpha
 	}
 
 
