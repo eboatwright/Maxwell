@@ -173,20 +173,17 @@ pub fn position_counter_test(board: &mut Board, depth: u8, total_captures: &mut 
 
 	let mut total_positions = 0;
 
-	let legal_moves = board.get_legal_moves_for_color(board.whites_turn);
+	let legal_moves = board.get_legal_moves_for_color(board.whites_turn, false);
 	for legal_move in legal_moves.iter() {
 		board.make_move(*legal_move);
 
 		if get_move_capture(*legal_move) != 0 {
 			*total_captures += 1;
-			// board.print_to_console();
 		}
 
 		if board.king_in_check(board.whites_turn) {
 			*total_checks += 1;
 		}
-
-		// thread::sleep(Duration::from_millis(100));
 
 		total_positions += position_counter_test(board, depth - 1, total_captures, total_checks);
 
@@ -203,4 +200,16 @@ pub fn move_to_coordinates(m: u32) -> String {
 	coordinates += &coordinate_from_index(get_move_to(m));
 
 	coordinates
+}
+
+
+pub fn bitboard_population_count(mut bitboard: u64) -> u8 {
+	let mut count = 0;
+
+	while bitboard != 0 {
+		count += 1;
+		bitboard &= bitboard - 1;
+	}
+
+	count
 }

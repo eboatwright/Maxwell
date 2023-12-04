@@ -58,7 +58,7 @@ impl Maxwell {
 
 
 	pub fn get_opening_move(&mut self, board: &mut Board) -> u32 {
-		let legal_moves = board.get_legal_moves_for_color(board.whites_turn);
+		let legal_moves = board.get_legal_moves_for_color(board.whites_turn, false);
 
 		if legal_moves.is_empty() {
 			return 0;
@@ -180,7 +180,7 @@ impl Maxwell {
 		}
 
 
-		let legal_moves = board.get_legal_captures_for_color(board.whites_turn);
+		let legal_moves = board.get_legal_moves_for_color(board.whites_turn, true);
 		let sorted_moves = self.sort_moves(board, legal_moves, None);
 		for m in sorted_moves {
 			board.make_move(m);
@@ -226,7 +226,7 @@ impl Maxwell {
 			return 0;
 		}
 
-		let legal_moves = board.get_legal_moves_for_color(board.whites_turn);
+		let legal_moves = board.get_legal_moves_for_color(board.whites_turn, false);
 		let sorted_moves = self.sort_moves(board, legal_moves, Some(depth));
 
 		if sorted_moves.is_empty() {
@@ -381,11 +381,7 @@ impl Maxwell {
 				self.evaluation = self.evaluation_this_iteration;
 			}
 
-			let mut best_move = String::new();
-			best_move += &coordinate_from_index(get_move_from(self.best_move));
-			best_move += &coordinate_from_index(get_move_to(self.best_move));
-
-			println!("Current best move: {} (Depth {})", best_move, self.best_move_depth_searched_at);
+			println!("Current best move: {} (Depth {})", move_to_coordinates(self.best_move), self.best_move_depth_searched_at);
 
 			if self.cancelled_search {
 				println!("Search cancelled\n\n\n");
@@ -399,7 +395,7 @@ impl Maxwell {
 
 
 		if self.best_move == 0 {
-			self.best_move = board.get_legal_moves_for_color(board.whites_turn)[0];
+			self.best_move = board.get_legal_moves_for_color(board.whites_turn, false)[0];
 			println!("Could not search in time, defaulting to first legal move :(\n\n\n");
 		}
 

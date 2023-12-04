@@ -1,4 +1,11 @@
 /* TODO
+magic bitboards
+reimplement counting attacked squares (with brian kernighans bit counter)
+penalize pieces in front of e2 and d2 pawns
+use generate_sliding_moves_bitboard function to detect empty squares around king
+use opponent's attacked squares and penalize if they overlap the squares around the king
+maybe incrementally update material count / piece square tables?
+
 look into null move pruning and aspiration windows
 
 evaluate pawn structures (isolated, doubled, passed and shield pawns)
@@ -13,9 +20,9 @@ if you start from a non starting FEN position with en passant on the board, it w
 Search data for test position:
 	Searching depth 7...
 	Final evaluation: -4.6
-	Time since start of turn: 8.857742
-	Total positions searched: 273911
-	Quiescence positions searched: 370408
+	Time since start of turn: 8.704116
+	Total positions searched: 274130
+	Quiescence positions searched: 370744
 	Current best move: c4c5 (Depth 7)
 */
 
@@ -76,11 +83,19 @@ async fn main() {
 
 	let mut board_flipped = false;
 	let mut game_board = Board::from_fen(TESTING_FEN);
+	let mut viewing_board = game_board.clone();
+
+	let mut piece_dragging = None;
+	let mut game_over_state = GameOverState::None;
+
+	let mut looking_back = false;
+
+
+	let mut maxwell = Maxwell::new();
 
 
 
-
-	// for depth in 5..=5 {
+	// for depth in 1..=4 {
 	// 	let timer = Instant::now();
 
 	// 	let mut total_captures = 0;
@@ -95,16 +110,42 @@ async fn main() {
 	// }
 
 
-
-	let mut viewing_board = game_board.clone();
-
-	let mut piece_dragging = None;
-	let mut game_over_state = GameOverState::None;
-
-	let mut looking_back = false;
+	// let timer = Instant::now();
+	// for _ in 0..1_000_000 {
+	// 	game_board.evaluate();
+	// }
+	// println!("1 million evaluations: {} seconds", timer.elapsed().as_secs_f32());
 
 
-	let mut maxwell = Maxwell::new();
+	// This is suuuuuper slow, and a big bottleneck is the "calculate_attacked_squares_bitboards" function
+	// let timer = Instant::now();
+	// for _ in 0..1_000_000 {
+	// 	let legal_moves = game_board.get_legal_moves_for_color(true, false);
+	// }
+	// println!("1 million legal move generations: {} seconds", timer.elapsed().as_secs_f32());
+
+
+	// let timer = Instant::now();
+	// for _ in 0..1_000_000 {
+	// 	let legal_moves = game_board.get_legal_moves_for_color(true, true);
+	// }
+	// println!("1 million legal capture generations: {} seconds", timer.elapsed().as_secs_f32());
+
+
+	// let legal_moves = game_board.get_legal_moves_for_color(true, false);
+	// let timer = Instant::now();
+	// for _ in 0..1_000_000 {
+	// 	let sorted_moves = maxwell.sort_moves(&mut game_board, legal_moves.clone(), None);
+	// }
+	// println!("1 million move sorts: {} seconds", timer.elapsed().as_secs_f32());
+
+
+	// let timer = Instant::now();
+	// for i in 0..1_000_000 {
+	// 	game_board.make_move(legal_moves[i % legal_moves.len()]);
+	// 	game_board.undo_last_move();
+	// }
+	// println!("1 million moves: {} seconds", timer.elapsed().as_secs_f32());
 
 
 	loop {
@@ -120,12 +161,8 @@ async fn main() {
 			|| (!game_board.whites_turn
 			&& MAXWELL_PLAYING == MaxwellPlaying::Black)
 			|| MAXWELL_PLAYING == MaxwellPlaying::Both {
-				let move_to_play = {
-					maxwell.start(&mut game_board);
-					maxwell.best_move
-				};
-
-				game_board.make_move(move_to_play);
+				maxwell.start(&mut game_board);
+				game_board.make_move(maxwell.best_move);
 				made_move = true;
 			} else if !looking_back {
 				if is_mouse_button_pressed(MouseButton::Left) {
@@ -167,7 +204,7 @@ async fn main() {
 				|| !game_board.checkmating_material_on_board()
 				|| game_board.is_threefold_repetition() {
 					game_over_state = GameOverState::Draw;
-				} else if game_board.get_legal_moves_for_color(game_board.whites_turn).is_empty() {
+				} else if game_board.get_legal_moves_for_color(game_board.whites_turn, false).is_empty() {
 					if game_board.king_in_check(game_board.whites_turn) {
 						if game_board.whites_turn {
 							game_over_state = GameOverState::BlackWins;
@@ -215,7 +252,7 @@ async fn main() {
 		render_board(&resources, &viewing_board, looking_back, piece_dragging, board_flipped);
 
 		if let Some(piece_dragging) = piece_dragging {
-			for legal_move in viewing_board.get_legal_moves_for_piece(piece_dragging) {
+			for legal_move in viewing_board.get_legal_moves_for_piece(piece_dragging, false) {
 				let mut to = get_move_to(legal_move);
 
 				if board_flipped {
@@ -265,7 +302,7 @@ async fn main() {
 		// 	);
 
 		// 	draw_text(
-		// 		&format!("{}", (KING_MIDDLEGAME_HEATMAP[i] as f32 * (1.0 - viewing_board.endgame_multiplier()) + KING_ENDGAME_HEATMAP[i] as f32 * viewing_board.endgame_multiplier()) as i32),
+		// 		&format!("{}", i),
 		// 		x + 8.0,
 		// 		y + 48.0,
 		// 		32.0,
@@ -365,7 +402,7 @@ fn render_board(resources: &Resources, board: &Board, looking_back: bool, piece_
 
 			let piece = get_image_index_for_piece(board.board[index]);
 
-			// if (board.all_piece_bitboards[1] >> index) & 1 == 1 {
+			// if (board.attacked_squares_bitboards[1] >> index) & 1 == 1 {
 			// 	draw_rectangle(
 			// 		x as f32 * SQUARE_SIZE,
 			// 		y as f32 * SQUARE_SIZE,

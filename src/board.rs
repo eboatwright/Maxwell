@@ -159,7 +159,7 @@ impl Board {
 
 
 		final_board.compute_all_piece_bitboards();
-		final_board.compute_attacked_squares_bitboards();
+		final_board.calculate_attacked_squares_bitboards();
 
 
 		final_board.calculate_initial_zobrist_key();
@@ -225,45 +225,26 @@ impl Board {
 		self.piece_bitboards[white as usize][(KING - 1) as usize] & self.attacked_squares_bitboards[!white as usize] != 0
 	}
 
-	pub fn compute_attacked_squares_bitboards(&mut self) {
+	// This is a performance bottleneck, but I don't know what I'm gonna do about it :[
+	pub fn calculate_attacked_squares_bitboards(&mut self) {
 		self.attacked_squares_bitboards = [0; 2];
 
 		for i in 0..64 {
 			let piece = self.board[i];
 			if piece != 0 {
 				let piece_color = is_white(piece) as usize;
-
-				match get_piece_type(piece) {
-					PAWN => {
-						self.attacked_squares_bitboards[piece_color] |= self.precomputed_data.pawn_bitboards[piece_color][i];
-					}
-
-					KNIGHT => {
-						self.attacked_squares_bitboards[piece_color] |= self.precomputed_data.knight_bitboards[i];
-					}
-
-					BISHOP => {
-						self.attacked_squares_bitboards[piece_color] |= self.generate_sliding_attacks_bitboard(i, 4..8)
-					}
-
-					ROOK => {
-						self.attacked_squares_bitboards[piece_color] |= self.generate_sliding_attacks_bitboard(i, 0..4)
-					}
-
-					QUEEN => {
-						self.attacked_squares_bitboards[piece_color] |= self.generate_sliding_attacks_bitboard(i, 0..8)
-					}
-
-					KING => {
-						self.attacked_squares_bitboards[piece_color] |= self.precomputed_data.king_bitboards[i];
-					}
-
-					_ => {}
-				}
+				self.attacked_squares_bitboards[piece_color] |= match get_piece_type(piece) {
+					PAWN   => self.precomputed_data.pawn_bitboards[piece_color][i],
+					KNIGHT => self.precomputed_data.knight_bitboards[i],
+					BISHOP => self.generate_sliding_attacks_bitboard(i, 4..8),
+					ROOK   => self.generate_sliding_attacks_bitboard(i, 0..4),
+					QUEEN  => self.generate_sliding_attacks_bitboard(i, 0..8),
+					KING   => self.precomputed_data.king_bitboards[i],
+					_      => 0,
+				};
 			}
 		}
 	}
-
 
 
 
@@ -311,7 +292,6 @@ impl Board {
 
 
 
-
 	pub fn get_last_move(&self) -> u32 {
 		if self.moves.is_empty() {
 			return 0;
@@ -319,35 +299,21 @@ impl Board {
 		self.moves[self.moves.len() - 1]
 	}
 
-	pub fn get_legal_captures_for_color(&mut self, white_pieces: bool) -> Vec<u32> {
+	pub fn get_legal_moves_for_color(&mut self, white_pieces: bool, only_captures: bool) -> Vec<u32> {
 		let mut result = vec![];
 
 		for i in 0..64 {
 			let piece = self.board[i];
 			if piece != 0
 			&& is_white(piece) == white_pieces {
-				result = [result, self.get_legal_moves_for_piece(i).into_iter().filter(|m| get_move_capture(*m) != 0).collect()].concat();
+				result = [result, self.get_legal_moves_for_piece(i, only_captures)].concat();
 			}
 		}
 
 		result
 	}
 
-	pub fn get_legal_moves_for_color(&mut self, white_pieces: bool) -> Vec<u32> {
-		let mut result = vec![];
-
-		for i in 0..64 {
-			let piece = self.board[i];
-			if piece != 0
-			&& is_white(piece) == white_pieces {
-				result = [result, self.get_legal_moves_for_piece(i)].concat();
-			}
-		}
-
-		result
-	}
-
-	pub fn get_legal_moves_for_piece(&mut self, piece_index: usize) -> Vec<u32> {
+	pub fn get_legal_moves_for_piece(&mut self, piece_index: usize, only_captures: bool) -> Vec<u32> {
 		let piece_color = is_white(self.board[piece_index]) as usize;
 		let other_color = !is_white(self.board[piece_index]) as usize;
 
@@ -368,18 +334,20 @@ impl Board {
 
 
 
-					// Pushing
-					if (piece >> 8) & empty_squares != 0 {
-						if will_promote {
-							for promotion in PROMOTABLE_PIECES.iter() {
-								result.push(build_move(*promotion, 0, piece_index, piece_index - 8));
-							}
-						} else {
-							result.push(build_move(0, 0, piece_index, piece_index - 8));
+					if !only_captures {
+						// Pushing
+						if (piece >> 8) & empty_squares != 0 {
+							if will_promote {
+								for promotion in PROMOTABLE_PIECES.iter() {
+									result.push(build_move(*promotion, 0, piece_index, piece_index - 8));
+								}
+							} else {
+								result.push(build_move(0, 0, piece_index, piece_index - 8));
 
-							if rank_of_index(piece_index) == 2
-							&& (piece >> 16) & empty_squares != 0 {
-								result.push(build_move(DOUBLE_PAWN_PUSH_FLAG, 0, piece_index, piece_index - 16));
+								if rank_of_index(piece_index) == 2
+								&& (piece >> 16) & empty_squares != 0 {
+									result.push(build_move(DOUBLE_PAWN_PUSH_FLAG, 0, piece_index, piece_index - 16));
+								}
 							}
 						}
 					}
@@ -433,18 +401,20 @@ impl Board {
 
 
 
-					// Pushing
-					if (piece << 8) & empty_squares != 0 {
-						if will_promote {
-							for promotion in PROMOTABLE_PIECES.iter() {
-								result.push(build_move(*promotion, 0, piece_index, piece_index + 8));
-							}
-						} else {
-							result.push(build_move(0, 0, piece_index, piece_index + 8));
+					if !only_captures {
+						// Pushing
+						if (piece << 8) & empty_squares != 0 {
+							if will_promote {
+								for promotion in PROMOTABLE_PIECES.iter() {
+									result.push(build_move(*promotion, 0, piece_index, piece_index + 8));
+								}
+							} else {
+								result.push(build_move(0, 0, piece_index, piece_index + 8));
 
-							if rank_of_index(piece_index) == 7
-							&& (piece << 16) & empty_squares != 0 {
-								result.push(build_move(DOUBLE_PAWN_PUSH_FLAG, 0, piece_index, piece_index + 16));
+								if rank_of_index(piece_index) == 7
+								&& (piece << 16) & empty_squares != 0 {
+									result.push(build_move(DOUBLE_PAWN_PUSH_FLAG, 0, piece_index, piece_index + 16));
+								}
 							}
 						}
 					}
@@ -536,7 +506,7 @@ impl Board {
 
 
 			KING => {
-				let bitboard = self.precomputed_data.king_bitboards[piece_index] & !self.all_piece_bitboards[piece_color];
+				let bitboard = self.precomputed_data.king_bitboards[piece_index] & !(self.attacked_squares_bitboards[other_color] | self.all_piece_bitboards[piece_color]);
 
 				for offset in [9, 8, 7, 1] {
 					if (piece >> offset) & bitboard != 0 {
@@ -550,17 +520,20 @@ impl Board {
 					}
 				}
 
-				if self.can_castle_short(piece_color == 1)
-				&& self.board[piece_index + 1] == 0
-				&& self.board[piece_index + 2] == 0 {
-					result.push(build_move(CASTLE_SHORT_FLAG, 0, piece_index, piece_index + 2));
-				}
+				if !only_captures {
+					let all_pieces_bitboard = self.all_piece_bitboards[0] | self.all_piece_bitboards[1];
+					let empty_and_not_attacked_squares = all_pieces_bitboard | self.attacked_squares_bitboards[other_color];
 
-				if self.can_castle_long(piece_color == 1)
-				&& self.board[piece_index - 1] == 0
-				&& self.board[piece_index - 2] == 0
-				&& self.board[piece_index - 3] == 0 {
-					result.push(build_move(CASTLE_LONG_FLAG, 0, piece_index, piece_index - 2));
+					if self.can_castle_short(piece_color == 1)
+					&& SHORT_CASTLE_MASK[piece_color] & empty_and_not_attacked_squares == 0 {
+						result.push(build_move(CASTLE_SHORT_FLAG, 0, piece_index, piece_index + 2));
+					}
+
+					if self.can_castle_long(piece_color == 1)
+					&& LONG_CASTLE_MASK[piece_color] & empty_and_not_attacked_squares == 0
+					&& (piece >> 3) & all_pieces_bitboard == 0 {
+						result.push(build_move(CASTLE_LONG_FLAG, 0, piece_index, piece_index - 2));
+					}
 				}
 			}
 
@@ -569,28 +542,16 @@ impl Board {
 
 		for i in (0..result.len()).rev() {
 			let m = result[i];
-			let move_flag = get_move_flag(m);
-
-			if move_flag == CASTLE_SHORT_FLAG {
-				if self.king_in_check(self.whites_turn)
-				|| (1 << (get_move_from(m) + 1)) & self.attacked_squares_bitboards[!self.whites_turn as usize] != 0 {
-					result.remove(i);
-					continue;
-				}
-			} else if move_flag == CASTLE_LONG_FLAG {
-				if self.king_in_check(self.whites_turn)
-				|| (1 << (get_move_from(m) - 1)) & self.attacked_squares_bitboards[!self.whites_turn as usize] != 0 {
-					result.remove(i);
-					continue;
-				}
+			if only_captures
+			&& get_move_capture(m) == 0 {
+				result.remove(i);
+				continue;
 			}
 
-			self.make_move(result[i]);
+			self.make_move(m);
 
 			if self.king_in_check(!self.whites_turn) {
 				result.remove(i);
-				self.undo_last_move();
-				continue;
 			}
 
 			self.undo_last_move();
@@ -602,7 +563,7 @@ impl Board {
 	pub fn play_move(&mut self, promotion: u8, from: usize, to: usize) {
 		let promoting = promotion != 0;
 
-		for m in self.get_legal_moves_for_piece(from) {
+		for m in self.get_legal_moves_for_piece(from, false) {
 			if (!promoting || get_move_flag(m) == promotion)
 			&& get_move_from(m) == from && get_move_to(m) == to {
 				self.make_move(m);
@@ -695,7 +656,7 @@ impl Board {
 		}
 
 		self.compute_all_piece_bitboards();
-		self.compute_attacked_squares_bitboards();
+		self.calculate_attacked_squares_bitboards();
 
 		self.castle_rights_history.push(self.current_castle_rights);
 		self.make_move_on_zobrist_key(piece_move);
@@ -789,7 +750,7 @@ impl Board {
 
 
 		self.compute_all_piece_bitboards();
-		self.compute_attacked_squares_bitboards();
+		self.calculate_attacked_squares_bitboards();
 
 
 		self.whites_turn = !self.whites_turn;

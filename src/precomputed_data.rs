@@ -15,6 +15,16 @@ pub const NOT_GH_FILES: u64 = A_FILE | B_FILE | C_FILE | D_FILE | E_FILE | F_FIL
 
 pub const DIRECTION_OFFSETS: [i8; 8] = [-8, 8, -1, 1, -7, 7, -9, 9];
 
+pub const SHORT_CASTLE_MASK: [u64; 2] = [
+	(1 << 5) | (1 << 6),
+	(1 << 61) | (1 << 62),
+];
+
+pub const LONG_CASTLE_MASK: [u64; 2] = [
+	(1 << 2) | (1 << 3),
+	(1 << 58) | (1 << 59),
+];
+
 
 #[derive(Clone)]
 pub struct PrecomputedData {
