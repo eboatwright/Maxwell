@@ -254,17 +254,17 @@ impl Maxwell {
 		}
 
 		// Razoring :D
-		if depth_left == 3
-		&& depth != 0
-		&& get_move_capture(board.get_last_move()) == 0
-		&& !board.king_in_check(board.whites_turn)
-		&& !board.king_in_check(!board.whites_turn) {
-			let eval = board.evaluate();
-			if eval + QUEEN_WORTH < alpha {
-				// return self.search_only_captures(board, alpha, beta);
-				depth_left -= 1;
-			}
-		}
+		// if depth_left == 3
+		// && depth != 0
+		// && get_move_capture(board.get_last_move()) == 0
+		// && !board.king_in_check(board.whites_turn)
+		// && !board.king_in_check(!board.whites_turn) {
+		// 	let eval = board.evaluate();
+		// 	if eval + QUEEN_WORTH < alpha {
+		// 		// return self.search_only_captures(board, alpha, beta);
+		// 		depth_left -= 1;
+		// 	}
+		// }
 
 		let mut best_move_this_search = 0;
 		let mut best_move_depth_searched_at = depth_left;
