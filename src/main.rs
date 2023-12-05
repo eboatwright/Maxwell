@@ -27,7 +27,6 @@ mod utils;
 mod board;
 mod maxwell;
 
-use crate::heatmaps::*;
 use crate::maxwell::*;
 use crate::piece::*;
 use crate::utils::*;

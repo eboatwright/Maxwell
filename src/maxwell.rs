@@ -205,7 +205,7 @@ impl Maxwell {
 	pub fn search_moves(
 		&mut self,
 		board: &mut Board,
-		mut depth_left: u16,
+		depth_left: u16,
 		depth: u16,
 		number_of_extensions: u16,
 		mut alpha: i32,
