@@ -762,8 +762,11 @@ impl Board {
 	pub fn evaluate(&self) -> i32 {
 		let endgame = self.endgame_multiplier();
 
-		let mut material = 0;
-		let mut attacked_squares = 0;
+		let mut white_material = 0;
+		let mut black_material = 0;
+
+		let mut white_attacked_squares = 0;
+		let mut black_attacked_squares = 0;
 
 		let mut white_king_index = 0;
 		let mut black_king_index = 0;
@@ -774,9 +777,9 @@ impl Board {
 			if piece != 0 {
 				let worth = get_full_piece_worth(piece, i, endgame);
 				if is_white(piece) {
-					material += worth;
+					white_material += worth;
 				} else {
-					material -= worth;
+					black_material += worth;
 				}
 
 				if piece == WHITE | KING {
@@ -787,41 +790,49 @@ impl Board {
 			}
 
 			if (1 << i) & self.attacked_squares_bitboards[1] != 0 {
-				attacked_squares += 1;
+				white_attacked_squares += 1;
 			}
 
 			if (1 << i) & self.attacked_squares_bitboards[0] != 0 {
-				attacked_squares -= 1;
+				black_attacked_squares += 1;
 			}
 		}
 
-		let king_weakness = if endgame != 1.0 {
-			let weak_squares_around_king =
-				bitboard_population_count(
-					  self.precomputed_data.king_bitboards[black_king_index]
-					& self.attacked_squares_bitboards[1]
-				) -
+		let (white_king_weakness, black_king_weakness) = if endgame != 1.0 {
+			let white_weak_squares_around_king =
 				bitboard_population_count(
 					  self.precomputed_data.king_bitboards[white_king_index]
 					& self.attacked_squares_bitboards[0]
 				);
 
-			// This is a bit slow, hopefully it's not too slow
-			let weak_lines_from_king =
+			let black_weak_squares_around_king =
 				bitboard_population_count(
-					self.generate_sliding_attacks_bitboard(black_king_index, 0..8),
-				) -
-				bitboard_population_count(
-					self.generate_sliding_attacks_bitboard(white_king_index, 0..8),
+					  self.precomputed_data.king_bitboards[black_king_index]
+					& self.attacked_squares_bitboards[1]
 				);
 
-			((weak_squares_around_king * 20 + weak_lines_from_king * 10) as f32 * (1.0 - endgame)) as i32
+			// This is a bit slow, hopefully it's not too slow
+			// Disabled it for now, cuz it didn't seem like it was helping
+			// let white_weak_lines_from_king =
+			// 	bitboard_population_count(
+			// 		self.generate_sliding_attacks_bitboard(white_king_index, 0..8),
+			// 	);
+
+			// let black_weak_lines_from_king =
+			// 	bitboard_population_count(
+			// 		self.generate_sliding_attacks_bitboard(black_king_index, 0..8),
+			// 	);
+
+			(
+				((white_weak_squares_around_king * 20) as f32 * (1.0 - endgame)) as i32,
+				((black_weak_squares_around_king * 20) as f32 * (1.0 - endgame)) as i32,
+			)
 		} else {
-			0
+			(0, 0)
 		};
 
 		let perspective = if self.whites_turn { 1 } else { -1 };
-		(material + attacked_squares * 10 + king_weakness) * perspective
+		((white_material + white_attacked_squares * 10 - white_king_weakness) - (black_material + black_attacked_squares * 10 - black_king_weakness)) * perspective
 	}
 
 
