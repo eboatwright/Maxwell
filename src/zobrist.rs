@@ -1,6 +1,3 @@
-use crate::piece::*;
-use crate::Board;
-use crate::PIECES_IN_ORDER;
 use macroquad::rand::{srand, gen_range};
 
 pub const RAND_SEED: u64 = 3141592653589793238;

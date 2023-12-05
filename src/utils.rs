@@ -32,18 +32,18 @@ pub fn get_image_index_for_piece(piece: u8) -> usize {
 	};
 
 	if is_white(piece) {
-		return base;
+		base
 	} else {
-		return base + 6;
+		base + 6
 	}
 }
 
 pub fn get_full_piece_worth(piece: u8, mut i: usize, endgame: f32) -> i32 {
-	if !is_white(piece) { // This assumes that the heatmap is symmetrical
-		i = 63 - i;
+	if !is_white(piece) {
+		i = flip_index(i);
 	}
 
-	let worth = match get_piece_type(piece) {
+	match get_piece_type(piece) {
 		PAWN => PAWN_WORTH     + (PAWN_MIDDLEGAME_HEATMAP[i] as f32 * (1.0 - endgame) + PAWN_ENDGAME_HEATMAP[i] as f32 * endgame) as i32,
 		KNIGHT => KNIGHT_WORTH + KNIGHT_HEATMAP[i],
 		BISHOP => BISHOP_WORTH + BISHOP_HEATMAP[i],
@@ -52,9 +52,7 @@ pub fn get_full_piece_worth(piece: u8, mut i: usize, endgame: f32) -> i32 {
 		KING => KING_WORTH     + (KING_MIDDLEGAME_HEATMAP[i] as f32 * (1.0 - endgame) + KING_ENDGAME_HEATMAP[i] as f32 * endgame) as i32,
 
 		_ => 0,
-	};
-
-	worth
+	}
 }
 
 
@@ -72,7 +70,7 @@ pub fn index_from_coordinate(coordinate: &str) -> Option<usize> {
 
 	let file_index = file_index_from_coordinate(coordinate).unwrap_or(69) - 1;
 
-	let rank = if split[1].is_digit(10) {
+	let rank = if split[1].is_ascii_digit() {
 		split[1].to_digit(10).unwrap() as usize
 	} else {
 		69
@@ -175,20 +173,17 @@ pub fn position_counter_test(board: &mut Board, depth: u8, total_captures: &mut 
 
 	let mut total_positions = 0;
 
-	let legal_moves = board.get_legal_moves_for_color(board.whites_turn);
+	let legal_moves = board.get_legal_moves_for_color(board.whites_turn, false);
 	for legal_move in legal_moves.iter() {
 		board.make_move(*legal_move);
 
 		if get_move_capture(*legal_move) != 0 {
 			*total_captures += 1;
-			// board.print_to_console();
 		}
 
 		if board.king_in_check(board.whites_turn) {
 			*total_checks += 1;
 		}
-
-		// thread::sleep(Duration::from_millis(100));
 
 		total_positions += position_counter_test(board, depth - 1, total_captures, total_checks);
 
@@ -197,3 +192,26 @@ pub fn position_counter_test(board: &mut Board, depth: u8, total_captures: &mut 
 
 	total_positions
 }
+
+pub fn move_to_coordinates(m: u32) -> String {
+	let mut coordinates = String::new();
+
+	coordinates += &coordinate_from_index(get_move_from(m));
+	coordinates += &coordinate_from_index(get_move_to(m));
+
+	coordinates
+}
+
+
+pub fn bitboard_population_count(mut bitboard: u64) -> i32 {
+	let mut count = 0;
+
+	while bitboard != 0 {
+		count += 1;
+		bitboard &= bitboard - 1;
+	}
+
+	count
+}
+
+pub fn flip_index(i: usize) -> usize { (i % 8) + (7 - (i / 8)) * 8 }

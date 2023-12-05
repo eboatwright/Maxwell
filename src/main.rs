@@ -1,5 +1,11 @@
 /* TODO
-evaluate pawn structures (including isolated and passed pawns)
+magic bitboards
+penalize pieces in front of e2 and d2 pawns?
+
+look into null move pruning and aspiration windows
+
+evaluate pawn structures (isolated, doubled, passed and shield pawns)
+
 insentivise pushing the opponent's king to the edge of the board in endgames,
 	and bringing your king closer to the opponent's king if it's trying to checkmate
 
@@ -21,7 +27,6 @@ mod utils;
 mod board;
 mod maxwell;
 
-use crate::heatmaps::*;
 use crate::maxwell::*;
 use crate::piece::*;
 use crate::utils::*;
@@ -33,8 +38,11 @@ use crate::resources::Resources;
 pub const SQUARE_SIZE: f32 = 64.0;
 pub const WINDOW_SIZE: f32 = SQUARE_SIZE * 8.0;
 
-pub const STARTING_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN: &'static str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
+pub const STARTING_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+pub const TESTING_FEN: &str = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
+pub const DRAWN_ENDGAME_FEN: &str = "8/8/8/3k4/R5p1/P5r1/4K3/8 w - - 0 1";
+pub const MATE_IN_5_FEN: &str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
+pub const KING_AND_PAWN_ENDGAME_FEN: &str = "8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1";
 
 #[derive(PartialEq)]
 pub enum GameOverState {
@@ -47,7 +55,7 @@ pub enum GameOverState {
 
 fn window_conf() -> Conf {
 	Conf {
-		window_title: "Maxwell ~ The Chess Engine v2.3".to_string(),
+		window_title: "Maxwell ~ The Chess Engine v2.4".to_string(),
 		window_width: WINDOW_SIZE as i32,
 		window_height: WINDOW_SIZE as i32,
 		window_resizable: false,
@@ -61,11 +69,19 @@ async fn main() {
 
 	let mut board_flipped = false;
 	let mut game_board = Board::from_fen(STARTING_FEN);
+	let mut viewing_board = game_board.clone();
+
+	let mut piece_dragging = None;
+	let mut game_over_state = GameOverState::None;
+
+	let mut looking_back = false;
+
+
+	let mut maxwell = Maxwell::new();
 
 
 
-
-	// for depth in 5..=5 {
+	// for depth in 1..=4 {
 	// 	let timer = Instant::now();
 
 	// 	let mut total_captures = 0;
@@ -80,16 +96,42 @@ async fn main() {
 	// }
 
 
-
-	let mut viewing_board = game_board.clone();
-
-	let mut piece_dragging = None;
-	let mut game_over_state = GameOverState::None;
-
-	let mut looking_back = false;
+	// let timer = Instant::now();
+	// for _ in 0..10_000_000 {
+	// 	game_board.evaluate();
+	// }
+	// println!("10 million evaluations: {} seconds", timer.elapsed().as_secs_f32());
 
 
-	let mut maxwell = Maxwell::new();
+	// This is suuuuuper slow, and a big bottleneck is the "calculate_attacked_squares_bitboards" function
+	// let timer = Instant::now();
+	// for _ in 0..1_000_000 {
+	// 	let legal_moves = game_board.get_legal_moves_for_color(true, false);
+	// }
+	// println!("1 million legal move generations: {} seconds", timer.elapsed().as_secs_f32());
+
+
+	// let timer = Instant::now();
+	// for _ in 0..1_000_000 {
+	// 	let legal_moves = game_board.get_legal_moves_for_color(true, true);
+	// }
+	// println!("1 million legal capture generations: {} seconds", timer.elapsed().as_secs_f32());
+
+
+	// let legal_moves = game_board.get_legal_moves_for_color(true, false);
+	// let timer = Instant::now();
+	// for _ in 0..1_000_000 {
+	// 	let sorted_moves = maxwell.sort_moves(&mut game_board, legal_moves.clone(), None);
+	// }
+	// println!("1 million move sorts: {} seconds", timer.elapsed().as_secs_f32());
+
+
+	// let timer = Instant::now();
+	// for i in 0..1_000_000 {
+	// 	game_board.make_move(legal_moves[i % legal_moves.len()]);
+	// 	game_board.undo_last_move();
+	// }
+	// println!("1 million moves: {} seconds", timer.elapsed().as_secs_f32());
 
 
 	loop {
@@ -105,12 +147,8 @@ async fn main() {
 			|| (!game_board.whites_turn
 			&& MAXWELL_PLAYING == MaxwellPlaying::Black)
 			|| MAXWELL_PLAYING == MaxwellPlaying::Both {
-				let move_to_play = {
-					maxwell.start(&mut game_board);
-					maxwell.best_move
-				};
-
-				game_board.make_move(move_to_play);
+				maxwell.start(&mut game_board);
+				game_board.make_move(maxwell.best_move);
 				made_move = true;
 			} else if !looking_back {
 				if is_mouse_button_pressed(MouseButton::Left) {
@@ -152,7 +190,7 @@ async fn main() {
 				|| !game_board.checkmating_material_on_board()
 				|| game_board.is_threefold_repetition() {
 					game_over_state = GameOverState::Draw;
-				} else if game_board.get_legal_moves_for_color(game_board.whites_turn).len() == 0 {
+				} else if game_board.get_legal_moves_for_color(game_board.whites_turn, false).is_empty() {
 					if game_board.king_in_check(game_board.whites_turn) {
 						if game_board.whites_turn {
 							game_over_state = GameOverState::BlackWins;
@@ -164,15 +202,13 @@ async fn main() {
 					}
 				}
 			}
-		} else {
-			if is_key_pressed(KeyCode::Enter) {
-				game_board = Board::from_fen(STARTING_FEN);
-				viewing_board = game_board.clone();
-				looking_back = false;
-				maxwell = Maxwell::new();
+		} else if is_key_pressed(KeyCode::Enter) {
+			game_board = Board::from_fen(STARTING_FEN);
+			viewing_board = game_board.clone();
+			looking_back = false;
+			maxwell = Maxwell::new();
 
-				game_over_state = GameOverState::None;
-			}
+			game_over_state = GameOverState::None;
 		}
 
 
@@ -186,7 +222,7 @@ async fn main() {
 		}
 
 		if is_key_pressed(KeyCode::Left)
-		&& viewing_board.moves.len() > 0 {
+		&& !viewing_board.moves.is_empty() {
 			viewing_board.undo_last_move();
 			looking_back = true;
 		}
@@ -202,7 +238,7 @@ async fn main() {
 		render_board(&resources, &viewing_board, looking_back, piece_dragging, board_flipped);
 
 		if let Some(piece_dragging) = piece_dragging {
-			for legal_move in viewing_board.get_legal_moves_for_piece(piece_dragging) {
+			for legal_move in viewing_board.get_legal_moves_for_piece(piece_dragging, false) {
 				let mut to = get_move_to(legal_move);
 
 				if board_flipped {
@@ -252,7 +288,7 @@ async fn main() {
 		// 	);
 
 		// 	draw_text(
-		// 		&format!("{}", (KING_MIDDLEGAME_HEATMAP[i] as f32 * (1.0 - viewing_board.endgame_multiplier()) + KING_ENDGAME_HEATMAP[i] as f32 * viewing_board.endgame_multiplier()) as i32),
+		// 		&format!("{}", KING_MIDDLEGAME_HEATMAP[flip_index(i)]),
 		// 		x + 8.0,
 		// 		y + 48.0,
 		// 		32.0,
@@ -352,7 +388,7 @@ fn render_board(resources: &Resources, board: &Board, looking_back: bool, piece_
 
 			let piece = get_image_index_for_piece(board.board[index]);
 
-			// if (board.all_piece_bitboards[1] >> index) & 1 == 1 {
+			// if (board.attacked_squares_bitboards[1] >> index) & 1 == 1 {
 			// 	draw_rectangle(
 			// 		x as f32 * SQUARE_SIZE,
 			// 		y as f32 * SQUARE_SIZE,
