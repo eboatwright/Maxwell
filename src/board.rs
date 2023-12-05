@@ -798,21 +798,21 @@ impl Board {
 		let king_weakness = if endgame != 1.0 {
 			let weak_squares_around_king =
 				bitboard_population_count(
-					  self.precomputed_data.king_bitboards[white_king_index]
-					& self.attacked_squares_bitboards[0]
-				) -
-				bitboard_population_count(
 					  self.precomputed_data.king_bitboards[black_king_index]
 					& self.attacked_squares_bitboards[1]
+				) -
+				bitboard_population_count(
+					  self.precomputed_data.king_bitboards[white_king_index]
+					& self.attacked_squares_bitboards[0]
 				);
 
 			// This is a bit slow, hopefully it's not too slow
 			let weak_lines_from_king =
 				bitboard_population_count(
-					self.generate_sliding_attacks_bitboard(white_king_index, 0..8),
+					self.generate_sliding_attacks_bitboard(black_king_index, 0..8),
 				) -
 				bitboard_population_count(
-					self.generate_sliding_attacks_bitboard(black_king_index, 0..8),
+					self.generate_sliding_attacks_bitboard(white_king_index, 0..8),
 				);
 
 			((weak_squares_around_king * 20 + weak_lines_from_king * 10) as f32 * (1.0 - endgame)) as i32
