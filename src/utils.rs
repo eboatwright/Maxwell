@@ -1,90 +1,14 @@
-use crate::Board;
-use crate::SQUARE_SIZE;
-use macroquad::prelude::{Vec2, mouse_position};
-use crate::heatmaps::*;
-use crate::piece::*;
+use colored::{Colorize, ColoredString};
+use crate::piece_square_tables::*;
+use crate::pieces::*;
 
-pub const MAX_LEGAL_MOVES: usize = 218;
-pub const CHECKMATE_EVAL: i32 = 100000;
-
-pub fn evaluation_is_mate(evaluation: i32) -> bool {
-	evaluation.abs() > CHECKMATE_EVAL - 100
+pub fn pop_lsb(bitboard: &mut u64) -> u8 {
+	let i = bitboard.trailing_zeros();
+	*bitboard &= *bitboard - 1;
+	i as u8
 }
 
-pub fn moves_from_mate(evaluation: i32) -> i32 {
-	(CHECKMATE_EVAL - evaluation.abs()) / 2
-}
-
-pub fn get_image_index_for_piece(piece: u8) -> usize {
-	if piece == 0 {
-		return 0;
-	}
-
-	let base = match get_piece_type(piece) {
-		PAWN => 1,
-		KNIGHT => 2,
-		BISHOP => 3,
-		ROOK => 4,
-		QUEEN => 5,
-		KING => 6,
-
-		_ => 0,
-	};
-
-	if is_white(piece) {
-		base
-	} else {
-		base + 6
-	}
-}
-
-pub fn get_full_piece_worth(piece: u8, mut i: usize, endgame: f32) -> i32 {
-	if !is_white(piece) {
-		i = flip_index(i);
-	}
-
-	match get_piece_type(piece) {
-		PAWN => PAWN_WORTH     + (PAWN_MIDDLEGAME_HEATMAP[i] as f32 * (1.0 - endgame) + PAWN_ENDGAME_HEATMAP[i] as f32 * endgame) as i32,
-		KNIGHT => KNIGHT_WORTH + KNIGHT_HEATMAP[i],
-		BISHOP => BISHOP_WORTH + BISHOP_HEATMAP[i],
-		ROOK => ROOK_WORTH     + ROOK_HEATMAP[i],
-		QUEEN => QUEEN_WORTH   + QUEEN_HEATMAP[i],
-		KING => KING_WORTH     + (KING_MIDDLEGAME_HEATMAP[i] as f32 * (1.0 - endgame) + KING_ENDGAME_HEATMAP[i] as f32 * endgame) as i32,
-
-		_ => 0,
-	}
-}
-
-
-
-
-
-
-// If somebody knows a better way to do this please @ me :/
-pub fn index_from_coordinate(coordinate: &str) -> Option<usize> {
-	if coordinate.len() != 2 {
-		return None;
-	}
-
-	let split = coordinate.to_string().chars().collect::<Vec<char>>();
-
-	let file_index = file_index_from_coordinate(coordinate).unwrap_or(69) - 1;
-
-	let rank = if split[1].is_ascii_digit() {
-		split[1].to_digit(10).unwrap() as usize
-	} else {
-		69
-	};
-
-	let full_index = file_index + (8 - rank) * 8;
-
-	if full_index >= 64 {
-		return None;
-	}
-	Some(full_index)
-}
-
-pub fn coordinate_from_index(index: usize) -> String {
+pub fn index_to_coordinate(index: u8) -> String {
 	format!("{}{}",
 		match index % 8 {
 			0 => 'a',
@@ -101,117 +25,48 @@ pub fn coordinate_from_index(index: usize) -> String {
 	)
 }
 
-
-
-
-
-
-
-
-pub fn file_index_from_coordinate(coordinate: &str) -> Option<usize> {
-	if coordinate.len() != 2 {
-		return None;
-	}
-
-
-	let split = coordinate.to_string().chars().collect::<Vec<char>>();
-	match split[0] {
-		'a' => Some(1),
-		'b' => Some(2),
-		'c' => Some(3),
-		'd' => Some(4),
-		'e' => Some(5),
-		'f' => Some(6),
-		'g' => Some(7),
-		'h' => Some(8),
-		_ => None,
-	}
+pub fn coordinate_to_index(coordinate: &str) -> u8 {
+	// .next() effectively gives me the first character
+	(match coordinate.chars().next().expect("Invalid coordinate") {
+		'a' => 0,
+		'b' => 1,
+		'c' => 2,
+		'd' => 3,
+		'e' => 4,
+		'f' => 5,
+		'g' => 6,
+		'h' => 7,
+		_ => 0,
+	}) + (8 - coordinate.chars().nth(1).expect("Invalid coordinate").to_string().parse::<u8>().expect("Invalid coordinate")) * 8
 }
 
-// This is only here for Rust borrowing reasons :P
-pub fn mouse_position_vec2() -> Vec2 { mouse_position().into() }
 
-pub fn get_mouse_position_as_index(board_flipped: bool) -> usize {
-	let square_mouse = (mouse_position_vec2() / SQUARE_SIZE).floor();
-	let index = (square_mouse.x + square_mouse.y * 8.0) as usize;
+pub const CHECKMATE_EVAL: i32 = 100000;
 
-	if board_flipped {
-		63 - index
-	} else {
-		index
-	}
+pub fn evaluation_is_mate(evaluation: i32) -> bool {
+	evaluation.abs() > CHECKMATE_EVAL - 100
 }
 
-pub fn rank_of_index(index: usize) -> u8 {
-	8 - (index / 8) as u8
+pub fn moves_from_mate(evaluation: i32) -> u8 {
+	(CHECKMATE_EVAL - evaluation.abs()) as u8 / 2
 }
 
-pub fn piece_to_char(piece: u8) -> char {
-	match (piece & COLOR_MASK, piece & PIECE_MASK) {
-		(WHITE, PAWN) => '♟',
-		(WHITE, KNIGHT) => '♞',
-		(WHITE, BISHOP) => '♝',
-		(WHITE, ROOK) => '♜',
-		(WHITE, QUEEN) => '♛',
-		(WHITE, KING) => '♚',
 
-		(BLACK, PAWN) => '♙',
-		(BLACK, KNIGHT) => '♘',
-		(BLACK, BISHOP) => '♗',
-		(BLACK, ROOK) => '♖',
-		(BLACK, QUEEN) => '♕',
-		(BLACK, KING) => '♔',
+pub fn print_bitboard(label: &str, one: ColoredString, bitboard: u64) {
+	println!("{}", label);
+	println!("---------------------------------");
+	for rank in 0..8 {
+		for file in 0..8 {
+			let i = file + rank * 8;
 
-		_ => '.'
-	}
-}
+			let bit = if bitboard & (1 << i) != 0 {
+				one.clone()
+			} else {
+				"0".normal()
+			};
 
-pub fn position_counter_test(board: &mut Board, depth: u8, total_captures: &mut u64, total_checks: &mut u64) -> u64 {
-	if depth == 0 {
-		return 1;
-	}
-
-	let mut total_positions = 0;
-
-	let legal_moves = board.get_legal_moves_for_color(board.whites_turn, false);
-	for legal_move in legal_moves.iter() {
-		board.make_move(*legal_move);
-
-		if get_move_capture(*legal_move) != 0 {
-			*total_captures += 1;
+			print!("| {} ", bit);
 		}
-
-		if board.king_in_check(board.whites_turn) {
-			*total_checks += 1;
-		}
-
-		total_positions += position_counter_test(board, depth - 1, total_captures, total_checks);
-
-		board.undo_last_move();
+		println!("|\n---------------------------------");
 	}
-
-	total_positions
 }
-
-pub fn move_to_coordinates(m: u32) -> String {
-	let mut coordinates = String::new();
-
-	coordinates += &coordinate_from_index(get_move_from(m));
-	coordinates += &coordinate_from_index(get_move_to(m));
-
-	coordinates
-}
-
-
-pub fn bitboard_population_count(mut bitboard: u64) -> i32 {
-	let mut count = 0;
-
-	while bitboard != 0 {
-		count += 1;
-		bitboard &= bitboard - 1;
-	}
-
-	count
-}
-
-pub fn flip_index(i: usize) -> usize { (i % 8) + (7 - (i / 8)) * 8 }

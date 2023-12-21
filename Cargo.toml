@@ -1,9 +1,13 @@
 [package]
-name = "maxwell_chess"
-version = "2.4.0"
+name = "maxwell"
+version = "3.0.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-macroquad = "0.4.4"
+chrono = "0.4.31"
+colored = "2.0.4"
+rand = "0.8.5"
+rand_pcg = "0.3.1"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
