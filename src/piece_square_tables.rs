@@ -95,7 +95,7 @@ pub const KNIGHT_WORTH: i32 = 320;
 pub const BISHOP_WORTH: i32 = 330;
 pub const ROOK_WORTH:   i32 = 500;
 pub const QUEEN_WORTH:  i32 = 900;
-pub const KING_WORTH:   i32 = 20000; // chessprogramming.org says this should be 20k but I don't think it matters /\o/\
+pub const KING_WORTH:   i32 = 0; // chessprogramming.org says this should be 20k but I don't think it matters /\o/\
 
 pub fn get_full_worth_of_piece(piece: usize, mut i: usize, endgame: f32) -> i32 {
 	if !is_piece_white(piece) {
