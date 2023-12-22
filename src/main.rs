@@ -6,16 +6,12 @@ check out pin detection for checks?
 
 https://www.chessprogramming.org/History_Leaf_Pruning
 https://www.chessprogramming.org/Null_Move_Pruning
-https://www.chessprogramming.org/Late_Move_Reductions
 https://www.chessprogramming.org/Futility_Pruning
 https://www.chessprogramming.org/Reverse_Futility_Pruning
 https://www.chessprogramming.org/Delta_Pruning
 https://www.chessprogramming.org/Internal_Iterative_Deepening
-https://www.chessprogramming.org/Razoring
 
 try to write a neural network to evaluate positions? :o
-
-current benchmark: 1.02 seconds for depth 5
 */
 
 #![allow(dead_code)]
@@ -234,39 +230,3 @@ fn main() {
 		}
 	}
 }
-
-// fn play(player_color: bool) {
-// 	let mut board = Board::from_fen(STARTING_FEN);
-// 	let mut bot = Bot::new();
-
-// 	let mut command = String::new();
-// 	let mut moves = String::new();
-
-// 	loop {
-// 		if player_color == board.white_to_move {
-// 			command.clear();
-
-// 			io::stdin()
-// 				.read_line(&mut command)
-// 				.expect("Failed to read command");
-
-// 			let command = command.trim();
-
-// 			if command == "quit" {
-// 				return;
-// 			}
-
-// 			let data = MoveData::from_coordinates(command.to_string());
-// 			if !board.play_move(data) {
-// 				continue;
-// 			}
-// 			moves += &format!("{} ", command);
-// 		}
-
-// 		bot.start(&mut board, moves.clone(), 5.0); // 50.0
-// 		println!("{:#?}", bot.best_move);
-// 		board.make_move(bot.best_move);
-
-// 		board.print();
-// 	}
-// }

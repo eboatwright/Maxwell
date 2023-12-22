@@ -30,6 +30,9 @@ impl OpeningBook {
 				"d2d4 d7d5 c2c4 c7c6 g1f3 d5c4 e2e3 c8e6 d1c2 b7b5",
 
 				"Xc2c4 e7e5 b1c3 g8f6",
+
+				"e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 b8c6 f1c4 e7e6 c1e3 c8d7 d1e2 a7a6",
+				"e2e4 c7c5 Xb1c3 b8c6 f1b5 c6d4 b5c4 a7a6 g1f3 b7b5 c4e2 c8b7 e1g1 e7e6 d2d3 d4e2 d1e2",
 			],
 		}
 	}

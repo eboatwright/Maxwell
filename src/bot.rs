@@ -74,7 +74,13 @@ impl Bot {
 			}
 		}
 
-		self.time_to_think = my_time * 0.9;
+		let time_percentage = if board.moves.len() / 2 <= 6 {
+			0.025
+		} else {
+			0.07
+		};
+		self.time_to_think = (my_time * time_percentage).clamp(0.5, 20.0);
+
 		self.search_cancelled = false;
 
 		let last_evaluation = self.evaluation;
@@ -156,10 +162,16 @@ impl Bot {
 
 		self.positions_searched += 1;
 
-		if depth > 0
-		&& (board.zobrist.is_repetition()
-		|| board.insufficient_checkmating_material()) {
-			return 0;
+		if depth > 0 {
+			// This is to discourage making draws in winning positions
+			// if it really is an equal position, it will still return 0
+			if board.zobrist.is_repetition() {
+				return -self.quiescence_search(board, alpha, beta);
+			}
+
+			if board.insufficient_checkmating_material() {
+				return 0;
+			}
 		}
 
 		if let Some(data) = self.transposition_table.lookup(board.zobrist.key, depth_left, alpha, beta) {
