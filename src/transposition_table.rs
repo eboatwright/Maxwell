@@ -1,3 +1,4 @@
+use crate::utils::evaluation_is_mate;
 use crate::MoveData;
 use std::collections::HashMap;
 
@@ -12,7 +13,7 @@ pub enum NodeType {
 
 #[derive(Copy, Clone)]
 pub struct TranspositionData {
-	pub depth: u8,
+	pub depth_left: u8,
 	pub evaluation: i32,
 	pub best_move: MoveData,
 	pub age: u8,
@@ -30,11 +31,17 @@ impl TranspositionTable {
 		}
 	}
 
-	pub fn store(&mut self, key: u64, depth: u8, evaluation: i32, best_move: MoveData, node_type: NodeType) {
+	pub fn store(&mut self, key: u64, depth_left: u8, depth: u8, evaluation: i32, best_move: MoveData, node_type: NodeType) {
+		let mut fixed_mate_evaluation = evaluation;
+		if evaluation_is_mate(evaluation) {
+			let sign = if evaluation > 0 { 1 } else { -1 };
+			fixed_mate_evaluation = (evaluation * sign + depth as i32) * sign;
+		}
+
 		self.table.insert(key,
 			TranspositionData {
-				depth,
-				evaluation,
+				depth_left,
+				evaluation: fixed_mate_evaluation,
 				best_move,
 				age: 0,
 				node_type,
@@ -42,27 +49,43 @@ impl TranspositionTable {
 		);
 	}
 
-	pub fn lookup(&mut self, key: u64, depth: u8, alpha: i32, beta: i32) -> Option<TranspositionData> {
+	pub fn lookup(&mut self, key: u64, depth_left: u8, depth: u8, alpha: i32, beta: i32) -> Option<TranspositionData> {
 		if let Some(data) = self.table.get_mut(&key) {
-			if data.depth >= depth {
+			if data.depth_left >= depth_left {
+				let mut fixed_mate_evaluation = data.evaluation;
+				if evaluation_is_mate(data.evaluation) {
+					let sign = if data.evaluation > 0 { 1 } else { -1 };
+					fixed_mate_evaluation = (data.evaluation * sign - depth as i32) * sign;
+				}
+
+
 				match data.node_type {
 					NodeType::UpperBound => {
-						if data.evaluation <= alpha {
+						if fixed_mate_evaluation <= alpha {
 							data.age = 0;
-							return Some(*data);
+							return Some(TranspositionData {
+								evaluation: fixed_mate_evaluation,
+								..*data
+							});
 						}
 					}
 
 					NodeType::LowerBound => {
-						if data.evaluation >= beta {
+						if fixed_mate_evaluation >= beta {
 							data.age = 0;
-							return Some(*data);
+							return Some(TranspositionData {
+								evaluation: fixed_mate_evaluation,
+								..*data
+							});
 						}
 					}
 
 					NodeType::Exact => {
 						data.age = 0;
-						return Some(*data);
+						return Some(TranspositionData {
+							evaluation: fixed_mate_evaluation,
+							..*data
+						});
 					}
 				}
 			}
