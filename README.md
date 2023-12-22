@@ -7,11 +7,6 @@
 # YOU CAN NOW PLAY AGAINST MAXWELL ON LICHESS!!
  https://lichess.org/@/MaxwellOnLC
 
-# DISCLAIMER
- I have the engine thinking for 10 seconds per move, if you have a slow computer,
- it's not going to have enough time to calculate at a decent depth, therefore making it weaker.<br>
- (I'm on a 2012 Macbook Pro that's running Ubuntu 22.04 Linux, so anything newer than that is great)
-
 # Some of Maxwell's Games
  https://www.chess.com/library/collections/maxwells-games-my-chess-engine-2FFU82NM4
 
