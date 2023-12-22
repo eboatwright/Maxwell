@@ -186,6 +186,7 @@ impl Bot {
 
 				self.best_move_this_iteration = data.best_move;
 				self.best_move_depth_searched_at = data.depth;
+				self.evaluation_this_iteration = fixed_mate_evaluation;
 			}
 
 			return data.evaluation;
