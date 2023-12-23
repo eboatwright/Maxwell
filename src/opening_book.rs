@@ -11,14 +11,13 @@ impl OpeningBook {
 	pub fn create() -> Self {
 		Self {
 			lines: vec![
-				"e2e4 e7e5 g1f3 b8c6 f1c4 g8f6 f8c5 e1g1 g8f6",
-				"e2e4 e7e5 g1f3 b8c6 f1c4 g8f6 f8c5 c2c3 g8f6 d2d3",
-				"e2e4 e7e5 g1f3 b8c6 f1c4 g8f6 f8c5 c2c3 g8f6 d2d4 e5d4 c3d4 c5b4",
+				"e2e4 e7e5 g1f3 b8c6 f1c4 g8f6 d2d3 f8c5 e1g1",
+				"e2e4 e7e5 g1f3 b8c6 f1c4 g8f6 d2d3 f8c5 c1g5 h7h6",
 
 				"e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 d4c6 b7c6 e4e5 d8e7 d1e2 f6d5",
 
 				// Ruy Lopez
-				"e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6",
+				"e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f8c5",
 				"e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 b7b5 a4b3 g7g6 e1g1 f8g7",
 
 				"d2d4 d7d5 b1c3 g8f6 c1f4 c8f5",
@@ -27,7 +26,7 @@ impl OpeningBook {
 				"d2d4 d7d5 c2c4 e7e6 b1c3 c7c6 c1f4 d5c4 e2e3 b7b5 a2a4 d8b6 g1f3 g8f6",
 
 				"d2d4 d7d5 c2c4 c7c6 b1c3 d5c4 e2e4 b7b5 a2a4 d8b6",
-				"d2d4 d7d5 c2c4 c7c6 g1f3 d5c4 e2e3 c8e6 d1c2 b7b5",
+				"d2d4 d7d5 c2c4 c7c6 g1f3 d5c4 e2e3 c8e6 b1c3 b7b5 a2a4 b5b4 c3e2 e6d5 e2g3 g8f6 c1d2",
 
 				"Xc2c4 e7e5 b1c3 g8f6",
 

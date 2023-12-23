@@ -193,9 +193,9 @@ impl Board {
 	}
 
 	pub fn get_piece(&self, i: u8) -> usize {
-		if self.unoccupied_bitboard() & (1 << i) != 0 {
-			return NO_PIECE;
-		}
+		// if self.unoccupied_bitboard() & (1 << i) != 0 {
+		// 	return NO_PIECE;
+		// }
 
 		for piece in 0..PIECE_COUNT {
 			if self.piece_bitboards[piece] & (1 << i) != 0 {
@@ -233,6 +233,11 @@ impl Board {
 	pub fn make_move(&mut self, data: MoveData) {
 		let piece_color = is_piece_white(data.piece as usize) as usize;
 		let other_color = !is_piece_white(data.piece as usize) as usize;
+
+		// if data.piece >= NO_PIECE as u8 {
+		// 	println!("Illegal piece! Move: {:#?}", data);
+		// 	return;
+		// }
 
 		self.piece_bitboards[data.piece as usize] ^= 1 << data.from;
 
@@ -438,6 +443,9 @@ impl Board {
 		let mut result = vec![];
 
 		let piece = self.get_piece(piece_index);
+		// if piece == NO_PIECE {
+		// 	println!("NO_PIECE found! piece_index: {}", piece_index);
+		// }
 		let piece_is_white = is_piece_white(piece);
 		let piece_type = get_piece_type(piece);
 
@@ -809,6 +817,10 @@ impl Board {
 		for i in (0..result.len()).rev() {
 			let data = result[i];
 
+			// if data.piece == NO_PIECE as u8 {
+			// 	println!("Illegal move found! {:#?} on piece: {}, and index: {}, captures only: {}", data, piece_type, piece_index, only_captures);
+			// }
+
 			self.make_move(data);
 
 			if self.king_in_check(!self.white_to_move) {
@@ -920,5 +932,21 @@ impl Board {
 		   self.total_material_without_pawns < ROOK_WORTH
 		&& self.piece_bitboards[WHITE_PAWN] == 0
 		&& self.piece_bitboards[BLACK_PAWN] == 0
+	}
+
+	pub fn try_null_move(&mut self) -> bool {
+		if self.king_in_check(self.white_to_move) {
+			return false;
+		}
+
+		self.white_to_move = !self.white_to_move;
+		self.zobrist.make_null_move();
+
+		true
+	}
+
+	pub fn undo_null_move(&mut self) {
+		self.white_to_move = !self.white_to_move;
+		self.zobrist.pop();
 	}
 }

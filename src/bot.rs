@@ -33,6 +33,7 @@ pub struct Bot {
 	positions_searched: u128,
 	quiescence_searched: u128,
 	transposition_hits: u128,
+	null_move_prunes: u128,
 }
 
 impl Bot {
@@ -59,6 +60,7 @@ impl Bot {
 			positions_searched: 0,
 			quiescence_searched: 0,
 			transposition_hits: 0,
+			null_move_prunes: 0,
 		}
 	}
 
@@ -79,6 +81,7 @@ impl Bot {
 			0.07
 		};
 		self.time_to_think = (my_time * time_percentage).clamp(0.5, 20.0);
+		// self.time_to_think = my_time;
 
 		self.search_cancelled = false;
 
@@ -90,6 +93,7 @@ impl Bot {
 		self.positions_searched = 0;
 		self.quiescence_searched = 0;
 		self.transposition_hits = 0;
+		self.null_move_prunes = 0;
 
 		self.move_sorter.clear();
 
@@ -104,7 +108,7 @@ impl Bot {
 			loop {
 				let (alpha, beta) = (last_evaluation - window, last_evaluation + window);
 
-				let evaluation = self.alpha_beta_search(board, 0, depth, alpha, beta, 0);
+				let evaluation = self.alpha_beta_search(board, 0, depth, alpha, beta, 0, true);
 
 				if alpha < evaluation && evaluation < beta {
 					break;
@@ -120,7 +124,7 @@ impl Bot {
 				self.evaluation = self.evaluation_this_iteration;
 			}
 
-			println!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {}, Quiescence positions searched: {}, Total: {}, Transposition Hits: {}",
+			println!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {}, Quiescence positions searched: {}, Total: {}, Transposition Hits: {}, Null move prunes: {}",
 				depth,
 				window,
 				self.evaluation * board.perspective(),
@@ -129,6 +133,7 @@ impl Bot {
 				self.quiescence_searched,
 				self.positions_searched + self.quiescence_searched,
 				self.transposition_hits,
+				self.null_move_prunes,
 			);
 
 			if evaluation_is_mate(self.evaluation) {
@@ -162,6 +167,7 @@ impl Bot {
 		mut alpha: i32,
 		beta: i32,
 		number_of_extensions: u8,
+		is_pv: bool,
 	) -> i32 {
 		if self.should_cancel_search() {
 			return 0;
@@ -196,17 +202,30 @@ impl Bot {
 
 		// Razoring
 		if depth_left == 3
-		&& depth != 0
+		&& depth > 0
 		&& board.get_last_move().capture == NO_PIECE as u8
 		&& !board.king_in_check(board.white_to_move) {
-			let eval = board.evaluate();
-			if eval + QUEEN_WORTH < alpha {
+			if board.evaluate() + QUEEN_WORTH < alpha {
 				depth_left -= 1;
 			}
 		}
 
 		if depth_left == 0 {
 			return self.quiescence_search(board, alpha, beta);
+		}
+
+		if !is_pv
+		&& depth_left >= 3
+		&& depth > 0
+		&& board.try_null_move() {
+			let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions, false);
+
+			board.undo_null_move();
+
+			if evaluation >= beta {
+				self.null_move_prunes += 1;
+				return evaluation;
+			}
 		}
 
 		let mut best_move_this_search = NULL_MOVE;
@@ -252,7 +271,6 @@ impl Bot {
 
 
 
-
 			let mut evaluation = 0;
 			let mut needs_full_search = true;
 
@@ -260,14 +278,13 @@ impl Bot {
 			&& depth_left >= 3
 			&& i >= 3
 			&& m.capture == NO_PIECE as u8 {
-				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1 - 1, -alpha - 1, -alpha, number_of_extensions);
+				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1 - 1, -alpha - 1, -alpha, number_of_extensions, false);
 				needs_full_search = evaluation > alpha;
 			}
 
 			if needs_full_search {
-				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1 + search_extension, -beta, -alpha, number_of_extensions + search_extension);
+				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1 + search_extension, -beta, -alpha, number_of_extensions + search_extension, i < 3);
 			}
-
 
 
 
