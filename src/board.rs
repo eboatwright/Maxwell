@@ -869,8 +869,8 @@ impl Board {
 		let mut white_material = 0;
 		let mut black_material = 0;
 
-		let mut white_king_index = 64;
-		let mut black_king_index = 64;
+		let white_king_index = pop_lsb(&mut (self.piece_bitboards[WHITE_KING].clone())) as usize;
+		let black_king_index = pop_lsb(&mut (self.piece_bitboards[BLACK_KING].clone())) as usize;
 
 		for piece in 0..PIECE_COUNT {
 			let piece_is_white = is_piece_white(piece);
@@ -882,14 +882,8 @@ impl Board {
 
 				if piece_is_white {
 					white_material += get_full_worth_of_piece(piece, piece_index as usize, endgame);
-					if piece_type == KING {
-						white_king_index = piece_index as usize;
-					}
 				} else {
 					black_material += get_full_worth_of_piece(piece, piece_index as usize, endgame);
-					if piece_type == KING {
-						black_king_index = piece_index as usize;
-					}
 				}
 			}
 		}
@@ -935,12 +929,14 @@ impl Board {
 	}
 
 	pub fn try_null_move(&mut self) -> bool {
-		if self.king_in_check(self.white_to_move) {
+		if self.king_in_check(self.white_to_move)
+		|| self.king_in_check(!self.white_to_move) {
 			return false;
 		}
 
 		self.white_to_move = !self.white_to_move;
 		self.zobrist.make_null_move();
+		self.moves.push(NULL_MOVE);
 
 		true
 	}
@@ -948,5 +944,6 @@ impl Board {
 	pub fn undo_null_move(&mut self) {
 		self.white_to_move = !self.white_to_move;
 		self.zobrist.pop();
+		self.moves.pop();
 	}
 }

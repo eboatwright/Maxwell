@@ -9,7 +9,7 @@ const SEED: u64 = 19274892; // old seed: 3141592653589793238
 
 pub struct Zobrist {
 	pub key: u64,
-	history: Vec<u64>,
+	pub history: Vec<u64>,
 	key_index: usize,
 
 	pieces: [[u64; 64]; PIECE_COUNT],
@@ -61,7 +61,7 @@ impl Zobrist {
 
 	pub fn pop(&mut self) {
 		self.key_index -= 1;
-		self.key = self.history[self.key_index];
+		self.key = self.history[self.key_index - 1];
 	}
 
 	pub fn generate_initial_key(&mut self, board: &mut Board) {
@@ -84,12 +84,12 @@ impl Zobrist {
 	}
 
 	pub fn push(&mut self) {
-		self.key_index += 1;
 		if self.key_index >= self.history.len() {
 			self.history.push(self.key);
 		} else {
 			self.history[self.key_index] = self.key;
 		}
+		self.key_index += 1;
 	}
 
 	pub fn clear(&mut self) {
@@ -99,12 +99,12 @@ impl Zobrist {
 		self.push();
 	}
 
-	pub fn is_repetition(&self) -> bool {
+	pub fn is_threefold_repetition(&self) -> bool {
 		let mut count = 0;
 		for i in 0..self.key_index {
 			if self.history[i] == self.key {
 				count += 1;
-				if count == 2 {
+				if count >= 2 {
 					return true;
 				}
 			}

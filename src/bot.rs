@@ -80,7 +80,7 @@ impl Bot {
 		} else {
 			0.07
 		};
-		self.time_to_think = (my_time * time_percentage).clamp(0.5, 20.0);
+		self.time_to_think = (my_time * time_percentage).clamp(0.25, 20.0);
 		// self.time_to_think = my_time;
 
 		self.search_cancelled = false;
@@ -176,10 +176,11 @@ impl Bot {
 		self.positions_searched += 1;
 
 		if depth > 0 {
-			if board.zobrist.is_repetition() {
+			if board.zobrist.is_threefold_repetition() {
 				// This is to discourage making draws in winning positions
 				// if it really is an equal position, it will still return 0
-				return -self.quiescence_search(board, alpha, beta);
+				// return -self.quiescence_search(board, alpha, beta);
+				return 0;
 			}
 
 			if board.insufficient_checkmating_material() {
@@ -205,7 +206,8 @@ impl Bot {
 		&& depth > 0
 		&& board.get_last_move().capture == NO_PIECE as u8
 		&& !board.king_in_check(board.white_to_move) {
-			if board.evaluate() + QUEEN_WORTH < alpha {
+			let evaluation = board.evaluate();
+			if evaluation + QUEEN_WORTH < alpha {
 				depth_left -= 1;
 			}
 		}
@@ -215,10 +217,16 @@ impl Bot {
 		}
 
 		if !is_pv
-		&& depth_left >= 3
 		&& depth > 0
+		&& depth_left >= 3
 		&& board.try_null_move() {
 			let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions, false);
+			// let evaluation = if depth_left >= 3 {
+			// 	-self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions, false)
+			// } else {
+			// 	// Reverse futility pruning?
+			// 	self.quiescence_search(board, alpha, beta) - 58 * depth_left as i32
+			// };
 
 			board.undo_null_move();
 
