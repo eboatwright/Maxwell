@@ -27,57 +27,20 @@ pub const EXTRA_LONG_CASTLE_SQUARE_CHECK: [u64; 2] = [
 	1 << 57,
 ];
 
-pub struct CastlingRights {
-	pub current: u8,
-	pub history: Vec<u8>,
-	pub index: usize,
-}
-
-impl CastlingRights {
-	pub fn new(castling_rights: u8) -> Self {
-		Self {
-			current: castling_rights,
-			history: vec![castling_rights],
-			index: 0,
-		}
+pub fn print_castling_rights(rights: u8) {
+	if rights & WHITE_CASTLE_LONG != 0 {
+		println!("White can castle long");
 	}
 
-	pub fn push(&mut self) {
-		self.index += 1;
-		if self.index >= self.history.len() {
-			self.history.push(self.current);
-		} else {
-			self.history[self.index] = self.current;
-		}
+	if rights & WHITE_CASTLE_SHORT != 0 {
+		println!("White can castle short");
 	}
 
-	pub fn pop(&mut self) {
-		self.index -= 1;
-		self.current = self.history[self.index];
+	if rights & BLACK_CASTLE_LONG != 0 {
+		println!("Black can castle long");
 	}
 
-	pub fn clear(&mut self) {
-		self.index = 0;
-		self.current = self.history[0];
-		self.history.clear();
-		self.push();
-	}
-
-	pub fn print(&self) {
-		if self.current & WHITE_CASTLE_LONG != 0 {
-			println!("White can castle long");
-		}
-
-		if self.current & WHITE_CASTLE_SHORT != 0 {
-			println!("White can castle short");
-		}
-
-		if self.current & BLACK_CASTLE_LONG != 0 {
-			println!("Black can castle long");
-		}
-
-		if self.current & BLACK_CASTLE_SHORT != 0 {
-			println!("Black can castle short");
-		}
+	if rights & BLACK_CASTLE_SHORT != 0 {
+		println!("Black can castle short");
 	}
 }

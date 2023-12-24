@@ -1,6 +1,5 @@
 /* TODO
 try to stop Bot from getting it's queen kicked around
-50 move rule
 calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
 check out pin detection for checks?
 evaluate passed, isolated and doubled pawns
@@ -8,15 +7,23 @@ try to write a neural network to evaluate positions? :o
 
 Ideas I've tried but they made no impact (Or I implemented them wrong :P)
 https://www.chessprogramming.org/Futility_Pruning
+https://www.chessprogramming.org/Reverse_Futility_Pruning
+https://www.chessprogramming.org/Principal_Variation_Search
 
 Random ideas to try (from other engines and chessprogramming.org)
 History reduction?
 https://www.chessprogramming.org/History_Leaf_Pruning
 https://www.chessprogramming.org/Futility_Pruning#MoveCountBasedPruning
-https://www.chessprogramming.org/Reverse_Futility_Pruning
 https://www.chessprogramming.org/Delta_Pruning
 https://www.chessprogramming.org/Internal_Iterative_Deepening
-https://www.chessprogramming.org/Principal_Variation_Search
+https://www.chessprogramming.org/Triangular_PV-Table
+https://www.chessprogramming.org/Razoring
+
+Some random resources I found:
+https://analog-hors.github.io/site/magic-bitboards/ (didn't use this for my initial implementation, but that might change ;))
+https://web.archive.org/web/20071030220825/http://www.brucemo.com/compchess/programming/pvs.htm
+https://github.com/lynx-chess/Lynx
+https://github.com/Heiaha/Weiawaga/
 */
 
 #![allow(dead_code)]
@@ -26,6 +33,7 @@ https://www.chessprogramming.org/Principal_Variation_Search
 
 mod utils;
 mod log;
+mod value_holder;
 mod pieces;
 mod castling_rights;
 mod piece_square_tables;
@@ -41,6 +49,7 @@ mod perft;
 mod bot;
 mod move_sorter;
 
+use crate::castling_rights::print_castling_rights;
 use crate::bot::Bot;
 use crate::perft::*;
 use crate::move_data::MoveData;
@@ -165,7 +174,7 @@ fn main() {
 
 			"print" => board.print(),
 			"bitboards" => board.print_bitboards(),
-			"castlingrights" => board.castling_rights.print(),
+			"castlingrights" => print_castling_rights(board.castling_rights.current),
 			"zobrist" => println!("{}", board.zobrist.key),
 			"eval" => println!("{}", board.evaluate() * board.perspective()),
 

@@ -18,7 +18,7 @@ impl OpeningBook {
 
 				// Caro Kann
 				"e2e4 c7c6 d2d4 d7d5 b1c3 d5e4 c3e4 g8f6 e4f6 e7f6 g1f3 f8d6 f1e2 e8g8 e1g1 f8e8 c2c4",
-				"e2e4 c7c6 d2d4 d7d5 e4d5 c6d5 c2c4 g8f6 b1c3 b8c6 b1f3 e7e6 c4c5 f8e7 f1d3 e8g8 a2a3 b7b6 b2b4 b6c5 b4c5 e6e5",
+				"e2e4 c7c6 d2d4 d7d5 e4d5 c6d5 c2c4 g8f6 b1c3 b8c6 g1f3 e7e6 c4c5 f8e7 f1d3 e8g8 a2a3 b7b6 b2b4 b6c5 b4c5 e6e5",
 				"e2e4 c7c6 d2d4 d7d5 e4e5 c8f5 g1f3 e7e6 f1e2 g8e7 e1g1 c6c5 d4c5 b8d7 c1e3 e7c6",
 				"e2e4 c7c6 g1f3 d7d5 b1c3 c8g4 f1e2 g8f6 h2h3 g4f3 e2f3 d5e4 c3e4 e7e6 d2d4",
 

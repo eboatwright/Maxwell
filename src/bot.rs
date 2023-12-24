@@ -108,7 +108,7 @@ impl Bot {
 			loop {
 				let (alpha, beta) = (last_evaluation - window, last_evaluation + window);
 
-				let evaluation = self.alpha_beta_search(board, 0, depth, alpha, beta, 0, true);
+				let evaluation = self.alpha_beta_search(board, 0, depth, alpha, beta, 0);
 
 				if alpha < evaluation && evaluation < beta {
 					break;
@@ -167,7 +167,6 @@ impl Bot {
 		mut alpha: i32,
 		beta: i32,
 		number_of_extensions: u8,
-		is_pv: bool,
 	) -> i32 {
 		if self.should_cancel_search() {
 			return 0;
@@ -175,17 +174,13 @@ impl Bot {
 
 		self.positions_searched += 1;
 
-		if depth > 0 {
-			if board.zobrist.is_threefold_repetition() {
-				// This is to discourage making draws in winning positions
-				// if it really is an equal position, it will still return 0
-				// return -self.quiescence_search(board, alpha, beta);
-				return 0;
-			}
-
-			if board.insufficient_checkmating_material() {
-				return 0;
-			}
+		if depth > 0
+		&& (board.fifty_move_draw.current >= 50
+		|| board.insufficient_checkmating_material()
+		|| board.zobrist.is_threefold_repetition()) {
+			// Should I use this to discourage making a draw in a winning position?
+			// return -self.quiescence_search(board, alpha, beta);
+			return 0;
 		}
 
 		if let Some(data) = self.transposition_table.lookup(board.zobrist.key, depth_left, depth, alpha, beta) {
@@ -216,17 +211,13 @@ impl Bot {
 			return self.quiescence_search(board, alpha, beta);
 		}
 
+		let is_pv = alpha != beta - 1;
+
 		if !is_pv
 		&& depth > 0
 		&& depth_left >= 3
 		&& board.try_null_move() {
-			let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions, false);
-			// let evaluation = if depth_left >= 3 {
-			// 	-self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions, false)
-			// } else {
-			// 	// Reverse futility pruning?
-			// 	self.quiescence_search(board, alpha, beta) - 58 * depth_left as i32
-			// };
+			let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions);
 
 			board.undo_null_move();
 
@@ -283,15 +274,15 @@ impl Bot {
 			let mut needs_full_search = true;
 
 			if search_extension == 0
-			&& depth_left >= 3
 			&& i >= 3
+			&& depth_left >= 3
 			&& m.capture == NO_PIECE as u8 {
-				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1 - 1, -alpha - 1, -alpha, number_of_extensions, false);
+				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1 - 1, -alpha - 1, -alpha, number_of_extensions);
 				needs_full_search = evaluation > alpha;
 			}
 
 			if needs_full_search {
-				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1 + search_extension, -beta, -alpha, number_of_extensions + search_extension, i < 3);
+				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1 + search_extension, -beta, -alpha, number_of_extensions + search_extension);
 			}
 
 

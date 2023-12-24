@@ -1,4 +1,4 @@
-use crate::STARTING_FEN;
+use crate::value_holder::ValueHolder;
 use crate::utils::{pop_lsb, print_bitboard};
 use crate::piece_square_tables::{get_base_worth_of_piece, get_full_worth_of_piece, ROOK_WORTH, BISHOP_WORTH};
 use crate::precalculated_move_data::*;
@@ -18,7 +18,8 @@ pub struct Board {
 	pub color_bitboards: [u64; 2],
 	pub attacked_squares_bitboards: [u64; 2],
 
-	pub castling_rights: CastlingRights,
+	pub castling_rights: ValueHolder<u8>,
+	pub fifty_move_draw: ValueHolder<u8>,
 
 	pub en_passant_file: usize,
 	pub white_to_move: bool,
@@ -43,6 +44,8 @@ impl Board {
 		if fen[2].contains('q') { castling_rights ^= BLACK_CASTLE_LONG; }
 		if fen[2].contains('k') { castling_rights ^= BLACK_CASTLE_SHORT; }
 
+		let fifty_move_draw = fen[4].parse::<u8>().unwrap_or(0);
+
 		let mut board = Self {
 			precalculated_move_data: PrecalculatedMoveData::calculate(),
 
@@ -50,7 +53,8 @@ impl Board {
 			color_bitboards: [0; 2],
 			attacked_squares_bitboards: [0; 2],
 
-			castling_rights: CastlingRights::new(castling_rights),
+			castling_rights: ValueHolder::new(castling_rights),
+			fifty_move_draw: ValueHolder::new(fifty_move_draw),
 
 			en_passant_file: 0, // This isn't implemented at all
 			// en_passant_file: if fen[3] == "-" { 0 } else { (coordinate_to_index(fen[3]) % 8) + 1 },
@@ -245,6 +249,7 @@ impl Board {
 			self.piece_bitboards[data.piece as usize] ^= 1 << data.to;
 		} else {
 			self.piece_bitboards[build_piece(piece_color == 1, data.flag as usize)] ^= 1 << data.to;
+			self.total_material_without_pawns += get_base_worth_of_piece(data.flag as usize);
 		}
 
 		self.color_bitboards[piece_color] ^= 1 << data.from;
@@ -317,6 +322,15 @@ impl Board {
 			self.castling_rights.current &= !WHITE_CASTLE_SHORT;
 		}
 
+
+		if data.capture == NO_PIECE as u8
+		&& get_piece_type(data.piece as usize) != PAWN {
+			self.fifty_move_draw.current += 1;
+		} else {
+			self.fifty_move_draw.current = 0;
+		}
+
+		self.fifty_move_draw.push();
 		self.castling_rights.push();
 
 		self.zobrist.make_move(
@@ -347,6 +361,7 @@ impl Board {
 			self.piece_bitboards[last_move.piece as usize] ^= 1 << last_move.to;
 		} else {
 			self.piece_bitboards[build_piece(piece_color == 1, last_move.flag as usize)] ^= 1 << last_move.to;
+			self.total_material_without_pawns -= get_base_worth_of_piece(last_move.flag as usize);
 		}
 
 		self.color_bitboards[piece_color] ^= 1 << last_move.from;
@@ -403,6 +418,7 @@ impl Board {
 			}
 		}
 
+		self.fifty_move_draw.pop();
 		self.castling_rights.pop();
 		self.zobrist.pop();
 

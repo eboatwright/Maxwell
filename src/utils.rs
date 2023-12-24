@@ -1,6 +1,4 @@
 use colored::{Colorize, ColoredString};
-use crate::piece_square_tables::*;
-use crate::pieces::*;
 
 pub fn pop_lsb(bitboard: &mut u64) -> u8 {
 	let i = bitboard.trailing_zeros();
