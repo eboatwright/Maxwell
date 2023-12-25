@@ -41,9 +41,9 @@ pub const DIRECTION_OFFSETS: [i8; 8] = [NO, EA, SO, WE, NOEA, SOEA, SOWE, NOWE];
 pub struct PrecalculatedMoveData {
 	pub squares_to_edge: [[usize; 8]; 64],
 
-	pub single_file_squares_ahead_of_pawns: [[u64; 64]; 2],
-	pub squares_aside_of_pawns: [[u64; 64]; 2],
-	pub triple_file_squares_ahead_of_pawns: [[u64; 64]; 2],
+	pub file_of_square: [u64; 64],
+	pub files_beside_square: [u64; 64],
+	pub squares_ahead_of_pawn: [[u64; 64]; 2],
 
 	pub pawn_attacks: [[u64; 64]; 2],
 	pub knight_attacks: [u64; 64],
@@ -63,9 +63,9 @@ impl PrecalculatedMoveData {
 		let mut data = Self {
 			squares_to_edge: [[0; 8]; 64],
 
-			single_file_squares_ahead_of_pawns: [[0; 64]; 2],
-			squares_aside_of_pawns: [[0; 64]; 2],
-			triple_file_squares_ahead_of_pawns: [[0; 64]; 2],
+			file_of_square: [0; 64],
+			files_beside_square: [0; 64],
+			squares_ahead_of_pawn: [[0; 64]; 2],
 
 			pawn_attacks: [[0; 64]; 2],
 			knight_attacks: [0; 64],
@@ -106,42 +106,36 @@ impl PrecalculatedMoveData {
 
 
 
-			let mut single_file_squares_ahead_of_black_pawn = 0;
-			let mut single_file_squares_ahead_of_white_pawn = 0;
+			data.file_of_square[i] = (A_FILE >> (8 - (i % 8) - 1)) ^ 1 << i;
+
+
+
+			let mut files_beside_square = 0;
+
+			files_beside_square |= (A_FILE >> (8 - (i % 8) - 2)) & NOT_H_FILE;
+			files_beside_square |= (A_FILE >> (8 - (i % 8))) & NOT_A_FILE;
+
+			data.files_beside_square[i] = files_beside_square;
+
+
+
+			let mut squares_ahead_of_black_pawn = 0;
+			let mut squares_ahead_of_white_pawn = 0;
 
 			for rank in 1..data.squares_to_edge[i][2] { // South
-				single_file_squares_ahead_of_black_pawn |= 1 << (i + 8 * rank) as u64;
+				squares_ahead_of_black_pawn |= (1 << (i + 8 * rank - 1) as u64) & NOT_A_FILE;
+				squares_ahead_of_black_pawn |= 1 << (i + 8 * rank) as u64;
+				squares_ahead_of_black_pawn |= (1 << (i + 8 * rank + 1) as u64) & NOT_H_FILE;
 			}
 
 			for rank in 1..data.squares_to_edge[i][0] { // North
-				single_file_squares_ahead_of_white_pawn |= 1 << (i - 8 * rank) as u64;
+				squares_ahead_of_white_pawn |= (1 << (i - 8 * rank - 1) as u64) & NOT_A_FILE;
+				squares_ahead_of_white_pawn |= 1 << (i - 8 * rank) as u64;
+				squares_ahead_of_white_pawn |= (1 << (i - 8 * rank + 1) as u64) & NOT_H_FILE;
 			}
 
-			data.single_file_squares_ahead_of_pawns[0][i] = single_file_squares_ahead_of_black_pawn;
-			data.single_file_squares_ahead_of_pawns[1][i] = single_file_squares_ahead_of_white_pawn;
-
-
-
-			let mut squares_aside_of_black_pawn = 0;
-			let mut squares_aside_of_white_pawn = 0;
-
-			for rank in 1..data.squares_to_edge[i][2] { // South
-				squares_aside_of_black_pawn |= (1 << (i + 8 * rank - 1) as u64) & NOT_A_FILE;
-				squares_aside_of_black_pawn |= (1 << (i + 8 * rank + 1) as u64) & NOT_H_FILE;
-			}
-
-			for rank in 1..data.squares_to_edge[i][0] { // North
-				squares_aside_of_white_pawn |= (1 << (i - 8 * rank - 1) as u64) & NOT_A_FILE;
-				squares_aside_of_white_pawn |= (1 << (i - 8 * rank + 1) as u64) & NOT_H_FILE;
-			}
-
-			data.squares_aside_of_pawns[0][i] = squares_aside_of_black_pawn;
-			data.squares_aside_of_pawns[1][i] = squares_aside_of_white_pawn;
-
-
-
-			data.triple_file_squares_ahead_of_pawns[0][i] = single_file_squares_ahead_of_black_pawn | squares_aside_of_black_pawn;
-			data.triple_file_squares_ahead_of_pawns[1][i] = single_file_squares_ahead_of_white_pawn | squares_aside_of_white_pawn;
+			data.squares_ahead_of_pawn[0][i] = squares_ahead_of_black_pawn;
+			data.squares_ahead_of_pawn[1][i] = squares_ahead_of_white_pawn;
 
 
 

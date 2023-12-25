@@ -885,8 +885,8 @@ impl Board {
 		let mut white_material = 0;
 		let mut black_material = 0;
 
-		let white_king_index = pop_lsb(&mut (self.piece_bitboards[WHITE_KING].clone())) as usize;
-		let black_king_index = pop_lsb(&mut (self.piece_bitboards[BLACK_KING].clone())) as usize;
+		let mut white_pawn_evaluation = 0;
+		let mut black_pawn_evaluation = 0;
 
 		for piece in 0..PIECE_COUNT {
 			let piece_is_white = is_piece_white(piece);
@@ -898,6 +898,20 @@ impl Board {
 
 				if piece_is_white {
 					white_material += get_full_worth_of_piece(piece, piece_index as usize, endgame);
+
+					if piece_type == PAWN {
+						if self.precalculated_move_data.file_of_square[piece_index as usize] & self.piece_bitboards[WHITE_PAWN] != 0 { // Doubled pawn
+							// TODO
+						}
+
+						if self.precalculated_move_data.files_beside_square[piece_index as usize] & self.piece_bitboards[WHITE_PAWN] != 0 { // Isolated pawn
+							// TODO
+						}
+
+						if self.precalculated_move_data.squares_ahead_of_pawn[piece_is_white as usize][piece_index as usize] & self.piece_bitboards[BLACK_PAWN] == 0 { // Passed pawn
+							// TODO
+						}
+					}
 				} else {
 					black_material += get_full_worth_of_piece(piece, piece_index as usize, endgame);
 				}
@@ -909,6 +923,9 @@ impl Board {
 		let white_attacked_squares = self.attacked_squares_bitboards[1].count_ones() as i32;
 		let black_attacked_squares = self.attacked_squares_bitboards[0].count_ones() as i32;
 
+		let white_king_index = pop_lsb(&mut (self.piece_bitboards[WHITE_KING].clone())) as usize;
+		let black_king_index = pop_lsb(&mut (self.piece_bitboards[BLACK_KING].clone())) as usize;
+
 		let weak_squares_around_white_king = ((
 				  self.precalculated_move_data.king_attacks[white_king_index]
 				& self.attacked_squares_bitboards[0]
@@ -919,12 +936,8 @@ impl Board {
 				& self.attacked_squares_bitboards[1]
 			).count_ones() as f32 * (1.0 - endgame)) as i32;
 
-		// TODO: evaluate passed pawns
-		// TODO: evaluate isolated pawns
-		// TODO: evaluate doubled pawns
-
-		 ((white_material + white_attacked_squares * 10 - weak_squares_around_white_king * 20)
-		- (black_material + black_attacked_squares * 10 - weak_squares_around_black_king * 20)) * self.perspective()
+		 ((white_material + white_attacked_squares * 10 - weak_squares_around_white_king * 20 + white_pawn_evaluation)
+		- (black_material + black_attacked_squares * 10 - weak_squares_around_black_king * 20 + black_pawn_evaluation)) * self.perspective()
 	}
 
 	pub fn can_short_castle(&mut self, white: bool) -> bool {
