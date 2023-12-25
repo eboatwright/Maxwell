@@ -1,5 +1,5 @@
 use crate::value_holder::ValueHolder;
-use crate::utils::{pop_lsb, print_bitboard};
+use crate::utils::{pop_lsb, print_bitboard, coordinate_to_index};
 use crate::piece_square_tables::{get_base_worth_of_piece, get_full_worth_of_piece, ROOK_WORTH, BISHOP_WORTH};
 use crate::precalculated_move_data::*;
 use crate::move_data::*;
@@ -918,6 +918,10 @@ impl Board {
 				  self.precalculated_move_data.king_attacks[black_king_index]
 				& self.attacked_squares_bitboards[1]
 			).count_ones() as f32 * (1.0 - endgame)) as i32;
+
+		// TODO: evaluate passed pawns
+		// TODO: evaluate isolated pawns
+		// TODO: evaluate doubled pawns
 
 		 ((white_material + white_attacked_squares * 10 - weak_squares_around_white_king * 20)
 		- (black_material + black_attacked_squares * 10 - weak_squares_around_black_king * 20)) * self.perspective()
