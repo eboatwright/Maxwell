@@ -12,9 +12,9 @@ pub const BITBOARD_COUNT: usize = PIECE_COUNT;
 pub const MAX_ENDGAME_MATERIAL: f32 = (ROOK_WORTH * 2 + BISHOP_WORTH * 2) as f32;
 
 // TODO: tweak these
-pub const DOUBLED_PAWN_PENALTY: i32 = 50;
-pub const ISOLATED_PAWN_PENALTY: i32 = 25;
-pub const PASSED_PAWN_BOOST: [i32; 8] = [0, 20, 20, 40, 80, 120, 180, 0];
+pub const DOUBLED_PAWN_PENALTY: i32 = 30;
+pub const ISOLATED_PAWN_PENALTY: i32 = 18;
+pub const PASSED_PAWN_BOOST: [i32; 8] = [0, 15, 15, 30, 50, 80, 120, 0];
 
 pub struct Board {
 	pub precalculated_move_data: PrecalculatedMoveData,
