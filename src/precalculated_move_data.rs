@@ -42,6 +42,7 @@ pub struct PrecalculatedMoveData {
 	pub squares_to_edge: [[usize; 8]; 64],
 
 	pub file_of_square: [u64; 64],
+	pub file_in_front_of_pawn: [[u64; 64]; 2],
 	pub files_beside_square: [u64; 64],
 	pub squares_ahead_of_pawn: [[u64; 64]; 2],
 
@@ -64,6 +65,7 @@ impl PrecalculatedMoveData {
 			squares_to_edge: [[0; 8]; 64],
 
 			file_of_square: [0; 64],
+			file_in_front_of_pawn: [[0; 64]; 2],
 			files_beside_square: [0; 64],
 			squares_ahead_of_pawn: [[0; 64]; 2],
 
@@ -107,6 +109,22 @@ impl PrecalculatedMoveData {
 
 
 			data.file_of_square[i] = (A_FILE >> (8 - (i % 8) - 1)) ^ 1 << i;
+
+
+
+			let mut file_in_front_of_black_pawn = 0;
+			let mut file_in_front_of_white_pawn = 0;
+
+			for rank in 1..data.squares_to_edge[i][2] { // South
+				file_in_front_of_black_pawn |= 1 << (i + 8 * rank) as u64;
+			}
+
+			for rank in 1..data.squares_to_edge[i][0] { // North
+				file_in_front_of_white_pawn |= 1 << (i - 8 * rank) as u64;
+			}
+
+			data.file_in_front_of_pawn[0][i] = file_in_front_of_black_pawn;
+			data.file_in_front_of_pawn[1][i] = file_in_front_of_white_pawn;
 
 
 

@@ -11,6 +11,11 @@ use colored::Colorize;
 pub const BITBOARD_COUNT: usize = PIECE_COUNT;
 pub const MAX_ENDGAME_MATERIAL: f32 = (ROOK_WORTH * 2 + BISHOP_WORTH * 2) as f32;
 
+// TODO: tweak these
+pub const DOUBLED_PAWN_PENALTY: i32 = 50;
+pub const ISOLATED_PAWN_PENALTY: i32 = 25;
+pub const PASSED_PAWN_BOOST: [i32; 8] = [0, 20, 20, 40, 80, 120, 180, 0];
+
 pub struct Board {
 	pub precalculated_move_data: PrecalculatedMoveData,
 
@@ -894,26 +899,42 @@ impl Board {
 
 			let mut bitboard = self.piece_bitboards[piece];
 			while bitboard != 0 {
-				let piece_index = pop_lsb(&mut bitboard);
+				let piece_index = pop_lsb(&mut bitboard) as usize;
 
 				if piece_is_white {
-					white_material += get_full_worth_of_piece(piece, piece_index as usize, endgame);
+					white_material += get_full_worth_of_piece(piece, piece_index, endgame);
 
 					if piece_type == PAWN {
-						if self.precalculated_move_data.file_of_square[piece_index as usize] & self.piece_bitboards[WHITE_PAWN] != 0 { // Doubled pawn
-							// TODO
+						if self.precalculated_move_data.file_of_square[piece_index] & self.piece_bitboards[WHITE_PAWN] != 0 { // Doubled pawn
+							white_pawn_evaluation -= DOUBLED_PAWN_PENALTY;
 						}
 
-						if self.precalculated_move_data.files_beside_square[piece_index as usize] & self.piece_bitboards[WHITE_PAWN] != 0 { // Isolated pawn
-							// TODO
+						if self.precalculated_move_data.files_beside_square[piece_index] & self.piece_bitboards[WHITE_PAWN] == 0 { // Isolated pawn
+							white_pawn_evaluation -= ISOLATED_PAWN_PENALTY;
 						}
 
-						if self.precalculated_move_data.squares_ahead_of_pawn[piece_is_white as usize][piece_index as usize] & self.piece_bitboards[BLACK_PAWN] == 0 { // Passed pawn
-							// TODO
+						if self.precalculated_move_data.squares_ahead_of_pawn[1][piece_index] & self.piece_bitboards[BLACK_PAWN] == 0
+						&& self.precalculated_move_data.file_in_front_of_pawn[1][piece_index] & self.piece_bitboards[WHITE_PAWN] == 0 { // Passed pawn
+							white_pawn_evaluation += PASSED_PAWN_BOOST[8 - piece_index / 8];
 						}
 					}
 				} else {
-					black_material += get_full_worth_of_piece(piece, piece_index as usize, endgame);
+					black_material += get_full_worth_of_piece(piece, piece_index, endgame);
+
+					if piece_type == PAWN {
+						if self.precalculated_move_data.file_of_square[piece_index] & self.piece_bitboards[BLACK_PAWN] != 0 { // Doubled pawn
+							black_pawn_evaluation -= DOUBLED_PAWN_PENALTY;
+						}
+
+						if self.precalculated_move_data.files_beside_square[piece_index] & self.piece_bitboards[BLACK_PAWN] == 0 { // Isolated pawn
+							black_pawn_evaluation -= ISOLATED_PAWN_PENALTY;
+						}
+
+						if self.precalculated_move_data.squares_ahead_of_pawn[0][piece_index] & self.piece_bitboards[WHITE_PAWN] == 0
+						&& self.precalculated_move_data.file_in_front_of_pawn[0][piece_index] & self.piece_bitboards[BLACK_PAWN] == 0 { // Passed pawn
+							black_pawn_evaluation += PASSED_PAWN_BOOST[piece_index / 8];
+						}
+					}
 				}
 			}
 		}

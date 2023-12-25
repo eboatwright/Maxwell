@@ -2,7 +2,6 @@
 try to stop Bot from getting it's queen kicked around
 calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
 check out pin detection for checks?
-evaluate passed, isolated and doubled pawns
 try to write a neural network to evaluate positions? :o
 
 Ideas I've tried but they made no impact (Or I implemented them wrong :P)
@@ -67,6 +66,7 @@ pub const DRAWN_ENDGAME_FEN: &str = "8/8/8/3k4/R5p1/P5r1/4K3/8 w - - 0 1";
 pub const MATE_IN_5_FEN:     &str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
 pub const PAWN_ENDGAME_FEN:  &str = "8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1";
 pub const ENDGAME_POSITION:  &str = "8/pk4p1/2prp3/3p1p2/3P2p1/R2BP3/2P2KPP/8 w - - 8 35";
+pub const PAWN_EVAL_TESTING: &str = "4k3/p1pp4/8/4pp1P/2P4P/8/P5P1/4K3 w - - 0 1";
 
 fn main() {
 	let mut log = Log::none();
