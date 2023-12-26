@@ -16,7 +16,7 @@ https://www.chessprogramming.org/Futility_Pruning#MoveCountBasedPruning
 https://www.chessprogramming.org/Delta_Pruning
 https://www.chessprogramming.org/Internal_Iterative_Deepening
 https://www.chessprogramming.org/Triangular_PV-Table
-https://www.chessprogramming.org/Razoring
+https://www.chessprogramming.org/Razoring (look into a better implementation)
 
 Some random resources I found:
 https://analog-hors.github.io/site/magic-bitboards/ (didn't use this for my initial implementation, but that might change ;))
@@ -24,9 +24,10 @@ https://web.archive.org/web/20071030220825/http://www.brucemo.com/compchess/prog
 https://github.com/lynx-chess/Lynx
 https://github.com/Heiaha/Weiawaga/
 
-v3.0.5 vs v3.0.4: all in v3.0.4's favor :(
-v1: 10 - 15 - 11
-v2: 12 - 14 - 10 (current)
+v3.0.5 vs v3.0.4
+v1: 10 - 15 - (11 draws)
+v2: 12 - 14 - (10 draws)
+current: 13 - 9 - (14 draws)
 */
 
 #![allow(dead_code)]
