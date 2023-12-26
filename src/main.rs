@@ -1,17 +1,33 @@
 /* TODO
 try to stop Bot from getting it's queen kicked around
-50 move rule
 calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
 check out pin detection for checks?
+try to write a neural network to evaluate positions? :o
 
-https://www.chessprogramming.org/History_Leaf_Pruning
-https://www.chessprogramming.org/Null_Move_Pruning
+Ideas I've tried but they made no impact (Or I implemented them wrong :P)
 https://www.chessprogramming.org/Futility_Pruning
 https://www.chessprogramming.org/Reverse_Futility_Pruning
+https://www.chessprogramming.org/Principal_Variation_Search
+
+Random ideas to try (from other engines and chessprogramming.org)
+History reduction?
+https://www.chessprogramming.org/History_Leaf_Pruning
+https://www.chessprogramming.org/Futility_Pruning#MoveCountBasedPruning
 https://www.chessprogramming.org/Delta_Pruning
 https://www.chessprogramming.org/Internal_Iterative_Deepening
+https://www.chessprogramming.org/Triangular_PV-Table
+https://www.chessprogramming.org/Razoring (look into a better implementation)
 
-try to write a neural network to evaluate positions? :o
+Some random resources I found:
+https://analog-hors.github.io/site/magic-bitboards/ (didn't use this for my initial implementation, but that might change ;))
+https://web.archive.org/web/20071030220825/http://www.brucemo.com/compchess/programming/pvs.htm
+https://github.com/lynx-chess/Lynx
+https://github.com/Heiaha/Weiawaga/
+
+v3.0.5 vs v3.0.4
+v1: 10 - 15 - (11 draws)
+v2: 12 - 14 - (10 draws)
+current: 13 - 9 - (14 draws)
 */
 
 #![allow(dead_code)]
@@ -21,6 +37,7 @@ try to write a neural network to evaluate positions? :o
 
 mod utils;
 mod log;
+mod value_holder;
 mod pieces;
 mod castling_rights;
 mod piece_square_tables;
@@ -36,6 +53,7 @@ mod perft;
 mod bot;
 mod move_sorter;
 
+use crate::castling_rights::print_castling_rights;
 use crate::bot::Bot;
 use crate::perft::*;
 use crate::move_data::MoveData;
@@ -47,14 +65,17 @@ use colored::Colorize;
 use std::time::Instant;
 
 pub const STARTING_FEN:      &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const TESTING_FEN:       &str = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
+pub const KIWIPETE_FEN:      &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
+pub const TEST_POSITION_4:   &str = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
 pub const DRAWN_ENDGAME_FEN: &str = "8/8/8/3k4/R5p1/P5r1/4K3/8 w - - 0 1";
 pub const MATE_IN_5_FEN:     &str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
 pub const PAWN_ENDGAME_FEN:  &str = "8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1";
 pub const ENDGAME_POSITION:  &str = "8/pk4p1/2prp3/3p1p2/3P2p1/R2BP3/2P2KPP/8 w - - 8 35";
+pub const PAWN_EVAL_TESTING: &str = "4k3/p1pp4/8/4pp1P/2P4P/8/P5P1/4K3 w - - 0 1";
 
 fn main() {
 	let mut log = Log::none();
+
 	let mut board = Board::from_fen(STARTING_FEN);
 	let mut bot = Bot::new(true);
 
@@ -158,7 +179,7 @@ fn main() {
 
 			"print" => board.print(),
 			"bitboards" => board.print_bitboards(),
-			"castlingrights" => board.castling_rights.print(),
+			"castlingrights" => print_castling_rights(board.castling_rights.current),
 			"zobrist" => println!("{}", board.zobrist.key),
 			"eval" => println!("{}", board.evaluate() * board.perspective()),
 

@@ -9,12 +9,13 @@ const SEED: u64 = 19274892; // old seed: 3141592653589793238
 
 pub struct Zobrist {
 	pub key: u64,
-	history: Vec<u64>,
+	pub history: Vec<u64>,
 	key_index: usize,
 
 	pieces: [[u64; 64]; PIECE_COUNT],
 	castling_rights: [u64; 16],
 	en_passant: [u64; 9],
+	en_passant_file: usize, // Used for make_null_move
 	side_to_move: u64,
 }
 
@@ -28,6 +29,7 @@ impl Default for Zobrist {
 			pieces: [[0; 64]; PIECE_COUNT],
 			castling_rights: [0; 16],
 			en_passant: [0; 9],
+			en_passant_file: 0,
 			side_to_move: 0,
 		}
 	}
@@ -59,7 +61,7 @@ impl Zobrist {
 
 	pub fn pop(&mut self) {
 		self.key_index -= 1;
-		self.key = self.history[self.key_index];
+		self.key = self.history[self.key_index - 1];
 	}
 
 	pub fn generate_initial_key(&mut self, board: &mut Board) {
@@ -82,12 +84,12 @@ impl Zobrist {
 	}
 
 	pub fn push(&mut self) {
-		self.key_index += 1;
 		if self.key_index >= self.history.len() {
 			self.history.push(self.key);
 		} else {
 			self.history[self.key_index] = self.key;
 		}
+		self.key_index += 1;
 	}
 
 	pub fn clear(&mut self) {
@@ -97,17 +99,12 @@ impl Zobrist {
 		self.push();
 	}
 
-	/* NOTE
-	for some strange reason, when the commented code here is uncommented, it can solve certain test positions,
-	but draws winning positions when playing games
-	but when it's commented, it can't solve those test positions, but it doesn't draw winning positions. f me
-	*/
-	pub fn is_repetition(&self) -> bool {
+	pub fn is_threefold_repetition(&self) -> bool {
 		let mut count = 0;
 		for i in 0..self.key_index {
 			if self.history[i] == self.key {
 				count += 1;
-				if count == 2 {
+				if count >= 2 {
 					return true;
 				}
 			}
@@ -164,10 +161,19 @@ impl Zobrist {
 		}
 
 		if data.flag == DOUBLE_PAWN_PUSH_FLAG {
-			self.key ^= self.en_passant[(to % 8) + 1];
+			let file = (to % 8) + 1;
+			self.key ^= self.en_passant[file];
+			self.en_passant_file = file;
 		}
 
 		self.key ^= self.side_to_move;
+
+		self.push();
+	}
+
+	pub fn make_null_move(&mut self) {
+		self.key ^= self.side_to_move;
+		self.key ^= self.en_passant[self.en_passant_file];
 
 		self.push();
 	}

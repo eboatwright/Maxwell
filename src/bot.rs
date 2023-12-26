@@ -1,8 +1,7 @@
 use crate::piece_square_tables::QUEEN_WORTH;
 use crate::PAWN;
 use crate::NO_PIECE;
-use crate::utils::evaluation_is_mate;
-use crate::utils::CHECKMATE_EVAL;
+use crate::utils::{CHECKMATE_EVAL, evaluation_is_mate, moves_ply_from_mate};
 use std::time::Instant;
 use crate::move_sorter::MoveSorter;
 use crate::transposition_table::{TranspositionTable, NodeType};
@@ -34,6 +33,7 @@ pub struct Bot {
 	positions_searched: u128,
 	quiescence_searched: u128,
 	transposition_hits: u128,
+	null_move_prunes: u128,
 }
 
 impl Bot {
@@ -60,6 +60,7 @@ impl Bot {
 			positions_searched: 0,
 			quiescence_searched: 0,
 			transposition_hits: 0,
+			null_move_prunes: 0,
 		}
 	}
 
@@ -79,7 +80,8 @@ impl Bot {
 		} else {
 			0.07
 		};
-		self.time_to_think = (my_time * time_percentage).clamp(0.5, 20.0);
+		self.time_to_think = (my_time * time_percentage).clamp(0.25, 20.0);
+		// self.time_to_think = my_time;
 
 		self.search_cancelled = false;
 
@@ -91,6 +93,7 @@ impl Bot {
 		self.positions_searched = 0;
 		self.quiescence_searched = 0;
 		self.transposition_hits = 0;
+		self.null_move_prunes = 0;
 
 		self.move_sorter.clear();
 
@@ -121,7 +124,7 @@ impl Bot {
 				self.evaluation = self.evaluation_this_iteration;
 			}
 
-			println!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {}, Quiescence positions searched: {}, Total: {}, Transposition Hits: {}",
+			println!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {}, Quiescence positions searched: {}, Total: {}, Transposition Hits: {}, Null move prunes: {}",
 				depth,
 				window,
 				self.evaluation * board.perspective(),
@@ -130,7 +133,16 @@ impl Bot {
 				self.quiescence_searched,
 				self.positions_searched + self.quiescence_searched,
 				self.transposition_hits,
+				self.null_move_prunes,
 			);
+
+			if evaluation_is_mate(self.evaluation) {
+				let moves_until_mate = moves_ply_from_mate(self.evaluation);
+				if moves_until_mate <= depth {
+					println!("Mate found in {}", (moves_until_mate as f32 * 0.5).ceil());
+					break;
+				}
+			}
 
 			if self.search_cancelled {
 				println!("Search cancelled");
@@ -162,30 +174,23 @@ impl Bot {
 
 		self.positions_searched += 1;
 
-		if depth > 0 {
-			// This is to discourage making draws in winning positions
-			// if it really is an equal position, it will still return 0
-			if board.zobrist.is_repetition() {
-				return -self.quiescence_search(board, alpha, beta);
-			}
-
-			if board.insufficient_checkmating_material() {
-				return 0;
-			}
+		if depth > 0
+		&& (board.fifty_move_draw.current >= 50
+		|| board.insufficient_checkmating_material()
+		|| board.zobrist.is_threefold_repetition()) {
+			// Should I use this to discourage making a draw in a winning position?
+			// return -self.quiescence_search(board, alpha, beta);
+			return 0;
 		}
 
-		if let Some(data) = self.transposition_table.lookup(board.zobrist.key, depth_left, alpha, beta) {
+		if let Some(data) = self.transposition_table.lookup(board.zobrist.key, depth_left, depth, alpha, beta) {
 			self.positions_searched -= 1;
 			self.transposition_hits += 1;
 
 			if depth == 0 {
-				let mut fixed_mate_evaluation = data.evaluation;
-				if evaluation_is_mate(data.evaluation) {
-					fixed_mate_evaluation += depth_left as i32;
-				}
-
 				self.best_move_this_iteration = data.best_move;
-				self.best_move_depth_searched_at = data.depth;
+				self.best_move_depth_searched_at = data.depth_left;
+				self.evaluation_this_iteration = data.evaluation;
 			}
 
 			return data.evaluation;
@@ -193,17 +198,33 @@ impl Bot {
 
 		// Razoring
 		if depth_left == 3
-		&& depth != 0
+		&& depth > 0
 		&& board.get_last_move().capture == NO_PIECE as u8
 		&& !board.king_in_check(board.white_to_move) {
-			let eval = board.evaluate();
-			if eval + QUEEN_WORTH < alpha {
+			let evaluation = board.evaluate();
+			if evaluation + QUEEN_WORTH < alpha {
 				depth_left -= 1;
 			}
 		}
 
 		if depth_left == 0 {
 			return self.quiescence_search(board, alpha, beta);
+		}
+
+		let is_pv = alpha != beta - 1;
+
+		if !is_pv
+		&& depth > 0
+		&& depth_left >= 3
+		&& board.try_null_move() {
+			let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions);
+
+			board.undo_null_move();
+
+			if evaluation >= beta {
+				self.null_move_prunes += 1;
+				return evaluation;
+			}
 		}
 
 		let mut best_move_this_search = NULL_MOVE;
@@ -249,13 +270,12 @@ impl Bot {
 
 
 
-
 			let mut evaluation = 0;
 			let mut needs_full_search = true;
 
 			if search_extension == 0
-			&& depth_left >= 3
 			&& i >= 3
+			&& depth_left >= 3
 			&& m.capture == NO_PIECE as u8 {
 				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1 - 1, -alpha - 1, -alpha, number_of_extensions);
 				needs_full_search = evaluation > alpha;
@@ -267,7 +287,6 @@ impl Bot {
 
 
 
-
 			board.undo_last_move();
 
 			if self.should_cancel_search() {
@@ -275,7 +294,7 @@ impl Bot {
 			}
 
 			if evaluation >= beta {
-				self.transposition_table.store(board.zobrist.key, depth_left, beta, m, NodeType::LowerBound);
+				self.transposition_table.store(board.zobrist.key, depth_left, depth, beta, m, NodeType::LowerBound);
 
 				if m.capture == NO_PIECE as u8 {
 					self.move_sorter.push_killer_move(m, depth);
@@ -300,7 +319,7 @@ impl Bot {
 		}
 
 		if best_move_this_search != NULL_MOVE {
-			self.transposition_table.store(board.zobrist.key, depth_left, alpha, best_move_this_search, node_type);
+			self.transposition_table.store(board.zobrist.key, depth_left, depth, alpha, best_move_this_search, node_type);
 		}
 
 		alpha
