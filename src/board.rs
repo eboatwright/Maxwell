@@ -11,7 +11,7 @@ use colored::Colorize;
 pub const BITBOARD_COUNT: usize = PIECE_COUNT;
 pub const MAX_ENDGAME_MATERIAL: f32 = (ROOK_WORTH * 2 + BISHOP_WORTH * 2) as f32;
 
-// TODO: tweak these
+// TODO: still tweaking these :`D
 pub const DOUBLED_PAWN_PENALTY: i32 = 35;
 pub const ISOLATED_PAWN_PENALTY: i32 = 20;
 pub const PASSED_PAWN_BOOST: [i32; 8] = [0, 15, 15, 30, 50, 90, 150, 0];
@@ -938,6 +938,10 @@ impl Board {
 				}
 			}
 		}
+
+		let pawn_evaluation_multiplier = (endgame + 0.3).clamp(0.3, 1.0);
+		white_pawn_evaluation = (white_pawn_evaluation as f32 * pawn_evaluation_multiplier) as i32;
+		black_pawn_evaluation = (black_pawn_evaluation as f32 * pawn_evaluation_multiplier) as i32;
 
 		self.calculate_attacked_squares();
 
