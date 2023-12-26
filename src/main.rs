@@ -23,6 +23,10 @@ https://analog-hors.github.io/site/magic-bitboards/ (didn't use this for my init
 https://web.archive.org/web/20071030220825/http://www.brucemo.com/compchess/programming/pvs.htm
 https://github.com/lynx-chess/Lynx
 https://github.com/Heiaha/Weiawaga/
+
+v3.0.5 vs v3.0.4: all in v3.0.4's favor :(
+v1: 10 - 15 - 11
+v2: 12 - 14 - 10 (current)
 */
 
 #![allow(dead_code)]
