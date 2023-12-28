@@ -196,35 +196,42 @@ impl Bot {
 			return data.evaluation;
 		}
 
-		// Razoring
-		if depth_left == 3
+		let is_pv = alpha != beta - 1;
+
+		if !is_pv
 		&& depth > 0
-		&& board.get_last_move().capture == NO_PIECE as u8
 		&& !board.king_in_check(board.white_to_move) {
-			let evaluation = board.evaluate();
-			if evaluation + QUEEN_WORTH < alpha {
+			if depth_left >= 3
+			&& board.try_null_move() {
+				let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions);
+
+				board.undo_null_move();
+
+				if evaluation >= beta {
+					self.null_move_prunes += 1;
+					return evaluation;
+				}
+			}
+
+			let static_eval = board.evaluate();
+
+			// Reverse Futility Pruning
+			if depth_left == 4 { // <= or ==?
+				if static_eval - (85 * depth_left as i32) >= beta {
+					return static_eval;
+				}
+			}
+
+			// Razoring
+			if depth_left == 3 // <= or ==?
+			&& board.get_last_move().capture == NO_PIECE as u8
+			&& static_eval + QUEEN_WORTH < alpha {
 				depth_left -= 1;
 			}
 		}
 
 		if depth_left == 0 {
 			return self.quiescence_search(board, alpha, beta);
-		}
-
-		let is_pv = alpha != beta - 1;
-
-		if !is_pv
-		&& depth > 0
-		&& depth_left >= 3
-		&& board.try_null_move() {
-			let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions);
-
-			board.undo_null_move();
-
-			if evaluation >= beta {
-				self.null_move_prunes += 1;
-				return evaluation;
-			}
 		}
 
 		let mut best_move_this_search = NULL_MOVE;

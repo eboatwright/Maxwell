@@ -6,7 +6,6 @@ try to write a neural network to evaluate positions? :o
 
 Ideas I've tried but they made no impact (Or I implemented them wrong :P)
 https://www.chessprogramming.org/Futility_Pruning
-https://www.chessprogramming.org/Reverse_Futility_Pruning
 https://www.chessprogramming.org/Principal_Variation_Search
 
 Random ideas to try (from other engines and chessprogramming.org)
@@ -21,13 +20,8 @@ https://www.chessprogramming.org/Razoring (look into a better implementation)
 Some random resources I found:
 https://analog-hors.github.io/site/magic-bitboards/ (didn't use this for my initial implementation, but that might change ;))
 https://web.archive.org/web/20071030220825/http://www.brucemo.com/compchess/programming/pvs.htm
-https://github.com/lynx-chess/Lynx
+https://github.com/lynx-chess/Lynx/
 https://github.com/Heiaha/Weiawaga/
-
-v3.0.5 vs v3.0.4
-v1: 10 - 15 - (11 draws)
-v2: 12 - 14 - (10 draws)
-current: 13 - 9 - (14 draws)
 */
 
 #![allow(dead_code)]
