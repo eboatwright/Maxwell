@@ -202,6 +202,7 @@ impl Bot {
 		&& depth > 0
 		&& depth_left > 0
 		&& !board.king_in_check(board.white_to_move) {
+			// Null Move Pruning
 			if depth_left >= 3
 			&& board.try_null_move() {
 				let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions);
@@ -217,14 +218,13 @@ impl Bot {
 			let static_eval = board.evaluate();
 
 			// Reverse Futility Pruning
-			if depth_left <= 4 { // <= or ==?
-				if static_eval - (85 * depth_left as i32) >= beta {
-					return static_eval;
-				}
+			if depth_left <= 4
+			&& static_eval - (85 * depth_left as i32) >= beta {
+				return static_eval;
 			}
 
 			// Razoring
-			if depth_left <= 3 // <= or ==?
+			if depth_left <= 3
 			&& board.get_last_move().capture == NO_PIECE as u8
 			&& static_eval + QUEEN_WORTH < alpha {
 				depth_left -= 1;
@@ -278,6 +278,7 @@ impl Bot {
 
 
 
+			// Late Move Reduction / (Kind of) Principal Variation Search
 			let mut evaluation = 0;
 			let mut needs_full_search = true;
 

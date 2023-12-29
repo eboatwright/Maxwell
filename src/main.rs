@@ -3,6 +3,7 @@ try to stop Bot from getting it's queen kicked around
 calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
 check out pin detection for checks?
 try to write a neural network to evaluate positions? :o
+figure out how to implement "pondering": thinking on the opponent's time
 
 Ideas I've tried but they made no impact (Or I implemented them wrong :P)
 https://www.chessprogramming.org/Futility_Pruning
