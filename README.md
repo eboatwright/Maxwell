@@ -18,7 +18,7 @@
 #### Evaluation
  - Material count
  - Piece square tables
-  - Separate middlegame and endgame tables for pawns and kings
+   - Separate middlegame and endgame tables for pawns and kings
  - Passed, isolated and doubled pawns
  - Attacked squares around kings
 #### Move Ordering
@@ -33,7 +33,7 @@
 #### Search
  - Iterative deepening
  - Aspiration windows
-  - Starts at 40 and multiplies by 4 if out of alpha beta bounds
+   - Starts at 40 and multiplies by 4 if out of alpha beta bounds
  - Time management: if less than 7 moves have been played, it uses 2.5% of it's remaining time, otherwise 7%
  - Exits search if a mate is found within search depth
  - Alpha beta pruning
@@ -44,8 +44,8 @@
  - Reverse futility pruning
  - Late move reduction
  - Search extensions
-  - Promotions
-  - Checks
+   - Promotions
+   - Checks
 
 ## Helpful Sources
  - [Sebastian Lague's Chess Programming series](https://www.youtube.com/playlist?list=PLFt_AvWsXl0cvHyu32ajwh2qU1i6hl77c)
