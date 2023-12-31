@@ -33,7 +33,6 @@ pub struct Bot {
 	positions_searched: u128,
 	quiescence_searched: u128,
 	transposition_hits: u128,
-	null_move_prunes: u128,
 }
 
 impl Bot {
@@ -60,7 +59,6 @@ impl Bot {
 			positions_searched: 0,
 			quiescence_searched: 0,
 			transposition_hits: 0,
-			null_move_prunes: 0,
 		}
 	}
 
@@ -93,7 +91,6 @@ impl Bot {
 		self.positions_searched = 0;
 		self.quiescence_searched = 0;
 		self.transposition_hits = 0;
-		self.null_move_prunes = 0;
 
 		self.move_sorter.clear();
 
@@ -104,6 +101,7 @@ impl Bot {
 			self.evaluation_this_iteration = 0;
 
 
+			// TODO: Try moving this outside the loop, so it keeps the same window between iterations
 			let mut window = 40;
 			loop {
 				let (alpha, beta) = (last_evaluation - window, last_evaluation + window);
@@ -122,9 +120,10 @@ impl Bot {
 			|| self.searched_one_move {
 				self.best_move = self.best_move_this_iteration;
 				self.evaluation = self.evaluation_this_iteration;
+				// TODO: try updating last_evaluation here
 			}
 
-			println!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {}, Quiescence positions searched: {}, Total: {}, Transposition Hits: {}, Null move prunes: {}",
+			println!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {} + Quiescence positions searched: {} = {}, Transposition Hits: {}",
 				depth,
 				window,
 				self.evaluation * board.perspective(),
@@ -133,7 +132,6 @@ impl Bot {
 				self.quiescence_searched,
 				self.positions_searched + self.quiescence_searched,
 				self.transposition_hits,
-				self.null_move_prunes,
 			);
 
 			if evaluation_is_mate(self.evaluation) {
@@ -210,7 +208,6 @@ impl Bot {
 				board.undo_null_move();
 
 				if evaluation >= beta {
-					self.null_move_prunes += 1;
 					return evaluation;
 				}
 			}
@@ -355,7 +352,9 @@ impl Bot {
 			return evaluation;
 		}
 
-		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, 0);
+		// u8::MAX is here because it's only used for killer moves, and we don't need that here
+		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, u8::MAX);
+
 		for m in sorted_moves {
 			board.make_move(m);
 			let evaluation = -self.quiescence_search(board, -beta, -alpha);

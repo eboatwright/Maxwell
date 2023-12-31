@@ -1,20 +1,20 @@
 /* TODO
-try to stop Bot from getting it's queen kicked around
+try to stop it from getting it's queen kicked around
 calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
-check out pin detection for checks?
+check out pin detection to speed up check detection?
 try to write a neural network to evaluate positions? :o
-figure out how to implement "pondering": thinking on the opponent's time
+figure out how to implement "pondering" to think on opponent's time
 
-Ideas I've tried but they made no impact (Or I implemented them wrong :P)
+Ideas I've tried, but they didn't help, or made it play worse (Or I implemented them wrong :P)
 https://www.chessprogramming.org/Futility_Pruning
 https://www.chessprogramming.org/Principal_Variation_Search
+https://www.chessprogramming.org/Internal_Iterative_Deepening
 
 Random ideas to try (from other engines and chessprogramming.org)
-History reduction?
+History reduction
 https://www.chessprogramming.org/History_Leaf_Pruning
 https://www.chessprogramming.org/Futility_Pruning#MoveCountBasedPruning
 https://www.chessprogramming.org/Delta_Pruning
-https://www.chessprogramming.org/Internal_Iterative_Deepening
 https://www.chessprogramming.org/Triangular_PV-Table
 https://www.chessprogramming.org/Razoring (look into a better implementation)
 
