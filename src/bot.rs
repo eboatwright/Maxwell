@@ -94,6 +94,8 @@ impl Bot {
 
 		self.move_sorter.clear();
 
+		let mut window = 40;
+
 		self.think_timer = Instant::now();
 		for depth in 1..=(255 - MAX_SEARCH_EXTENSIONS) {
 			self.searched_one_move = false;
@@ -101,8 +103,6 @@ impl Bot {
 			self.evaluation_this_iteration = 0;
 
 
-			// TODO: Try moving this outside the loop, so it keeps the same window between iterations
-			let mut window = 40;
 			loop {
 				let (alpha, beta) = (last_evaluation - window, last_evaluation + window);
 
@@ -120,7 +120,6 @@ impl Bot {
 			|| self.searched_one_move {
 				self.best_move = self.best_move_this_iteration;
 				self.evaluation = self.evaluation_this_iteration;
-				// TODO: try updating last_evaluation here
 			}
 
 			println!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {} + Quiescence positions searched: {} = {}, Transposition Hits: {}",
@@ -352,7 +351,7 @@ impl Bot {
 			return evaluation;
 		}
 
-		// u8::MAX is here because it's only used for killer moves, and we don't need that here
+		// Depth is set to u8::MAX because it's only used for killer moves, and we don't need that here
 		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, u8::MAX);
 
 		for m in sorted_moves {
