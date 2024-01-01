@@ -33,7 +33,6 @@ pub struct Bot {
 	positions_searched: u128,
 	quiescence_searched: u128,
 	transposition_hits: u128,
-	null_move_prunes: u128,
 }
 
 impl Bot {
@@ -60,7 +59,6 @@ impl Bot {
 			positions_searched: 0,
 			quiescence_searched: 0,
 			transposition_hits: 0,
-			null_move_prunes: 0,
 		}
 	}
 
@@ -93,9 +91,10 @@ impl Bot {
 		self.positions_searched = 0;
 		self.quiescence_searched = 0;
 		self.transposition_hits = 0;
-		self.null_move_prunes = 0;
 
 		self.move_sorter.clear();
+
+		let mut window = 40;
 
 		self.think_timer = Instant::now();
 		for depth in 1..=(255 - MAX_SEARCH_EXTENSIONS) {
@@ -104,7 +103,6 @@ impl Bot {
 			self.evaluation_this_iteration = 0;
 
 
-			let mut window = 40;
 			loop {
 				let (alpha, beta) = (last_evaluation - window, last_evaluation + window);
 
@@ -124,7 +122,7 @@ impl Bot {
 				self.evaluation = self.evaluation_this_iteration;
 			}
 
-			println!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {}, Quiescence positions searched: {}, Total: {}, Transposition Hits: {}, Null move prunes: {}",
+			println!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {} + Quiescence positions searched: {} = {}, Transposition Hits: {}",
 				depth,
 				window,
 				self.evaluation * board.perspective(),
@@ -133,7 +131,6 @@ impl Bot {
 				self.quiescence_searched,
 				self.positions_searched + self.quiescence_searched,
 				self.transposition_hits,
-				self.null_move_prunes,
 			);
 
 			if evaluation_is_mate(self.evaluation) {
@@ -196,35 +193,43 @@ impl Bot {
 			return data.evaluation;
 		}
 
-		// Razoring
-		if depth_left == 3
+		let is_pv = alpha != beta - 1;
+
+		if !is_pv
 		&& depth > 0
-		&& board.get_last_move().capture == NO_PIECE as u8
+		&& depth_left > 0
 		&& !board.king_in_check(board.white_to_move) {
-			let evaluation = board.evaluate();
-			if evaluation + QUEEN_WORTH < alpha {
+			// Null Move Pruning
+			if depth_left >= 3
+			&& board.try_null_move() {
+				// let reduction = 3 - (depth_left - 3) / 2;
+				let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions);
+
+				board.undo_null_move();
+
+				if evaluation >= beta {
+					return evaluation;
+				}
+			}
+
+			let static_eval = board.evaluate();
+
+			// Reverse Futility Pruning
+			if depth_left <= 4
+			&& static_eval - (70 * depth_left as i32) >= beta {
+				return static_eval;
+			}
+
+			// Razoring
+			if depth_left <= 3
+			&& board.get_last_move().capture == NO_PIECE as u8
+			&& static_eval + QUEEN_WORTH < alpha {
 				depth_left -= 1;
 			}
 		}
 
 		if depth_left == 0 {
 			return self.quiescence_search(board, alpha, beta);
-		}
-
-		let is_pv = alpha != beta - 1;
-
-		if !is_pv
-		&& depth > 0
-		&& depth_left >= 3
-		&& board.try_null_move() {
-			let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions);
-
-			board.undo_null_move();
-
-			if evaluation >= beta {
-				self.null_move_prunes += 1;
-				return evaluation;
-			}
 		}
 
 		let mut best_move_this_search = NULL_MOVE;
@@ -270,6 +275,7 @@ impl Bot {
 
 
 
+			// Late Move Reduction / (Kind of) Principal Variation Search
 			let mut evaluation = 0;
 			let mut needs_full_search = true;
 
@@ -346,7 +352,9 @@ impl Bot {
 			return evaluation;
 		}
 
-		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, 0);
+		// Depth is set to u8::MAX because it's only used for killer moves, and we don't need that here
+		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, u8::MAX);
+
 		for m in sorted_moves {
 			board.make_move(m);
 			let evaluation = -self.quiescence_search(board, -beta, -alpha);

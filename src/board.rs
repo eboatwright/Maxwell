@@ -436,7 +436,7 @@ impl Board {
 
 	pub fn king_in_check(&mut self, king_is_white: bool) -> bool {
 		self.calculate_attacked_squares_for_color((!king_is_white) as usize);
-		self.piece_bitboards[if king_is_white { WHITE_KING } else { BLACK_KING }] & self.attacked_squares_bitboards[(!king_is_white) as usize] != 0
+		self.piece_bitboards[build_piece(king_is_white, KING)] & self.attacked_squares_bitboards[(!king_is_white) as usize] != 0
 	}
 
 	pub fn get_legal_moves_for_color(&mut self, white_pieces: bool, only_captures: bool) -> Vec<MoveData> {

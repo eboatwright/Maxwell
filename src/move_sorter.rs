@@ -40,10 +40,10 @@ impl MoveSorter {
 
 		let endgame = board.endgame_multiplier();
 
-		// Mental note that this is here
-		board.calculate_attacked_squares();
+		// board.calculate_attacked_squares();
+		board.calculate_attacked_squares_for_color((!board.white_to_move) as usize);
 
-		let squares_i_attack = board.attacked_squares_bitboards[board.white_to_move as usize];
+		// let squares_i_attack = board.attacked_squares_bitboards[board.white_to_move as usize];
 		let squares_opponent_attacks = board.attacked_squares_bitboards[!board.white_to_move as usize];
 
 		for i in 0..num_of_moves {
@@ -70,9 +70,9 @@ impl MoveSorter {
 					score += 2000;
 				}
 
-				if squares_i_attack & (1 << m.to) != 0 {
-					score += get_full_worth_of_piece(m.piece as usize, m.to as usize, endgame);
-				}
+				// if squares_i_attack & (1 << m.to) != 0 {
+				// 	score += get_full_worth_of_piece(m.piece as usize, m.to as usize, endgame);
+				// }
 
 				if squares_opponent_attacks & (1 << m.to) != 0 {
 					score -= 2 * get_full_worth_of_piece(m.piece as usize, m.to as usize, endgame);
