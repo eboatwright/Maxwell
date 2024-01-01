@@ -202,6 +202,7 @@ impl Bot {
 			// Null Move Pruning
 			if depth_left >= 3
 			&& board.try_null_move() {
+				// let reduction = 3 - (depth_left - 3) / 2;
 				let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions);
 
 				board.undo_null_move();
@@ -215,7 +216,7 @@ impl Bot {
 
 			// Reverse Futility Pruning
 			if depth_left <= 4
-			&& static_eval - (85 * depth_left as i32) >= beta {
+			&& static_eval - (60 * depth_left as i32) >= beta { // used to be 85
 				return static_eval;
 			}
 

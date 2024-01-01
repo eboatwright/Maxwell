@@ -28,7 +28,6 @@
  - History heuristic
  - Castling
  - Promotions
- - Boost for moving a piece to a square a friendly piece attacks
  - Penalty for moving a piece to a square an opponent's piece attacks
 #### Search
  - Iterative deepening

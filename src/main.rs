@@ -1,5 +1,4 @@
 /* TODO
-try to stop it from getting it's queen kicked around
 calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
 check out pin detection to speed up check detection?
 try to write a neural network to evaluate positions? :o
