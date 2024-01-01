@@ -216,7 +216,7 @@ impl Bot {
 
 			// Reverse Futility Pruning
 			if depth_left <= 4
-			&& static_eval - (60 * depth_left as i32) >= beta { // used to be 85
+			&& static_eval - (70 * depth_left as i32) >= beta {
 				return static_eval;
 			}
 
