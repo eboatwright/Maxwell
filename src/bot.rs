@@ -10,6 +10,7 @@ use crate::opening_book::OpeningBook;
 use crate::Board;
 
 pub const MAX_SEARCH_EXTENSIONS: u8 = 16;
+pub const FUTILITY_PRUNING_THESHOLD_PER_PLY: i32 = 60;
 
 pub struct Bot {
 	time_to_think: f32,
@@ -216,7 +217,7 @@ impl Bot {
 
 			// Reverse Futility Pruning
 			if depth_left <= 4
-			&& static_eval - (70 * depth_left as i32) >= beta {
+			&& static_eval - (FUTILITY_PRUNING_THESHOLD_PER_PLY * depth_left as i32) >= beta {
 				return static_eval;
 			}
 
