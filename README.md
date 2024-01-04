@@ -29,7 +29,7 @@
  - Attacked squares around kings
 #### Move Ordering
  - Hash move / best move from previous iteration
- - Capturing a piece of higher value
+ - MVV-LVA
  - 2 Killer moves
  - History heuristic
  - Castling
