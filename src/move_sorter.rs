@@ -1,3 +1,4 @@
+use crate::piece_square_tables::get_base_worth_of_piece;
 use crate::killer_moves::KillerMoves;
 use crate::move_data::{MoveData, NULL_MOVE, SHORT_CASTLE_FLAG, LONG_CASTLE_FLAG};
 use crate::pieces::*;
@@ -5,6 +6,15 @@ use crate::piece_square_tables::get_full_worth_of_piece;
 use crate::Board;
 
 pub const MAX_KILLER_MOVE_PLY: usize = 32;
+
+pub const MVV_LVA: [[i32; 6]; 6] = [
+	[15, 25, 35, 45, 55, 65], // Pawn
+	[14, 24, 34, 44, 54, 64], // Knight
+	[13, 23, 33, 43, 53, 63], // Bishop
+	[12, 22, 32, 42, 52, 62], // Rook
+	[11, 21, 31, 41, 51, 61], // Queen
+	[10, 20, 30, 40, 50, 60], // King
+];
 
 pub struct MoveSorter {
 	pub killer_moves: [KillerMoves; MAX_KILLER_MOVE_PLY],
@@ -38,8 +48,6 @@ impl MoveSorter {
 		let num_of_moves = moves.len();
 		let mut scores = vec![(0, 0); num_of_moves];
 
-		let endgame = board.endgame_multiplier();
-
 		// board.calculate_attacked_squares();
 		board.calculate_attacked_squares_for_color((!board.white_to_move) as usize);
 
@@ -52,10 +60,11 @@ impl MoveSorter {
 			let mut score = 0;
 
 			if m == hash_move {
-				score = 100000;
+				score = i32::MAX;
 			} else {
 				if m.capture != NO_PIECE as u8 {
-					score += (5 * get_full_worth_of_piece(m.capture as usize, m.to as usize, endgame) - get_full_worth_of_piece(m.piece as usize, m.from as usize, endgame)) + 8000;
+					// score += (5 * get_full_worth_of_piece(m.capture as usize, m.to as usize, endgame) - get_full_worth_of_piece(m.piece as usize, m.from as usize, endgame)) + 8000;
+					score += MVV_LVA[get_piece_type(m.piece as usize)][get_piece_type(m.capture as usize)] + 8000;
 				} else {
 					if depth < MAX_KILLER_MOVE_PLY as u8
 					&& self.killer_moves[depth as usize].is_killer(m) {
@@ -75,11 +84,11 @@ impl MoveSorter {
 				// }
 
 				if squares_opponent_attacks & (1 << m.to) != 0 {
-					score -= 2 * get_full_worth_of_piece(m.piece as usize, m.to as usize, endgame);
+					score -= 2 * get_base_worth_of_piece(m.piece as usize);
 				}
 
 				if PROMOTABLE.contains(&m.flag) {
-					score += (5 * get_full_worth_of_piece(build_piece(is_piece_white(m.piece as usize), m.flag as usize), m.to as usize, endgame)) + 12000;
+					score += get_base_worth_of_piece(build_piece(is_piece_white(m.piece as usize), m.flag as usize)) + 12000;
 				}
 			}
 
