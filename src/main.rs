@@ -48,7 +48,7 @@ mod bot;
 mod move_sorter;
 
 use crate::castling_rights::print_castling_rights;
-use crate::bot::Bot;
+use crate::bot::{Bot, BotConfig};
 use crate::perft::*;
 use crate::move_data::MoveData;
 use crate::pieces::*;
@@ -68,10 +68,12 @@ pub const ENDGAME_POSITION:  &str = "8/pk4p1/2prp3/3p1p2/3P2p1/R2BP3/2P2KPP/8 w 
 pub const PAWN_EVAL_TESTING: &str = "4k3/p1pp4/8/4pp1P/2P4P/8/P5P1/4K3 w - - 0 1";
 
 fn main() {
-	let mut log = Log::none();
+	let bot_config = BotConfig::from_args(std::env::args().collect::<Vec<String>>());
 
-	let mut board = Board::from_fen(STARTING_FEN);
-	let mut bot = Bot::new(true);
+	// let mut log = Log::none();
+
+	let mut board = Board::from_fen(&bot_config.fen);
+	let mut bot = Bot::new(bot_config.clone());
 
 	let mut command = String::new();
 	let mut moves = String::new();
@@ -98,7 +100,7 @@ fn main() {
 			"ucinewgame" => {
 				// log = Log::new();
 				board = Board::from_fen(STARTING_FEN);
-				bot = Bot::new(true);
+				bot = Bot::new(bot_config.clone());
 			}
 
 			// Format: position startpos (moves e2e4 e7e5 ...)
@@ -114,7 +116,7 @@ fn main() {
 					if !board.play_move(data) {
 						let err = format!("{}: failed to play move: {}", "FATAL ERROR".white().on_red(), coordinates);
 						println!("{}", err);
-						log.write(err);
+						// log.write(err);
 					}
 				}
 				moves.pop();
@@ -241,7 +243,8 @@ fn main() {
 			// 	println!("New: worst: {}, best: {}", new_worst_time, new_best_time);
 			// }
 
-			_ => log.write(format!("Unknown command: {}", command)),
+			// _ => log.write(format!("Unknown command: {}", command)),
+			_ => {}
 		}
 	}
 }
