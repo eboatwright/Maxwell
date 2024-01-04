@@ -191,33 +191,25 @@ fn main() {
 			}
 
 			// "test" => {
-			// 	let mut board = Board::from_fen(STARTING_FEN);
-
 			// 	let mut old_best_time  =  f32::MAX;
 			// 	let mut old_worst_time = -f32::MAX;
 
 			// 	let mut new_best_time  =  f32::MAX;
 			// 	let mut new_worst_time = -f32::MAX;
 
-			// 	for _ in 0..5 {
-			// 		board.clear_castling_rights();
-			// 		board.zobrist.clear();
+			// 	let piece = BLACK_ROOK as u8;
+			// 	let capture = WHITE_KNIGHT as u8;
 
+			// 	for _ in 0..5 {
 			// 		let timer = Instant::now();
-			// 		for _ in 0..100_000 {
-			// 			let legal_moves = board.get_legal_moves_for_color(board.white_to_move, false);
-			// 			let _ = sort_moves(&board, legal_moves, None);
+			// 		for _ in 0..1_000_000_000 {
+			// 			let score = MVV_LVA[get_piece_type(piece as usize) * 6 + get_piece_type(capture as usize)];
 			// 		}
 			// 		let old_time = timer.elapsed().as_secs_f32();
 
-
-			// 		board.clear_castling_rights();
-			// 		board.zobrist.clear();
-
 			// 		let timer = Instant::now();
-			// 		for _ in 0..100_000 {
-			// 			let legal_moves = board.get_legal_moves_for_color(board.white_to_move, false);
-			// 			let _ = new_sort_moves(&board, legal_moves, None);
+			// 		for _ in 0..1_000_000_000 {
+			// 			let score = (5 - get_piece_type(piece as usize)) + (get_piece_type(capture as usize) + 1) * 10;
 			// 		}
 			// 		let new_time = timer.elapsed().as_secs_f32();
 

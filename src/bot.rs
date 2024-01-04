@@ -12,6 +12,7 @@ use crate::Board;
 
 pub const MAX_SEARCH_EXTENSIONS: u8 = 16;
 pub const FUTILITY_PRUNING_THESHOLD_PER_PLY: i32 = 60;
+pub const RAZORING_THRESHOLD_PER_PLY: i32 = 300;
 
 pub const PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES: f32 = 0.025; // 2.5%
 pub const PERCENT_OF_TIME_TO_USE_AFTER_6_FULL_MOVES: f32 = 0.07; // 7%
@@ -279,7 +280,7 @@ impl Bot {
 			// Razoring
 			if depth_left <= 3
 			&& board.get_last_move().capture == NO_PIECE as u8
-			&& static_eval + QUEEN_WORTH < alpha {
+			&& static_eval + RAZORING_THRESHOLD_PER_PLY * (depth_left as i32) < alpha {
 				depth_left -= 1;
 			}
 		}
