@@ -44,7 +44,7 @@
    - This value is then also clamped between 0.25 and 20.0 seconds
  - Exits search if a mate is found within search depth
  - Alpha beta pruning
- - Quiescence search
+ - Quiescence search with Delta Pruning
  - Transposition table
    - No set max size, but entries get removed after 10 moves without hits
  - Null move pruning
