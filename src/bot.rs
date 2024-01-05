@@ -1,6 +1,6 @@
-use crate::piece_square_tables::QUEEN_WORTH;
-use crate::PAWN;
-use crate::NO_PIECE;
+use crate::STARTING_FEN;
+use crate::piece_square_tables::{PAWN_WORTH, QUEEN_WORTH};
+use crate::pieces::{PAWN, PROMOTABLE, NO_PIECE};
 use crate::utils::{CHECKMATE_EVAL, evaluation_is_mate, moves_ply_from_mate};
 use std::time::Instant;
 use crate::move_sorter::MoveSorter;
@@ -11,15 +11,54 @@ use crate::Board;
 
 pub const MAX_SEARCH_EXTENSIONS: u8 = 16;
 pub const FUTILITY_PRUNING_THESHOLD_PER_PLY: i32 = 60;
+pub const RAZORING_THRESHOLD_PER_PLY: i32 = 300;
+
+pub const PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES: f32 = 0.025; // 2.5%
+pub const PERCENT_OF_TIME_TO_USE_AFTER_6_FULL_MOVES: f32 = 0.07; // 7%
+
+pub const MIN_TIME_PER_MOVE: f32 = 0.25; // seconds
+pub const MAX_TIME_PER_MOVE: f32 = 20.0;
+
+#[derive(Clone, Debug)]
+pub struct BotConfig {
+	pub fen: String,
+	pub debug_output: bool,
+	pub opening_book: bool,
+	pub time_management: bool,
+}
+
+impl BotConfig {
+	pub fn from_args(args: Vec<String>) -> Self {
+		let _true = "true".to_string();
+		Self { // This is so ugly lol
+			fen: Self::get_arg_value(&args, "fen").unwrap_or(STARTING_FEN.to_string()),
+			debug_output: Self::get_arg_value(&args, "debug_output").unwrap_or(_true.clone()) == _true,
+			opening_book: Self::get_arg_value(&args, "opening_book").unwrap_or(_true.clone()) == _true,
+			time_management: Self::get_arg_value(&args, "time_management").unwrap_or(_true.clone()) == _true,
+		}
+	}
+
+	fn get_arg_value(args: &Vec<String>, key: &'static str) -> Option<String> {
+		for arg in args.iter() {
+			if arg.contains(key) {
+				return Some(arg[key.len() + 1..].to_string());
+			}
+		}
+
+		None
+	}
+}
 
 pub struct Bot {
+	pub config: BotConfig,
+
 	time_to_think: f32,
 	think_timer: Instant,
 	pub search_cancelled: bool,
 	searched_one_move: bool,
 
 	opening_book: OpeningBook,
-	in_opening: bool,
+	in_opening_book: bool,
 
 	move_sorter: MoveSorter,
 	pub transposition_table: TranspositionTable,
@@ -37,15 +76,19 @@ pub struct Bot {
 }
 
 impl Bot {
-	pub fn new(in_opening: bool) -> Self {
+	pub fn new(config: BotConfig) -> Self {
+		let in_opening_book = config.opening_book;
+
 		Self {
+			config,
+
 			time_to_think: 0.0,
 			think_timer: Instant::now(),
 			search_cancelled: false,
 			searched_one_move: false,
 
 			opening_book: OpeningBook::create(),
-			in_opening,
+			in_opening_book,
 
 			move_sorter: MoveSorter::new(),
 			transposition_table: TranspositionTable::empty(),
@@ -63,24 +106,34 @@ impl Bot {
 		}
 	}
 
+	pub fn println(&self, output: String) {
+		if self.config.debug_output {
+			println!("{}", output);
+		}
+	}
+
 	pub fn start(&mut self, board: &mut Board, moves: String, my_time: f32) {
-		if self.in_opening {
+		if self.in_opening_book {
 			let opening_move = self.opening_book.get_opening_move(moves);
 			if opening_move == NULL_MOVE {
-				self.in_opening = false;
+				self.in_opening_book = false;
 			} else {
 				self.best_move = opening_move;
 				return;
 			}
 		}
 
-		let time_percentage = if board.moves.len() / 2 <= 6 {
-			0.025
+		self.time_to_think = if self.config.time_management {
+			let time_percentage = if board.moves.len() / 2 <= 6 {
+				PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES
+			} else {
+				PERCENT_OF_TIME_TO_USE_AFTER_6_FULL_MOVES
+			};
+
+			(my_time * time_percentage).clamp(MIN_TIME_PER_MOVE, MAX_TIME_PER_MOVE)
 		} else {
-			0.07
+			my_time
 		};
-		self.time_to_think = (my_time * time_percentage).clamp(0.25, 20.0);
-		// self.time_to_think = my_time;
 
 		self.search_cancelled = false;
 
@@ -123,7 +176,7 @@ impl Bot {
 				self.evaluation = self.evaluation_this_iteration;
 			}
 
-			println!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {} + Quiescence positions searched: {} = {}, Transposition Hits: {}",
+			self.println(format!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {} + Quiescence positions searched: {} = {}, Transposition Hits: {}",
 				depth,
 				window,
 				self.evaluation * board.perspective(),
@@ -132,24 +185,26 @@ impl Bot {
 				self.quiescence_searched,
 				self.positions_searched + self.quiescence_searched,
 				self.transposition_hits,
-			);
+			));
 
 			if evaluation_is_mate(self.evaluation) {
 				let moves_until_mate = moves_ply_from_mate(self.evaluation);
 				if moves_until_mate <= depth {
-					println!("Mate found in {}", (moves_until_mate as f32 * 0.5).ceil());
+					self.println(format!("Mate found in {}", (moves_until_mate as f32 * 0.5).ceil()));
 					break;
 				}
 			}
 
 			if self.search_cancelled {
-				println!("Search cancelled");
+				self.println("Search cancelled".to_string());
 				break;
 			}
 		}
 
 		self.transposition_table.update();
-		self.transposition_table.print_size();
+		if self.config.debug_output {
+			self.transposition_table.print_size();
+		}
 	}
 
 	fn should_cancel_search(&mut self) -> bool {
@@ -199,11 +254,12 @@ impl Bot {
 		if !is_pv
 		&& depth > 0
 		&& depth_left > 0
+		&& board.get_last_move().capture == NO_PIECE as u8
 		&& !board.king_in_check(board.white_to_move) {
 			// Null Move Pruning
 			if depth_left >= 3
 			&& board.try_null_move() {
-				// let reduction = 3 - (depth_left - 3) / 2;
+				// let reduction = 3 - (depth_left - 3) / 2; // This didn't work at all lol
 				let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions);
 
 				board.undo_null_move();
@@ -217,14 +273,13 @@ impl Bot {
 
 			// Reverse Futility Pruning
 			if depth_left <= 4
-			&& static_eval - (FUTILITY_PRUNING_THESHOLD_PER_PLY * depth_left as i32) >= beta {
+			&& static_eval - FUTILITY_PRUNING_THESHOLD_PER_PLY * (depth_left as i32) >= beta {
 				return static_eval;
 			}
 
 			// Razoring
 			if depth_left <= 3
-			&& board.get_last_move().capture == NO_PIECE as u8
-			&& static_eval + QUEEN_WORTH < alpha {
+			&& static_eval + RAZORING_THRESHOLD_PER_PLY * (depth_left as i32) < alpha {
 				depth_left -= 1;
 			}
 		}
@@ -357,6 +412,18 @@ impl Bot {
 		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, u8::MAX);
 
 		for m in sorted_moves {
+			// Delta Pruning
+			if !board.king_in_check(board.white_to_move) {
+				let mut threshold = QUEEN_WORTH;
+				if PROMOTABLE.contains(&m.flag) {
+					threshold += QUEEN_WORTH - PAWN_WORTH;
+				}
+
+				if evaluation < alpha - threshold {
+					continue;
+				}
+			}
+
 			board.make_move(m);
 			let evaluation = -self.quiescence_search(board, -beta, -alpha);
 			board.undo_last_move();

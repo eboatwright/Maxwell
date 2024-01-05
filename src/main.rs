@@ -13,9 +13,8 @@ Random ideas to try (from other engines and chessprogramming.org)
 History reduction
 https://www.chessprogramming.org/History_Leaf_Pruning
 https://www.chessprogramming.org/Futility_Pruning#MoveCountBasedPruning
-https://www.chessprogramming.org/Delta_Pruning
 https://www.chessprogramming.org/Triangular_PV-Table
-https://www.chessprogramming.org/Razoring (look into a better implementation)
+https://www.chessprogramming.org/Static_Exchange_Evaluation
 
 Some random resources I found:
 https://analog-hors.github.io/site/magic-bitboards/ (didn't use this for my initial implementation, but that might change ;))
@@ -48,7 +47,7 @@ mod bot;
 mod move_sorter;
 
 use crate::castling_rights::print_castling_rights;
-use crate::bot::Bot;
+use crate::bot::{Bot, BotConfig};
 use crate::perft::*;
 use crate::move_data::MoveData;
 use crate::pieces::*;
@@ -68,10 +67,12 @@ pub const ENDGAME_POSITION:  &str = "8/pk4p1/2prp3/3p1p2/3P2p1/R2BP3/2P2KPP/8 w 
 pub const PAWN_EVAL_TESTING: &str = "4k3/p1pp4/8/4pp1P/2P4P/8/P5P1/4K3 w - - 0 1";
 
 fn main() {
-	let mut log = Log::none();
+	let bot_config = BotConfig::from_args(std::env::args().collect::<Vec<String>>());
 
-	let mut board = Board::from_fen(STARTING_FEN);
-	let mut bot = Bot::new(true);
+	// let mut log = Log::none();
+
+	let mut board = Board::from_fen(&bot_config.fen);
+	let mut bot = Bot::new(bot_config.clone());
 
 	let mut command = String::new();
 	let mut moves = String::new();
@@ -98,7 +99,7 @@ fn main() {
 			"ucinewgame" => {
 				// log = Log::new();
 				board = Board::from_fen(STARTING_FEN);
-				bot = Bot::new(true);
+				bot = Bot::new(bot_config.clone());
 			}
 
 			// Format: position startpos (moves e2e4 e7e5 ...)
@@ -114,7 +115,7 @@ fn main() {
 					if !board.play_move(data) {
 						let err = format!("{}: failed to play move: {}", "FATAL ERROR".white().on_red(), coordinates);
 						println!("{}", err);
-						log.write(err);
+						// log.write(err);
 					}
 				}
 				moves.pop();
@@ -189,33 +190,25 @@ fn main() {
 			}
 
 			// "test" => {
-			// 	let mut board = Board::from_fen(STARTING_FEN);
-
 			// 	let mut old_best_time  =  f32::MAX;
 			// 	let mut old_worst_time = -f32::MAX;
 
 			// 	let mut new_best_time  =  f32::MAX;
 			// 	let mut new_worst_time = -f32::MAX;
 
-			// 	for _ in 0..5 {
-			// 		board.clear_castling_rights();
-			// 		board.zobrist.clear();
+			// 	let piece = BLACK_ROOK as u8;
+			// 	let capture = WHITE_KNIGHT as u8;
 
+			// 	for _ in 0..5 {
 			// 		let timer = Instant::now();
-			// 		for _ in 0..100_000 {
-			// 			let legal_moves = board.get_legal_moves_for_color(board.white_to_move, false);
-			// 			let _ = sort_moves(&board, legal_moves, None);
+			// 		for _ in 0..1_000_000_000 {
+			// 			let score = MVV_LVA[get_piece_type(piece as usize) * 6 + get_piece_type(capture as usize)];
 			// 		}
 			// 		let old_time = timer.elapsed().as_secs_f32();
 
-
-			// 		board.clear_castling_rights();
-			// 		board.zobrist.clear();
-
 			// 		let timer = Instant::now();
-			// 		for _ in 0..100_000 {
-			// 			let legal_moves = board.get_legal_moves_for_color(board.white_to_move, false);
-			// 			let _ = new_sort_moves(&board, legal_moves, None);
+			// 		for _ in 0..1_000_000_000 {
+			// 			let score = (5 - get_piece_type(piece as usize)) + (get_piece_type(capture as usize) + 1) * 10;
 			// 		}
 			// 		let new_time = timer.elapsed().as_secs_f32();
 
@@ -241,7 +234,8 @@ fn main() {
 			// 	println!("New: worst: {}, best: {}", new_worst_time, new_best_time);
 			// }
 
-			_ => log.write(format!("Unknown command: {}", command)),
+			// _ => log.write(format!("Unknown command: {}", command)),
+			_ => {}
 		}
 	}
 }
