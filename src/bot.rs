@@ -255,6 +255,7 @@ impl Bot {
 		if !is_pv
 		&& depth > 0
 		&& depth_left > 0
+		&& board.get_last_move().capture == NO_PIECE as u8
 		&& !board.king_in_check(board.white_to_move) {
 			// Null Move Pruning
 			if depth_left >= 3
@@ -273,13 +274,12 @@ impl Bot {
 
 			// Reverse Futility Pruning
 			if depth_left <= 4
-			&& static_eval - (FUTILITY_PRUNING_THESHOLD_PER_PLY * depth_left as i32) >= beta {
+			&& static_eval - FUTILITY_PRUNING_THESHOLD_PER_PLY * (depth_left as i32) >= beta {
 				return static_eval;
 			}
 
 			// Razoring
 			if depth_left <= 3
-			&& board.get_last_move().capture == NO_PIECE as u8
 			&& static_eval + RAZORING_THRESHOLD_PER_PLY * (depth_left as i32) < alpha {
 				depth_left -= 1;
 			}
