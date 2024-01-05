@@ -1,7 +1,6 @@
 use crate::STARTING_FEN;
-use crate::piece_square_tables::QUEEN_WORTH;
-use crate::PAWN;
-use crate::NO_PIECE;
+use crate::piece_square_tables::{PAWN_WORTH, QUEEN_WORTH};
+use crate::pieces::{PAWN, PROMOTABLE, NO_PIECE};
 use crate::utils::{CHECKMATE_EVAL, evaluation_is_mate, moves_ply_from_mate};
 use std::time::Instant;
 use crate::move_sorter::MoveSorter;
@@ -413,6 +412,17 @@ impl Bot {
 		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, u8::MAX);
 
 		for m in sorted_moves {
+			if !board.king_in_check(board.white_to_move) {
+				let mut threshold = QUEEN_WORTH;
+				if PROMOTABLE.contains(&m.flag) {
+					threshold += QUEEN_WORTH - PAWN_WORTH;
+				}
+
+				if evaluation < alpha - threshold {
+					continue;
+				}
+			}
+
 			board.make_move(m);
 			let evaluation = -self.quiescence_search(board, -beta, -alpha);
 			board.undo_last_move();

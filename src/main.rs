@@ -13,9 +13,8 @@ Random ideas to try (from other engines and chessprogramming.org)
 History reduction
 https://www.chessprogramming.org/History_Leaf_Pruning
 https://www.chessprogramming.org/Futility_Pruning#MoveCountBasedPruning
-https://www.chessprogramming.org/Delta_Pruning
 https://www.chessprogramming.org/Triangular_PV-Table
-https://www.chessprogramming.org/Razoring (look into a better implementation)
+https://www.chessprogramming.org/Static_Exchange_Evaluation
 
 Some random resources I found:
 https://analog-hors.github.io/site/magic-bitboards/ (didn't use this for my initial implementation, but that might change ;))
