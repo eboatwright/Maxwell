@@ -412,6 +412,7 @@ impl Bot {
 		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, u8::MAX);
 
 		for m in sorted_moves {
+			// Delta Pruning
 			if !board.king_in_check(board.white_to_move) {
 				let mut threshold = QUEEN_WORTH;
 				if PROMOTABLE.contains(&m.flag) {
