@@ -92,7 +92,7 @@ fn main() {
 			// UCI protocol
 
 			"uci" => {
-				println!("id name Maxwell");
+				println!("id name Maxwell v3.0.8-1");
 				println!("id author eboatwright");
 
 				println!("uciok");
