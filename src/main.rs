@@ -16,11 +16,9 @@ https://www.chessprogramming.org/Futility_Pruning#MoveCountBasedPruning
 https://www.chessprogramming.org/Triangular_PV-Table
 https://www.chessprogramming.org/Static_Exchange_Evaluation
 
-Some random resources I found:
-https://analog-hors.github.io/site/magic-bitboards/ (didn't use this for my initial implementation, but that might change ;))
+Some random resources I found: (Not using them right now but they could be useful)
+https://analog-hors.github.io/site/magic-bitboards/
 https://web.archive.org/web/20071030220825/http://www.brucemo.com/compchess/programming/pvs.htm
-https://github.com/lynx-chess/Lynx/
-https://github.com/Heiaha/Weiawaga/
 */
 
 #![allow(dead_code)]
@@ -47,7 +45,7 @@ mod bot;
 mod move_sorter;
 
 use crate::castling_rights::print_castling_rights;
-use crate::bot::{Bot, BotConfig};
+use crate::bot::{Bot, BotConfig, MAX_SEARCH_EXTENSIONS};
 use crate::perft::*;
 use crate::move_data::MoveData;
 use crate::pieces::*;
@@ -93,7 +91,13 @@ fn main() {
 		match command_split[0] {
 			// UCI protocol
 
-			"uci" => println!("uciok"),
+			"uci" => {
+				println!("id name Maxwell v3.0.8-1");
+				println!("id author eboatwright");
+
+				println!("uciok");
+			}
+
 			"isready" => println!("readyok"),
 
 			"ucinewgame" => {
@@ -121,10 +125,13 @@ fn main() {
 				moves.pop();
 			}
 
-			// Format: go (movetime, wtime) X (btime Y)
+			// Format:
+			// go (movetime, wtime) X (btime Y)
+			// go depth X
 			"go" => {
 				let my_time_label = if board.white_to_move { "wtime" } else { "btime" };
 				let mut my_time = 0.0;
+				let mut depth_to_search = 255 - MAX_SEARCH_EXTENSIONS;
 
 				for i in [1, 3] {
 					if command_split[i] == my_time_label
@@ -133,10 +140,15 @@ fn main() {
 							my_time = time_in_millis as f32 / 1000.0;
 							break;
 						}
+					} else if command_split[i] == "depth" {
+						if let Ok(_depth_to_search) = command_split[i + 1].parse::<u8>() {
+							depth_to_search = _depth_to_search;
+							break;
+						}
 					}
 				}
 
-				bot.start(&mut board, moves.clone(), my_time);
+				bot.start(&mut board, moves.clone(), my_time, depth_to_search);
 
 				println!("bestmove {}", bot.best_move.to_coordinates());
 				// log.write(format!("bestmove {}", bot.best_move.to_coordinates()));
@@ -145,7 +157,7 @@ fn main() {
 			"stop" => bot.search_cancelled = true,
 			"quit" => break,
 
-			// My debug tools :]
+			// My debug tools
 
 			// "play" => play(command_split[1] == "white"),
 
@@ -162,15 +174,15 @@ fn main() {
 				}
 			}
 
-			"clearlogs" => {
-				if let Ok(logs_folder) = std::fs::read_dir("./logs/") {
-					for log_file in logs_folder {
-						std::fs::remove_file(log_file.unwrap().path()).expect("Failed to clear logs");
-					}
-				} else {
-					println!("No logs folder");
-				}
-			}
+			// "clearlogs" => {
+			// 	if let Ok(logs_folder) = std::fs::read_dir("./logs/") {
+			// 		for log_file in logs_folder {
+			// 			std::fs::remove_file(log_file.unwrap().path()).expect("Failed to clear logs");
+			// 		}
+			// 	} else {
+			// 		println!("No logs folder");
+			// 	}
+			// }
 
 			"print" => board.print(),
 			"bitboards" => board.print_bitboards(),

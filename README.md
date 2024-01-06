@@ -11,8 +11,8 @@
  - opening_book=\<BOOLEAN>: Toggle opening book (default=true)
  - time_management=\<BOOLEAN>: Toggle time management, if false the bot will use all the remaining time (default=true)
 #### UCI Interface
- - Only supports games from startpos
  - uci, isready, ucinewgame, position, go, stop, and quit commands
+ - "position" is only implemented for "position startpos", "position fen" is not yet implemented
 #### Board Representation
  - Purely bitboards
  - Supports loading from FEN strings
