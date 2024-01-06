@@ -112,7 +112,7 @@ impl Bot {
 		}
 	}
 
-	pub fn start(&mut self, board: &mut Board, moves: String, my_time: f32) {
+	pub fn start(&mut self, board: &mut Board, moves: String, my_time: f32, depth_to_search: u8) {
 		if self.in_opening_book {
 			let opening_move = self.opening_book.get_opening_move(moves);
 			if opening_move == NULL_MOVE {
@@ -123,17 +123,20 @@ impl Bot {
 			}
 		}
 
-		self.time_to_think = if self.config.time_management {
-			let time_percentage = if board.moves.len() / 2 <= 6 {
-				PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES
-			} else {
-				PERCENT_OF_TIME_TO_USE_AFTER_6_FULL_MOVES
-			};
+		self.time_to_think =
+			if my_time == 0.0 { // This means we're in a "go depth X" command
+				0.0
+			} else if self.config.time_management {
+				let time_percentage = if board.moves.len() / 2 <= 6 {
+					PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES
+				} else {
+					PERCENT_OF_TIME_TO_USE_AFTER_6_FULL_MOVES
+				};
 
-			(my_time * time_percentage).clamp(MIN_TIME_PER_MOVE, MAX_TIME_PER_MOVE)
-		} else {
-			my_time
-		};
+				(my_time * time_percentage).clamp(MIN_TIME_PER_MOVE, MAX_TIME_PER_MOVE)
+			} else {
+				my_time
+			};
 
 		self.search_cancelled = false;
 
@@ -151,7 +154,7 @@ impl Bot {
 		let mut window = 40;
 
 		self.think_timer = Instant::now();
-		for depth in 1..=(255 - MAX_SEARCH_EXTENSIONS) {
+		for depth in 1..=depth_to_search {
 			self.searched_one_move = false;
 			self.best_move_this_iteration = NULL_MOVE;
 			self.evaluation_this_iteration = 0;
@@ -201,6 +204,8 @@ impl Bot {
 			}
 		}
 
+		self.println(format!("{} seconds", self.think_timer.elapsed().as_secs_f32()));
+
 		self.transposition_table.update();
 		if self.config.debug_output {
 			self.transposition_table.print_size();
@@ -208,7 +213,7 @@ impl Bot {
 	}
 
 	fn should_cancel_search(&mut self) -> bool {
-		self.search_cancelled = self.search_cancelled || self.think_timer.elapsed().as_secs_f32() >= self.time_to_think;
+		self.search_cancelled = (self.search_cancelled || self.think_timer.elapsed().as_secs_f32() >= self.time_to_think) && self.time_to_think > 0.0;
 		self.search_cancelled
 	}
 
