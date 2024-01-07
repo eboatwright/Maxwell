@@ -6,6 +6,10 @@ pub fn pop_lsb(bitboard: &mut u64) -> u8 {
 	i as u8
 }
 
+pub fn get_lsb(bitboard: u64) -> u8 {
+	bitboard.trailing_zeros() as u8
+}
+
 pub fn index_to_coordinate(index: u8) -> String {
 	format!("{}{}",
 		match index % 8 {

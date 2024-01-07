@@ -61,3 +61,4 @@
  - [BBC Engine Development](https://www.youtube.com/playlist?list=PLmN0neTso3Jxh8ZIylk74JpwfiWNI76Cs)
  - [Lynx](https://github.com/lynx-chess/Lynx/)
  - [Weiawaga](https://github.com/Heiaha/Weiawaga/)
+ - [Fruit 2.1](https://github.com/Warpten/Fruit-2.1/)

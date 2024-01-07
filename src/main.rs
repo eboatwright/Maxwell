@@ -1,4 +1,9 @@
 /* TODO
+big idea:
+	remove all constant variables, and put them into the BotConfig struct,
+	then write my own tuning / matchmaking program that will tweak the values
+	and play matches until it finds better values...
+
 calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
 check out pin detection to speed up check detection?
 try to write a neural network to evaluate positions? :o

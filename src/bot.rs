@@ -12,6 +12,7 @@ use crate::Board;
 pub const MAX_SEARCH_EXTENSIONS: u8 = 16;
 pub const FUTILITY_PRUNING_THESHOLD_PER_PLY: i32 = 60;
 pub const RAZORING_THRESHOLD_PER_PLY: i32 = 300;
+pub const HISTORY_THRESHOLD: i32 = 1000; // TODO: tweak this
 
 pub const PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES: f32 = 0.025; // 2.5%
 pub const PERCENT_OF_TIME_TO_USE_AFTER_6_FULL_MOVES: f32 = 0.07; // 7%
@@ -176,6 +177,7 @@ impl Bot {
 			|| self.searched_one_move {
 				self.best_move = self.best_move_this_iteration;
 				self.evaluation = self.evaluation_this_iteration;
+				// last_evaluation = self.evaluation; // TODO: try this
 			}
 
 			self.println(format!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {} + Quiescence positions searched: {} = {}, Transposition Hits: {}",
@@ -342,9 +344,17 @@ impl Bot {
 			if search_extension == 0
 			&& i >= 3
 			&& depth_left >= 3
-			&& m.capture == NO_PIECE as u8 {
-				// Changing this to depth_left - 3 instead of depth_left - 2 brought it up by 1 win, but I'm not sure if that's worth it
-				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 2, -alpha - 1, -alpha, number_of_extensions);
+			&& m.capture == NO_PIECE as u8
+			&& !board.king_in_check(board.white_to_move) {
+				let reduction = 1;
+
+				// if depth_left > 3 {
+				// 	let history_value = self.move_sorter.history[m.piece as usize][m.to as usize];
+				// 	reduction += if history_value < HISTORY_THRESHOLD { 1 } else { 0 };
+				// }
+
+				// Subtracting one more ply from this brought it up by 1 win, but I'm not sure if that's worth it
+				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - reduction - 1, -alpha - 1, -alpha, number_of_extensions);
 				needs_full_search = evaluation > alpha;
 			}
 

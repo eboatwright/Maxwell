@@ -1,5 +1,5 @@
 use crate::value_holder::ValueHolder;
-use crate::utils::{pop_lsb, print_bitboard, coordinate_to_index};
+use crate::utils::{pop_lsb, get_lsb, print_bitboard, coordinate_to_index};
 use crate::piece_square_tables::{get_base_worth_of_piece, get_full_worth_of_piece, ROOK_WORTH, BISHOP_WORTH};
 use crate::precalculated_move_data::*;
 use crate::move_data::*;
@@ -948,8 +948,8 @@ impl Board {
 		let white_attacked_squares = self.attacked_squares_bitboards[1].count_ones() as i32;
 		let black_attacked_squares = self.attacked_squares_bitboards[0].count_ones() as i32;
 
-		let white_king_index = pop_lsb(&mut (self.piece_bitboards[WHITE_KING].clone())) as usize;
-		let black_king_index = pop_lsb(&mut (self.piece_bitboards[BLACK_KING].clone())) as usize;
+		let white_king_index = get_lsb(self.piece_bitboards[WHITE_KING]) as usize;
+		let black_king_index = get_lsb(self.piece_bitboards[BLACK_KING]) as usize;
 
 		let weak_squares_around_white_king = ((
 				  self.precalculated_move_data.king_attacks[white_king_index]
@@ -960,6 +960,9 @@ impl Board {
 				  self.precalculated_move_data.king_attacks[black_king_index]
 				& self.attacked_squares_bitboards[1]
 			).count_ones() as f32 * (1.0 - endgame)) as i32;
+
+		// let weak_lines_from_white_king = (self.calculate_queen_attack_bitboard(white_king_index).count_ones() as f32 * (1.0 - endgame)) as i32;
+		// let weak_lines_from_black_king = (self.calculate_queen_attack_bitboard(black_king_index).count_ones() as f32 * (1.0 - endgame)) as i32;
 
 		 ((white_material + white_attacked_squares * 10 - weak_squares_around_white_king * 20 + white_pawn_evaluation)
 		- (black_material + black_attacked_squares * 10 - weak_squares_around_black_king * 20 + black_pawn_evaluation)) * self.perspective()

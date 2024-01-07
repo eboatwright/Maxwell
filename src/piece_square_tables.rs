@@ -11,7 +11,7 @@ pub const MIDDLEGAME_PAWN_TABLE: [i32; 64] = [
 	 0,  0,  0,  0,  0,  0,  0,  0,
 ];
 
-pub const ENDGAME_PAWN_TABLE: [i32; 64] = [
+pub const ENDGAME_PAWN_TABLE: [i32; 64] = [ // TODO: tweak this (maybe lower the values?)
 	  0,  0,  0,  0,  0,  0,  0,  0,
 	100,100,100,100,100,100,100,100,
 	 70, 70, 70, 70, 70, 70, 70, 70,
