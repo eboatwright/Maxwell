@@ -124,9 +124,8 @@ impl Bot {
 		}
 
 		self.time_to_think =
-			if my_time == 0.0 { // This means we're in a "go depth X" command
-				0.0
-			} else if self.config.time_management {
+			if self.config.time_management
+			&& my_time > 0.0 {
 				let time_percentage = if board.moves.len() / 2 <= 6 {
 					PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES
 				} else {
@@ -254,9 +253,9 @@ impl Bot {
 			return data.evaluation;
 		}
 
-		let is_pv = alpha != beta - 1;
+		let not_pv = alpha == beta - 1;
 
-		if !is_pv
+		if not_pv
 		&& depth > 0
 		&& depth_left > 0
 		&& board.get_last_move().capture == NO_PIECE as u8
@@ -344,7 +343,8 @@ impl Bot {
 			&& i >= 3
 			&& depth_left >= 3
 			&& m.capture == NO_PIECE as u8 {
-				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1 - 1, -alpha - 1, -alpha, number_of_extensions);
+				// Changing this to depth_left - 3 instead of depth_left - 2 brought it up by 1 win, but I'm not sure if that's worth it
+				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 2, -alpha - 1, -alpha, number_of_extensions);
 				needs_full_search = evaluation > alpha;
 			}
 
@@ -385,7 +385,8 @@ impl Bot {
 			}
 		}
 
-		if best_move_this_search != NULL_MOVE {
+		if not_pv
+		&& best_move_this_search != NULL_MOVE {
 			self.transposition_table.store(board.zobrist.key, depth_left, depth, alpha, best_move_this_search, node_type);
 		}
 
