@@ -1,3 +1,9 @@
+/* TODO
+test removing:
+	killer moves
+	history
+*/
+
 use crate::STARTING_FEN;
 use crate::piece_square_tables::{PAWN_WORTH, QUEEN_WORTH};
 use crate::pieces::{PAWN, PROMOTABLE, NO_PIECE};
@@ -9,10 +15,18 @@ use crate::move_data::{MoveData, NULL_MOVE};
 use crate::opening_book::OpeningBook;
 use crate::Board;
 
-pub const MAX_SEARCH_EXTENSIONS: u8 = 16;
-pub const FUTILITY_PRUNING_THESHOLD_PER_PLY: i32 = 60;
-pub const RAZORING_THRESHOLD_PER_PLY: i32 = 300;
-pub const HISTORY_THRESHOLD: i32 = 1000; // TODO: tweak this
+pub const MAX_SEARCH_EXTENSIONS: u8 = 16; // TODO
+pub const STARTING_ASPIRATION_WINDOW: i32 = 40; // TODO
+
+pub const MIN_DEPTH_LEFT_FOR_NULL_MOVE_PRUNE: u8 = 3; // TODO
+
+pub const MAX_DEPTH_LEFT_FOR_RFP: u8 = 4; // TODO
+pub const RFP_THESHOLD_PER_PLY: i32 = 60; // TODO
+
+pub const MAX_DEPTH_LEFT_FOR_RAZORING: u8 = 3; // TODO
+pub const RAZORING_THRESHOLD_PER_PLY: i32 = 300; // TODO
+
+pub const HISTORY_THRESHOLD: i32 = 1000; // TODO
 
 pub const PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES: f32 = 0.025; // 2.5%
 pub const PERCENT_OF_TIME_TO_USE_AFTER_6_FULL_MOVES: f32 = 0.07; // 7%
@@ -31,10 +45,12 @@ pub struct BotConfig {
 impl BotConfig {
 	pub fn from_args(args: Vec<String>) -> Self {
 		let _true = "true".to_string();
+		let _false = "false".to_string();
+
 		Self { // This is so ugly lol
 			fen: Self::get_arg_value(&args, "fen").unwrap_or(STARTING_FEN.to_string()),
 			debug_output: Self::get_arg_value(&args, "debug_output").unwrap_or(_true.clone()) == _true,
-			opening_book: Self::get_arg_value(&args, "opening_book").unwrap_or(_true.clone()) == _true,
+			opening_book: Self::get_arg_value(&args, "opening_book").unwrap_or(_false.clone()) == _false,
 			time_management: Self::get_arg_value(&args, "time_management").unwrap_or(_true.clone()) == _true,
 		}
 	}
@@ -151,7 +167,13 @@ impl Bot {
 
 		self.move_sorter.clear();
 
-		let mut window = 40;
+		/* TODO
+		the only thing to tweak here is the aspiration window:
+		either the window is outside the iterative deepening and it keeps values between iterations,
+		or it's inside the iterative deepening, and gets reset every iteration
+		*/
+
+		let mut window = STARTING_ASPIRATION_WINDOW;
 
 		self.think_timer = Instant::now();
 		for depth in 1..=depth_to_search {
@@ -177,7 +199,7 @@ impl Bot {
 			|| self.searched_one_move {
 				self.best_move = self.best_move_this_iteration;
 				self.evaluation = self.evaluation_this_iteration;
-				// last_evaluation = self.evaluation; // TODO: try this
+				// last_evaluation = self.evaluation;
 			}
 
 			self.println(format!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {} + Quiescence positions searched: {} = {}, Transposition Hits: {}",
@@ -255,6 +277,7 @@ impl Bot {
 			return data.evaluation;
 		}
 
+		// TODO: test removing this
 		let not_pv = alpha == beta - 1;
 
 		if not_pv
@@ -262,8 +285,15 @@ impl Bot {
 		&& depth_left > 0
 		&& board.get_last_move().capture == NO_PIECE as u8
 		&& !board.king_in_check(board.white_to_move) {
+			/* TODO:
+			test removing
+				null move pruning
+				reverse futility pruning
+				razoring
+			*/
+
 			// Null Move Pruning
-			if depth_left >= 3
+			if depth_left >= MIN_DEPTH_LEFT_FOR_NULL_MOVE_PRUNE
 			&& board.try_null_move() {
 				// let reduction = 3 - (depth_left - 3) / 2; // This didn't work at all lol
 				let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions);
@@ -278,13 +308,13 @@ impl Bot {
 			let static_eval = board.evaluate();
 
 			// Reverse Futility Pruning
-			if depth_left <= 4
-			&& static_eval - FUTILITY_PRUNING_THESHOLD_PER_PLY * (depth_left as i32) >= beta {
+			if depth_left <= MAX_DEPTH_LEFT_FOR_RFP
+			&& static_eval - RFP_THESHOLD_PER_PLY * (depth_left as i32) >= beta {
 				return static_eval;
 			}
 
 			// Razoring
-			if depth_left <= 3
+			if depth_left <= MAX_DEPTH_LEFT_FOR_RAZORING
 			&& static_eval + RAZORING_THRESHOLD_PER_PLY * (depth_left as i32) < alpha {
 				depth_left -= 1;
 			}
@@ -321,6 +351,7 @@ impl Bot {
 			let m = sorted_moves[i];
 			board.make_move(m);
 
+			// TOOD: test removing check extension, and promotion extension
 			let mut search_extension = 0;
 			if number_of_extensions < MAX_SEARCH_EXTENSIONS as u8 {
 				if board.king_in_check(board.white_to_move) {
@@ -342,19 +373,20 @@ impl Bot {
 			let mut needs_full_search = true;
 
 			if search_extension == 0
-			&& i >= 3
-			&& depth_left >= 3
+			&& i >= 3 // TODO
+			&& depth_left >= 3 // TODO
 			&& m.capture == NO_PIECE as u8
 			&& !board.king_in_check(board.white_to_move) {
-				let reduction = 1;
+				// let reduction = 1;
 
+				// TODO: test removing / adding in this
 				// if depth_left > 3 {
 				// 	let history_value = self.move_sorter.history[m.piece as usize][m.to as usize];
 				// 	reduction += if history_value < HISTORY_THRESHOLD { 1 } else { 0 };
 				// }
 
-				// Subtracting one more ply from this brought it up by 1 win, but I'm not sure if that's worth it
-				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - reduction - 1, -alpha - 1, -alpha, number_of_extensions);
+				 // TODO: tweak the amount that it gets reduced
+				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 2, -alpha - 1, -alpha, number_of_extensions);
 				needs_full_search = evaluation > alpha;
 			}
 
@@ -428,6 +460,7 @@ impl Bot {
 		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, u8::MAX);
 
 		for m in sorted_moves {
+			// TODO: test removing this
 			// Delta Pruning
 			if !board.king_in_check(board.white_to_move) {
 				let mut threshold = QUEEN_WORTH;
