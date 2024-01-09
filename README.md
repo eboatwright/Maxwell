@@ -8,7 +8,7 @@
 #### Parameters
  - fen=\<FEN STRING>: Sets up the board by a fen string (Doesn't work for UCI games) (default=STARTING_FEN)
  - debug=\<BOOLEAN>: Toggle debug output that gets outputed per ply (default=true)
- - opening_book=\<BOOLEAN>: Toggle opening book (default=true)
+ - opening_book=\<BOOLEAN>: Toggle built-in opening book (default=false)
  - time_management=\<BOOLEAN>: Toggle time management, if false the bot will use all the remaining time (default=true)
 #### UCI Interface
  - uci, isready, ucinewgame, position, go, stop, and quit commands
@@ -62,3 +62,6 @@
  - [Lynx](https://github.com/lynx-chess/Lynx/)
  - [Weiawaga](https://github.com/Heiaha/Weiawaga/)
  - [Fruit 2.1](https://github.com/Warpten/Fruit-2.1/)
+ - [Perfect 2021 Opening Book](https://sites.google.com/site/computerschess/perfect-2021-books)
+ - [Cute Chess](https://cutechess.com/)
+ - [PVS Implementation](https://web.archive.org/web/20071030220825/http://www.brucemo.com/compchess/programming/pvs.htm)

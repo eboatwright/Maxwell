@@ -49,10 +49,11 @@ impl MoveSorter {
 		let mut scores = vec![(0, 0); num_of_moves];
 
 		// board.calculate_attacked_squares();
-		board.calculate_attacked_squares_for_color((!board.white_to_move) as usize);
+		// board.calculate_attacked_squares_for_color((!board.white_to_move) as usize);
 
+		// TODO: test both of these
 		// let squares_i_attack = board.attacked_squares_bitboards[board.white_to_move as usize];
-		let squares_opponent_attacks = board.attacked_squares_bitboards[!board.white_to_move as usize];
+		// let squares_opponent_attacks = board.attacked_squares_bitboards[!board.white_to_move as usize];
 
 		for i in 0..num_of_moves {
 			let m = moves[i];
@@ -66,12 +67,12 @@ impl MoveSorter {
 					// score += (5 * get_full_worth_of_piece(m.capture as usize, m.to as usize, endgame) - get_full_worth_of_piece(m.piece as usize, m.from as usize, endgame)) + 8000;
 					score += MVV_LVA[get_piece_type(m.piece as usize) * 6 + get_piece_type(m.capture as usize)] + 8000;
 				} else {
-					if depth < MAX_KILLER_MOVE_PLY as u8
-					&& self.killer_moves[depth as usize].is_killer(m) {
-						score += 5000;
-					}
+					// if depth < MAX_KILLER_MOVE_PLY as u8
+					// && self.killer_moves[depth as usize].is_killer(m) {
+					// 	score += 5000;
+					// }
 
-					score += self.history[m.piece as usize][m.to as usize];
+					// score += self.history[m.piece as usize][m.to as usize];
 				}
 
 				if m.flag == SHORT_CASTLE_FLAG
@@ -83,9 +84,9 @@ impl MoveSorter {
 				// 	score += get_full_worth_of_piece(m.piece as usize, m.to as usize, endgame);
 				// }
 
-				if squares_opponent_attacks & (1 << m.to) != 0 {
-					score -= 2 * get_base_worth_of_piece(m.piece as usize);
-				}
+				// if squares_opponent_attacks & (1 << m.to) != 0 {
+				// 	score -= 2 * get_base_worth_of_piece(m.piece as usize);
+				// }
 
 				if PROMOTABLE.contains(&m.flag) {
 					score += get_base_worth_of_piece(build_piece(is_piece_white(m.piece as usize), m.flag as usize)) + 12000;

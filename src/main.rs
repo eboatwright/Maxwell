@@ -1,3 +1,26 @@
+/* RESULTS
+aspiration window:
+	Try this again when I have more features added back, and also try the more popular approach:
+	To drop the entire window if it falls out of bounds, and also with a smaller window
+	Rank Name                          Elo     +/-   Games   Score    Draw
+	   1 No window                      31      63     100   54.5%   17.0%
+	   2 Hold window                     0      65     100   50.0%   12.0%
+	   3 Reset window                  -31      62     100   45.5%   19.0%
+
+Score of PVS vs No PVS: 27 - 13 - 10
+
+Score of PVS & LMR vs PVS: 32 - 10 - 8
+
+Extensions:
+	Rank Name                          Elo     +/-   Games   Score    Draw
+	   1 All extensions                 21      50     150   53.0%   20.7%
+	   2 Promotion extension            -5      50     150   49.3%   21.3%
+	   3 No extensions                  -7      50     150   49.0%   20.7%
+	   4 Check extension                -9      49     150   48.7%   22.7%
+*/
+
+
+
 /* TODO
 big idea:
 	remove all constant variables, and put them into the BotConfig struct,
@@ -11,7 +34,6 @@ figure out how to implement "pondering" to think on opponent's time
 
 Ideas I've tried, but they didn't help, or made it play worse (Or I implemented them wrong :P)
 https://www.chessprogramming.org/Futility_Pruning
-https://www.chessprogramming.org/Principal_Variation_Search
 https://www.chessprogramming.org/Internal_Iterative_Deepening
 
 Random ideas to try (from other engines and chessprogramming.org)
@@ -23,7 +45,6 @@ https://www.chessprogramming.org/Static_Exchange_Evaluation
 
 Some random resources I found: (Not using them right now but they could be useful)
 https://analog-hors.github.io/site/magic-bitboards/
-https://web.archive.org/web/20071030220825/http://www.brucemo.com/compchess/programming/pvs.htm
 */
 
 #![allow(dead_code)]
