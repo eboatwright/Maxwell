@@ -17,11 +17,22 @@ Extensions:
 	   2 Promotion extension            -5      50     150   49.3%   21.3%
 	   3 No extensions                  -7      50     150   49.0%   20.7%
 	   4 Check extension                -9      49     150   48.7%   22.7%
+
+
+Null Move Pruning:
+	Rank Name                          Elo     +/-   Games   Score    Draw
+	   1 NMP static eval           40      42     200   55.8%   25.5%
+	   2 NMP                       26      41     200   53.8%   26.5%
+	   3 NMP capture, static eval      16      41     200   52.3%   26.5%
+	   4 NMP capture               -9      41     200   48.8%   28.5%
+	   5 No NMP                   -74      43     200   39.5%   23.0%
 */
 
 
 
 /* TODO
+add output per ply for perft search
+
 big idea:
 	remove all constant variables, and put them into the BotConfig struct,
 	then write my own tuning / matchmaking program that will tweak the values
@@ -118,7 +129,7 @@ fn main() {
 			// UCI protocol
 
 			"uci" => {
-				println!("id name Maxwell v3.0.8-1");
+				println!("id name Maxwell v3.1.0");
 				println!("id author eboatwright");
 
 				println!("uciok");

@@ -944,6 +944,7 @@ impl Board {
 
 		self.calculate_attacked_squares();
 
+		// TODO: try taking the square root of this?
 		let white_attacked_squares = self.attacked_squares_bitboards[1].count_ones() as i32;
 		let black_attacked_squares = self.attacked_squares_bitboards[0].count_ones() as i32;
 

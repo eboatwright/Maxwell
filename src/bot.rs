@@ -265,48 +265,51 @@ impl Bot {
 			return data.evaluation;
 		}
 
-		// TODO: test removing this
-		// let not_pv = alpha == beta - 1;
+		let not_pv = alpha == beta - 1;
 
-		// if not_pv
-		// && depth > 0
-		// && depth_left > 0
-		// && board.get_last_move().capture == NO_PIECE as u8
-		// && !board.king_in_check(board.white_to_move) {
-		// 	/* TODO:
-		// 	test removing
-		// 		null move pruning
-		// 		reverse futility pruning
-		// 		razoring
-		// 	*/
+		if not_pv
+		&& depth > 0
+		&& depth_left > 0 { // && board.get_last_move().capture == NO_PIECE as u8 This made it play worse
+			let static_eval = board.evaluate();
 
-		// 	// Null Move Pruning
-		// 	if depth_left >= MIN_DEPTH_LEFT_FOR_NULL_MOVE_PRUNE
-		// 	&& board.try_null_move() {
-		// 		// let reduction = 3 - (depth_left - 3) / 2; // This didn't work at all lol
-		// 		let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions);
+			// Null Move Pruning
+			if depth_left >= MIN_DEPTH_LEFT_FOR_NULL_MOVE_PRUNE
+			&& static_eval >= beta
+			&& board.total_material_without_pawns > 0 // This doesn't work in king and pawn endgames because of zugzwang
+			&& board.try_null_move() {
+				// let reduction = 3 - (depth_left - 3) / 2; // This didn't work at all lol
+				let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, total_extensions);
 
-		// 		board.undo_null_move();
+				board.undo_null_move();
 
-		// 		if evaluation >= beta {
-		// 			return evaluation;
-		// 		}
-		// 	}
+				if evaluation >= beta {
+					return evaluation;
+				}
+			}
 
-		// 	let static_eval = board.evaluate();
+			// TODO
+			// Reverse Futility Pruning
+			// if depth_left <= MAX_DEPTH_LEFT_FOR_RFP
+			// && static_eval - RFP_THESHOLD_PER_PLY * (depth_left as i32) >= beta {
+			// 	return static_eval;
+			// }
 
-		// 	// Reverse Futility Pruning
-		// 	if depth_left <= MAX_DEPTH_LEFT_FOR_RFP
-		// 	&& static_eval - RFP_THESHOLD_PER_PLY * (depth_left as i32) >= beta {
-		// 		return static_eval;
-		// 	}
+			// TODO
+			// Razoring
+			// if depth_left <= MAX_DEPTH_LEFT_FOR_RAZORING
+			// && static_eval + RAZORING_THRESHOLD_PER_PLY * (depth_left as i32) < alpha {
+			// 	depth_left -= 1;
+			// }
 
-		// 	// Razoring
-		// 	if depth_left <= MAX_DEPTH_LEFT_FOR_RAZORING
-		// 	&& static_eval + RAZORING_THRESHOLD_PER_PLY * (depth_left as i32) < alpha {
-		// 		depth_left -= 1;
-		// 	}
-		// }
+			// TODO
+			/* Internal Iterative Reductions
+			I don't need to test if there's a hash move here, because if there was
+			it would have already exited this search
+			*/
+			// if depth_left > 3 {
+			// 	depth_left -= 1;
+			// }
+		}
 
 		if depth_left == 0 {
 			return self.quiescence_search(board, alpha, beta);
@@ -417,10 +420,11 @@ impl Bot {
 			}
 		}
 
-		// && not_pv
-		if best_move_this_search != NULL_MOVE {
-			self.transposition_table.store(board.zobrist.key, depth_left, depth, alpha, best_move_this_search, node_type);
-		}
+		// if !not_pv { // lol
+		/* I don't need to check for a null move here, because the first move in the list
+		will always be the best move so far */
+		self.transposition_table.store(board.zobrist.key, depth_left, depth, alpha, best_move_this_search, node_type);
+		// }
 
 		alpha
 	}
@@ -450,7 +454,7 @@ impl Bot {
 		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, u8::MAX);
 
 		for m in sorted_moves {
-			// TODO: test removing this
+			// TODO
 			// Delta Pruning
 			// if !board.king_in_check(board.white_to_move) {
 			// 	let mut threshold = QUEEN_WORTH;
