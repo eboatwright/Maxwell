@@ -1,4 +1,4 @@
-use crate::piece_square_tables::get_base_worth_of_piece;
+use crate::move_data::EN_PASSANT_FLAG;
 use crate::killer_moves::KillerMoves;
 use crate::move_data::{MoveData, NULL_MOVE, SHORT_CASTLE_FLAG, LONG_CASTLE_FLAG};
 use crate::pieces::*;
@@ -19,6 +19,7 @@ pub const MVV_LVA: [i32; 36] = [
 pub struct MoveSorter {
 	pub killer_moves: [KillerMoves; MAX_KILLER_MOVE_PLY],
 	pub history: [[i32; 64]; PIECE_COUNT],
+	// TODO: Countermoves?
 }
 
 impl MoveSorter {
@@ -51,7 +52,6 @@ impl MoveSorter {
 		// board.calculate_attacked_squares();
 		// board.calculate_attacked_squares_for_color((!board.white_to_move) as usize);
 
-		// TODO: test both of these
 		// let squares_i_attack = board.attacked_squares_bitboards[board.white_to_move as usize];
 		// let squares_opponent_attacks = board.attacked_squares_bitboards[!board.white_to_move as usize];
 
@@ -64,33 +64,35 @@ impl MoveSorter {
 				score = i32::MAX;
 			} else {
 				if m.capture != NO_PIECE as u8 {
-					// score += (5 * get_full_worth_of_piece(m.capture as usize, m.to as usize, endgame) - get_full_worth_of_piece(m.piece as usize, m.from as usize, endgame)) + 8000;
 					score += MVV_LVA[get_piece_type(m.piece as usize) * 6 + get_piece_type(m.capture as usize)] + 8000;
+
+					// TODO: static exchange evaluation
 				} else {
-					// if depth < MAX_KILLER_MOVE_PLY as u8
-					// && self.killer_moves[depth as usize].is_killer(m) {
-					// 	score += 5000;
-					// }
+					if depth < MAX_KILLER_MOVE_PLY as u8
+					&& self.killer_moves[depth as usize].is_killer(m) {
+						score += 5000;
+					}
 
-					// score += self.history[m.piece as usize][m.to as usize];
+					score += self.history[m.piece as usize][m.to as usize];
 				}
 
-				if m.flag == SHORT_CASTLE_FLAG
-				|| m.flag == LONG_CASTLE_FLAG {
-					score += 2000;
-				}
-
-				// if squares_i_attack & (1 << m.to) != 0 {
-				// 	score += get_full_worth_of_piece(m.piece as usize, m.to as usize, endgame);
+				// TODO
+				// if m.flag == SHORT_CASTLE_FLAG
+				// || m.flag == LONG_CASTLE_FLAG {
+				// 	score += 2000;
+				// } else if PROMOTABLE.contains(&m.flag) { // TODO
+				// 	score += get_base_worth_of_piece(m.flag) + 12000;
 				// }
 
+				// TODO
+				// if squares_i_attack & (1 << m.to) != 0 {
+				// 	score += get_base_worth_of_piece(m.piece as usize);
+				// }
+
+				// TODO
 				// if squares_opponent_attacks & (1 << m.to) != 0 {
 				// 	score -= 2 * get_base_worth_of_piece(m.piece as usize);
 				// }
-
-				if PROMOTABLE.contains(&m.flag) {
-					score += get_base_worth_of_piece(build_piece(is_piece_white(m.piece as usize), m.flag as usize)) + 12000;
-				}
 			}
 
 			scores[i] = (score, i);

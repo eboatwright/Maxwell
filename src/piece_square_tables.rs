@@ -97,6 +97,15 @@ pub const ROOK_WORTH:   i32 = 500;
 pub const QUEEN_WORTH:  i32 = 900;
 pub const KING_WORTH:   i32 = 0; // chessprogramming.org says this should be 20k but I don't think it matters /\o/\
 
+pub const BASE_WORTHS_OF_PIECE_TYPE: [i32; 6] = [
+	PAWN_WORTH,
+	KNIGHT_WORTH,
+	BISHOP_WORTH,
+	ROOK_WORTH,
+	QUEEN_WORTH,
+	KING_WORTH,
+];
+
 pub fn get_full_worth_of_piece(piece: usize, mut i: usize, endgame: f32) -> i32 {
 	if !is_piece_white(piece) {
 		i = flip_index(i);
@@ -110,18 +119,6 @@ pub fn get_full_worth_of_piece(piece: usize, mut i: usize, endgame: f32) -> i32 
 		QUEEN  => QUEEN_WORTH  + QUEEN_TABLE[i],
 
 		KING   => (MIDDLEGAME_KING_TABLE[i] as f32 * (1.0 - endgame) + ENDGAME_KING_TABLE[i] as f32 * endgame) as i32,
-
-		_ => 0,
-	}
-}
-
-pub fn get_base_worth_of_piece(piece: usize) -> i32 {
-	match get_piece_type(piece) {
-		PAWN   => PAWN_WORTH,
-		KNIGHT => KNIGHT_WORTH,
-		BISHOP => BISHOP_WORTH,
-		ROOK   => ROOK_WORTH,
-		QUEEN  => QUEEN_WORTH,
 
 		_ => 0,
 	}

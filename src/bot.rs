@@ -1,3 +1,52 @@
+/* RESULTS
+Aspiration Window:
+	Try this again when I have more features added back, and also try the more popular approach:
+	To drop the entire window if it falls out of bounds, and also with a smaller window
+	Rank Name                          Elo     +/-   Games   Score    Draw
+	   1 No window                      31      63     100   54.5%   17.0%
+	   2 Hold window                     0      65     100   50.0%   12.0%
+	   3 Reset window                  -31      62     100   45.5%   19.0%
+
+Score of PVS vs No PVS: 27 - 13 - 10
+
+Score of PVS & LMR vs PVS: 32 - 10 - 8
+
+Extensions:
+	Rank Name                          Elo     +/-   Games   Score    Draw
+	   1 All extensions                 21      50     150   53.0%   20.7%
+	   2 Promotion extension            -5      50     150   49.3%   21.3%
+	   3 No extensions                  -7      50     150   49.0%   20.7%
+	   4 Check extension                -9      49     150   48.7%   22.7%
+
+
+Null Move Pruning:
+	Rank Name                          Elo     +/-   Games   Score    Draw
+	   1 NMP static eval           40      42     200   55.8%   25.5%
+	   2 NMP                       26      41     200   53.8%   26.5%
+	   3 NMP capture, static eval      16      41     200   52.3%   26.5%
+	   4 NMP capture               -9      41     200   48.8%   28.5%
+	   5 No NMP                   -74      43     200   39.5%   23.0%
+
+Score of Order-Hash move, MVV-LVA vs Order-Hash move: 41 - 3 - 6
+
+
+History Heuristic & Killer Moves
+	Rank Name                          Elo     +/-   Games   Score    Draw
+	   1 Killer moves, history      49      48     150   57.0%   26.0%
+	   2 History                   44      48     150   56.3%   26.0%
+	   3 Killer moves              23      48     150   53.3%   25.3%
+	   4 Current                 -120      49     150   33.3%   28.0%
+
+History Reductions:
+	Idk there's something about this technique that feels off, I think I'm gonna comment it out for now
+
+	(With a value of 800 is lost horribly, and with a value of 3000 it did worse than 1600)
+	Score of History reductions (1600) vs Current: 22 - 14 - 14
+	Score of History reductions (2200) vs Current: 23 - 12 - 15
+*/
+
+
+use crate::piece_square_tables::BASE_WORTHS_OF_PIECE_TYPE;
 use crate::STARTING_FEN;
 use crate::piece_square_tables::{PAWN_WORTH, QUEEN_WORTH};
 use crate::pieces::{PAWN, PROMOTABLE, NO_PIECE};
@@ -20,7 +69,7 @@ pub const RFP_THESHOLD_PER_PLY: i32 = 60; // TODO
 pub const MAX_DEPTH_LEFT_FOR_RAZORING: u8 = 3; // TODO
 pub const RAZORING_THRESHOLD_PER_PLY: i32 = 300; // TODO
 
-pub const HISTORY_THRESHOLD: i32 = 1000; // TODO
+pub const HISTORY_THRESHOLD: i32 = 2200; // TODO
 
 pub const PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES: f32 = 0.025; // 2.5%
 pub const PERCENT_OF_TIME_TO_USE_AFTER_6_FULL_MOVES: f32 = 0.07; // 7%
@@ -252,7 +301,6 @@ impl Bot {
 		}
 
 		if let Some(data) = self.transposition_table.lookup(board.zobrist.key, depth_left, depth, alpha, beta) {
-			// TODO: Can I produce a cutoff from here?
 			self.positions_searched -= 1;
 			self.transposition_hits += 1;
 
@@ -267,6 +315,7 @@ impl Bot {
 
 		let not_pv = alpha == beta - 1;
 
+		// TODO: && !evaluation_is_mate(alpha)?
 		if not_pv
 		&& depth > 0
 		&& depth_left > 0 { // && board.get_last_move().capture == NO_PIECE as u8 This made it play worse
@@ -370,9 +419,10 @@ impl Bot {
 				&& !board.king_in_check(board.white_to_move) {
 					reduction += 1;
 
-					// TODO
+					// History Reductions
 					// if depth_left > 3 {
 					// 	let history_value = self.move_sorter.history[m.piece as usize][m.to as usize];
+					// 	// 1 + (HISTORY_THRESHOLD - history_value) / HISTORY_THRESHOLD_PER_PLY_REDUCTION for reduction?
 					// 	reduction += if history_value < HISTORY_THRESHOLD { 1 } else { 0 };
 					// }
 				}
@@ -398,10 +448,10 @@ impl Bot {
 			if evaluation >= beta {
 				self.transposition_table.store(board.zobrist.key, depth_left, depth, beta, m, NodeType::LowerBound);
 
-				// if m.capture == NO_PIECE as u8 {
-				// 	self.move_sorter.push_killer_move(m, depth);
-				// 	self.move_sorter.history[m.piece as usize][m.to as usize] += (depth_left * depth_left) as i32;
-				// }
+				if m.capture == NO_PIECE as u8 {
+					self.move_sorter.push_killer_move(m, depth);
+					self.move_sorter.history[m.piece as usize][m.to as usize] += (depth_left * depth_left) as i32;
+				}
 
 				return beta;
 			}
@@ -420,11 +470,9 @@ impl Bot {
 			}
 		}
 
-		// if !not_pv { // lol
 		/* I don't need to check for a null move here, because the first move in the list
 		will always be the best move so far */
 		self.transposition_table.store(board.zobrist.key, depth_left, depth, alpha, best_move_this_search, node_type);
-		// }
 
 		alpha
 	}
@@ -456,10 +504,11 @@ impl Bot {
 		for m in sorted_moves {
 			// TODO
 			// Delta Pruning
-			// if !board.king_in_check(board.white_to_move) {
+			// if board.total_material_without_pawns > 0 // ?
+			// && !board.king_in_check(board.white_to_move) {
 			// 	let mut threshold = QUEEN_WORTH;
 			// 	if PROMOTABLE.contains(&m.flag) {
-			// 		threshold += QUEEN_WORTH - PAWN_WORTH;
+			// 		threshold += BASE_WORTHS_OF_PIECE_TYPE[m.flag as usize] - PAWN_WORTH;
 			// 	}
 
 			// 	if evaluation < alpha - threshold {

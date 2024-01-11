@@ -55,10 +55,11 @@
    - Promotions
    - Checks
 
-## Helpful Sources
+## Helpful Sources & References
  - [Sebastian Lague's Chess Programming series](https://www.youtube.com/playlist?list=PLFt_AvWsXl0cvHyu32ajwh2qU1i6hl77c)
  - [The Chess Programming Wiki](https://www.chessprogramming.org/Main_Page)
  - [BBC Engine Development](https://www.youtube.com/playlist?list=PLmN0neTso3Jxh8ZIylk74JpwfiWNI76Cs)
+ - [Boychesser](https://github.com/analog-hors/Boychesser/)
  - [Lynx](https://github.com/lynx-chess/Lynx/)
  - [Weiawaga](https://github.com/Heiaha/Weiawaga/)
  - [Fruit 2.1](https://github.com/Warpten/Fruit-2.1/)

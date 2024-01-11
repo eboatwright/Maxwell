@@ -1,38 +1,4 @@
-/* RESULTS
-aspiration window:
-	Try this again when I have more features added back, and also try the more popular approach:
-	To drop the entire window if it falls out of bounds, and also with a smaller window
-	Rank Name                          Elo     +/-   Games   Score    Draw
-	   1 No window                      31      63     100   54.5%   17.0%
-	   2 Hold window                     0      65     100   50.0%   12.0%
-	   3 Reset window                  -31      62     100   45.5%   19.0%
-
-Score of PVS vs No PVS: 27 - 13 - 10
-
-Score of PVS & LMR vs PVS: 32 - 10 - 8
-
-Extensions:
-	Rank Name                          Elo     +/-   Games   Score    Draw
-	   1 All extensions                 21      50     150   53.0%   20.7%
-	   2 Promotion extension            -5      50     150   49.3%   21.3%
-	   3 No extensions                  -7      50     150   49.0%   20.7%
-	   4 Check extension                -9      49     150   48.7%   22.7%
-
-
-Null Move Pruning:
-	Rank Name                          Elo     +/-   Games   Score    Draw
-	   1 NMP static eval           40      42     200   55.8%   25.5%
-	   2 NMP                       26      41     200   53.8%   26.5%
-	   3 NMP capture, static eval      16      41     200   52.3%   26.5%
-	   4 NMP capture               -9      41     200   48.8%   28.5%
-	   5 No NMP                   -74      43     200   39.5%   23.0%
-*/
-
-
-
 /* TODO
-add output per ply for perft search
-
 big idea:
 	remove all constant variables, and put them into the BotConfig struct,
 	then write my own tuning / matchmaking program that will tweak the values
@@ -48,11 +14,11 @@ https://www.chessprogramming.org/Futility_Pruning
 https://www.chessprogramming.org/Internal_Iterative_Deepening
 
 Random ideas to try (from other engines and chessprogramming.org)
-History reduction
+https://www.chessprogramming.org/Static_Exchange_Evaluation
 https://www.chessprogramming.org/History_Leaf_Pruning
 https://www.chessprogramming.org/Futility_Pruning#MoveCountBasedPruning
 https://www.chessprogramming.org/Triangular_PV-Table
-https://www.chessprogramming.org/Static_Exchange_Evaluation
+https://www.chessprogramming.org/Countermove_Heuristic
 
 Some random resources I found: (Not using them right now but they could be useful)
 https://analog-hors.github.io/site/magic-bitboards/
@@ -234,7 +200,7 @@ fn main() {
 			}
 
 			"perft" => {
-				let depth = command_split[1].parse::<usize>().expect("Invalid depth");
+				let depth = command_split[1].parse::<u8>().expect("Invalid depth");
 				PerftResults::calculate(&mut board, depth);
 			}
 

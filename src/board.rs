@@ -1,6 +1,6 @@
 use crate::value_holder::ValueHolder;
 use crate::utils::{pop_lsb, get_lsb, print_bitboard, coordinate_to_index};
-use crate::piece_square_tables::{get_base_worth_of_piece, get_full_worth_of_piece, ROOK_WORTH, BISHOP_WORTH};
+use crate::piece_square_tables::{BASE_WORTHS_OF_PIECE_TYPE, get_full_worth_of_piece, ROOK_WORTH, BISHOP_WORTH};
 use crate::precalculated_move_data::*;
 use crate::move_data::*;
 use crate::zobrist::Zobrist;
@@ -91,7 +91,7 @@ impl Board {
 
 					if piece_type != PAWN
 					&& piece_type != KING {
-						let piece_worth = get_base_worth_of_piece(piece);
+						let piece_worth = BASE_WORTHS_OF_PIECE_TYPE[piece_type];
 						board.total_material_without_pawns += piece_worth;
 					}
 				}
@@ -253,15 +253,16 @@ impl Board {
 			self.piece_bitboards[data.piece as usize] ^= 1 << data.to;
 		} else {
 			self.piece_bitboards[build_piece(piece_color == 1, data.flag as usize)] ^= 1 << data.to;
-			self.total_material_without_pawns += get_base_worth_of_piece(data.flag as usize);
+			self.total_material_without_pawns += BASE_WORTHS_OF_PIECE_TYPE[data.flag as usize];
 		}
 
 		self.color_bitboards[piece_color] ^= 1 << data.from;
 		self.color_bitboards[piece_color] ^= 1 << data.to;
 
 		if data.capture != NO_PIECE as u8 {
-			if get_piece_type(data.capture as usize) != PAWN {
-				self.total_material_without_pawns -= get_base_worth_of_piece(data.capture as usize);
+			let capture_type = get_piece_type(data.capture as usize);
+			if capture_type != PAWN {
+				self.total_material_without_pawns -= BASE_WORTHS_OF_PIECE_TYPE[capture_type];
 			}
 
 			if data.flag == EN_PASSANT_FLAG {
@@ -365,15 +366,16 @@ impl Board {
 			self.piece_bitboards[last_move.piece as usize] ^= 1 << last_move.to;
 		} else {
 			self.piece_bitboards[build_piece(piece_color == 1, last_move.flag as usize)] ^= 1 << last_move.to;
-			self.total_material_without_pawns -= get_base_worth_of_piece(last_move.flag as usize);
+			self.total_material_without_pawns -= BASE_WORTHS_OF_PIECE_TYPE[last_move.flag as usize];
 		}
 
 		self.color_bitboards[piece_color] ^= 1 << last_move.from;
 		self.color_bitboards[piece_color] ^= 1 << last_move.to;
 
 		if last_move.capture != NO_PIECE as u8 {
-			if get_piece_type(last_move.capture as usize) != PAWN {
-				self.total_material_without_pawns += get_base_worth_of_piece(last_move.capture as usize);
+			let capture_type = get_piece_type(last_move.capture as usize);
+			if capture_type != PAWN {
+				self.total_material_without_pawns += BASE_WORTHS_OF_PIECE_TYPE[capture_type];
 			}
 
 			if last_move.flag == EN_PASSANT_FLAG {

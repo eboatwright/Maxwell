@@ -6,7 +6,7 @@ use crate::pieces::PROMOTABLE;
 
 #[derive(Default, Debug)]
 pub struct PerftResults {
-	pub depth: usize,
+	pub depth: u8,
 
 	pub positions: u128,
 	pub captures: u128,
@@ -18,32 +18,34 @@ pub struct PerftResults {
 }
 
 impl PerftResults {
-	pub fn new(depth: usize) -> Self {
+	pub fn new(depth: u8) -> Self {
 		Self {
 			depth,
 			..Default::default()
 		}
 	}
 
-	pub fn calculate(board: &mut Board, depth: usize) {
+	pub fn calculate(board: &mut Board, depth: u8) {
 		let mut results = PerftResults::new(depth);
 		let timer = Instant::now();
 
 		let depth = results.depth;
-		perft(board, &mut results, depth);
+		perft(board, &mut results, depth, 0);
 
-		println!("{} seconds", timer.elapsed().as_secs_f32());
+		println!("\n{} seconds\n", timer.elapsed().as_secs_f32());
 		println!("{:#?}", results);
 	}
 }
 
-fn perft(board: &mut Board, results: &mut PerftResults, depth_left: usize) {
+fn perft(board: &mut Board, results: &mut PerftResults, depth_left: u8, depth: u8) {
 	if depth_left == 0 {
 		results.positions += 1;
 		return;
 	}
 
 	for data in board.get_legal_moves_for_color(board.white_to_move, false) {
+		let position_count_before_move = results.positions;
+
 		if data.capture != NO_PIECE as u8 {
 			results.captures += 1;
 
@@ -65,7 +67,12 @@ fn perft(board: &mut Board, results: &mut PerftResults, depth_left: usize) {
 			results.checks += 1;
 		}
 
-		perft(board, results, depth_left - 1);
+		perft(board, results, depth_left - 1, depth + 1);
 		board.undo_last_move();
+
+		if depth == 0 {
+			let positions_this_move = results.positions - position_count_before_move;
+			println!("{}: {}", data.to_coordinates(), positions_this_move);
+		}
 	}
 }
