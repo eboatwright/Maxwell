@@ -1,8 +1,8 @@
 use crate::move_data::EN_PASSANT_FLAG;
 use crate::killer_moves::KillerMoves;
-use crate::move_data::{MoveData, NULL_MOVE, SHORT_CASTLE_FLAG, LONG_CASTLE_FLAG};
+use crate::move_data::{MoveData, NULL_MOVE};
 use crate::pieces::*;
-use crate::piece_square_tables::get_full_worth_of_piece;
+use crate::piece_square_tables::BASE_WORTHS_OF_PIECE_TYPE;
 use crate::Board;
 
 pub const MAX_KILLER_MOVE_PLY: usize = 32;
@@ -49,11 +49,7 @@ impl MoveSorter {
 		let num_of_moves = moves.len();
 		let mut scores = vec![(0, 0); num_of_moves];
 
-		// board.calculate_attacked_squares();
-		// board.calculate_attacked_squares_for_color((!board.white_to_move) as usize);
-
-		// let squares_i_attack = board.attacked_squares_bitboards[board.white_to_move as usize];
-		// let squares_opponent_attacks = board.attacked_squares_bitboards[!board.white_to_move as usize];
+		let squares_opponent_attacks = board.get_attacked_squares_for_color((!board.white_to_move) as usize);
 
 		for i in 0..num_of_moves {
 			let m = moves[i];
@@ -76,23 +72,17 @@ impl MoveSorter {
 					score += self.history[m.piece as usize][m.to as usize];
 				}
 
-				// TODO
+				// This made it worse
 				// if m.flag == SHORT_CASTLE_FLAG
 				// || m.flag == LONG_CASTLE_FLAG {
 				// 	score += 2000;
-				// } else if PROMOTABLE.contains(&m.flag) { // TODO
-				// 	score += get_base_worth_of_piece(m.flag) + 12000;
+				// } else if PROMOTABLE.contains(&m.flag) {
+				// 	score += BASE_WORTHS_OF_PIECE_TYPE[m.flag as usize] + 12000;
 				// }
 
-				// TODO
-				// if squares_i_attack & (1 << m.to) != 0 {
-				// 	score += get_base_worth_of_piece(m.piece as usize);
-				// }
-
-				// TODO
-				// if squares_opponent_attacks & (1 << m.to) != 0 {
-				// 	score -= 2 * get_base_worth_of_piece(m.piece as usize);
-				// }
+				if squares_opponent_attacks & (1 << m.to) != 0 {
+					score -= 2 * BASE_WORTHS_OF_PIECE_TYPE[get_piece_type(m.piece as usize)];
+				}
 			}
 
 			scores[i] = (score, i);

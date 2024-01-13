@@ -18,21 +18,19 @@ Extensions:
 	   3 No extensions                  -7      50     150   49.0%   20.7%
 	   4 Check extension                -9      49     150   48.7%   22.7%
 
-
 Null Move Pruning:
 	Rank Name                          Elo     +/-   Games   Score    Draw
 	   1 NMP static eval           40      42     200   55.8%   25.5%
 	   2 NMP                       26      41     200   53.8%   26.5%
-	   3 NMP capture, static eval      16      41     200   52.3%   26.5%
+	   3 NMP capture, static eval  16      41     200   52.3%   26.5%
 	   4 NMP capture               -9      41     200   48.8%   28.5%
 	   5 No NMP                   -74      43     200   39.5%   23.0%
 
 Score of Order-Hash move, MVV-LVA vs Order-Hash move: 41 - 3 - 6
 
-
 History Heuristic & Killer Moves
 	Rank Name                          Elo     +/-   Games   Score    Draw
-	   1 Killer moves, history      49      48     150   57.0%   26.0%
+	   1 Killer moves, history     49      48     150   57.0%   26.0%
 	   2 History                   44      48     150   56.3%   26.0%
 	   3 Killer moves              23      48     150   53.3%   25.3%
 	   4 Current                 -120      49     150   33.3%   28.0%
@@ -43,6 +41,18 @@ History Reductions:
 	(With a value of 800 is lost horribly, and with a value of 3000 it did worse than 1600)
 	Score of History reductions (1600) vs Current: 22 - 14 - 14
 	Score of History reductions (2200) vs Current: 23 - 12 - 15
+
+Razoring:
+	200 and 400 made it worse
+	TODO: try 280 and 320
+	Score of Razoring (300) vs Current: 23 - 11 - 16
+
+Move Ordering tests:
+	Rank Name                          Elo     +/-   Games   Score    Draw
+	   1 Order attacked square penalty  56      47     150   58.0%   30.7%
+	   2 Current                         0      47     150   50.0%   29.3%
+	   3 Order protected square boost  -23      47     150   46.7%   29.3%
+	   4 Order both                    -33      48     150   45.3%   28.0%
 */
 
 
@@ -61,15 +71,15 @@ use crate::Board;
 pub const MAX_SEARCH_EXTENSIONS: u8 = 16; // TODO
 pub const ASPIRATION_WINDOW: i32 = 25; // TODO
 
-pub const MIN_DEPTH_LEFT_FOR_NULL_MOVE_PRUNE: u8 = 3; // TODO
+pub const MIN_DEPTH_LEFT_FOR_NULL_MOVE_PRUNE: u8 = 3;
 
 pub const MAX_DEPTH_LEFT_FOR_RFP: u8 = 4; // TODO
 pub const RFP_THESHOLD_PER_PLY: i32 = 60; // TODO
 
-pub const MAX_DEPTH_LEFT_FOR_RAZORING: u8 = 3; // TODO
-pub const RAZORING_THRESHOLD_PER_PLY: i32 = 300; // TODO
+pub const MAX_DEPTH_LEFT_FOR_RAZORING: u8 = 3;
+pub const RAZORING_THRESHOLD_PER_PLY: i32 = 300;
 
-pub const HISTORY_THRESHOLD: i32 = 2200; // TODO
+pub const HISTORY_THRESHOLD: i32 = 2200;
 
 pub const PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES: f32 = 0.025; // 2.5%
 pub const PERCENT_OF_TIME_TO_USE_AFTER_6_FULL_MOVES: f32 = 0.07; // 7%
@@ -218,7 +228,11 @@ impl Bot {
 			self.evaluation_this_iteration = 0;
 
 
-			// Aspiration Window
+			/* Aspiration Window
+			I think Aspiration Windows aren't working for me because when it searches with a smaller window,
+			the data will then get put into the transposition table, and then if it has to re-search, instead
+			of seeing the moves that it missed, it'll just grab the faulty values from the transposition table
+			*/
 			// let mut evaluation = self.alpha_beta_search(board, 0, depth, alpha, beta);
 
 			// if evaluation <= alpha || evaluation >= beta {
@@ -280,7 +294,7 @@ impl Bot {
 		&mut self,
 		board: &mut Board,
 		depth: u8,
-		depth_left: u8,
+		mut depth_left: u8,
 		mut alpha: i32,
 		beta: i32,
 		total_extensions: u8,
@@ -343,12 +357,11 @@ impl Bot {
 			// 	return static_eval;
 			// }
 
-			// TODO
 			// Razoring
-			// if depth_left <= MAX_DEPTH_LEFT_FOR_RAZORING
-			// && static_eval + RAZORING_THRESHOLD_PER_PLY * (depth_left as i32) < alpha {
-			// 	depth_left -= 1;
-			// }
+			if depth_left <= MAX_DEPTH_LEFT_FOR_RAZORING
+			&& static_eval + RAZORING_THRESHOLD_PER_PLY * (depth_left as i32) < alpha {
+				depth_left -= 1;
+			}
 
 			// TODO
 			/* Internal Iterative Reductions
@@ -393,7 +406,7 @@ impl Bot {
 
 			let mut extension = 0;
 			if total_extensions < MAX_SEARCH_EXTENSIONS as u8 {
-				if board.king_in_check(board.white_to_move) {
+				if board.king_in_check(board.white_to_move) { // TODO: or if the flag is a promotion?
 					extension = 1;
 				} else if m.piece == PAWN as u8 {
 					let rank = m.to / 8;
@@ -446,7 +459,7 @@ impl Bot {
 			}
 
 			if evaluation >= beta {
-				self.transposition_table.store(board.zobrist.key, depth_left, depth, beta, m, NodeType::LowerBound);
+				self.transposition_table.store(board.zobrist.key, depth_left, depth, beta, m, NodeType::LowerBound); // TODO: Store the aspiration window?
 
 				if m.capture == NO_PIECE as u8 {
 					self.move_sorter.push_killer_move(m, depth);

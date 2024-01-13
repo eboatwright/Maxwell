@@ -113,6 +113,11 @@ impl Board {
 		self.calculate_attacked_squares_for_color(1);
 	}
 
+	pub fn get_attacked_squares_for_color(&mut self, color: usize) -> u64 {
+		self.calculate_attacked_squares_for_color(color);
+		self.attacked_squares_bitboards[color]
+	}
+
 	// This is SLOOOOOOOOOOOOOWWWWWWW :[
 	pub fn calculate_attacked_squares_for_color(&mut self, color: usize) {
 		if self.attacked_squares_calculated[color] {
@@ -173,7 +178,7 @@ impl Board {
 		println!("{}", output);
 	}
 
-	pub fn print_bitboards(&self) {
+	pub fn print_bitboards(&mut self) {
 		for piece in 0..BITBOARD_COUNT {
 			let c = piece_to_char(piece);
 			print_bitboard(
@@ -189,6 +194,8 @@ impl Board {
 
 		print_bitboard("Black pieces", "1".bold().italic().white().on_black(), self.color_bitboards[0]);
 		print_bitboard("White pieces", "1".bold().italic().normal().on_white(), self.color_bitboards[1]);
+
+		self.calculate_attacked_squares();
 		print_bitboard("Black attacked squares", "1".bold().italic().white().on_black(), self.attacked_squares_bitboards[0]);
 		print_bitboard("White attacked squares", "1".bold().italic().normal().on_white(), self.attacked_squares_bitboards[1]);
 	}
@@ -436,8 +443,8 @@ impl Board {
 	}
 
 	pub fn king_in_check(&mut self, king_is_white: bool) -> bool {
-		self.calculate_attacked_squares_for_color((!king_is_white) as usize);
-		self.piece_bitboards[build_piece(king_is_white, KING)] & self.attacked_squares_bitboards[(!king_is_white) as usize] != 0
+		let attacked_squares = self.get_attacked_squares_for_color((!king_is_white) as usize);
+		self.piece_bitboards[build_piece(king_is_white, KING)] & attacked_squares != 0
 	}
 
 	pub fn get_legal_moves_for_color(&mut self, white_pieces: bool, only_captures: bool) -> Vec<MoveData> {
@@ -967,6 +974,10 @@ impl Board {
 
 		// let weak_lines_from_white_king = (self.calculate_queen_attack_bitboard(white_king_index).count_ones() as f32 * (1.0 - endgame)) as i32;
 		// let weak_lines_from_black_king = (self.calculate_queen_attack_bitboard(black_king_index).count_ones() as f32 * (1.0 - endgame)) as i32;
+
+		/* TODO
+		a small boost for having the bishop pair?
+		*/
 
 		 ((white_material + white_attacked_squares * 10 - weak_squares_around_white_king * 20 + white_pawn_evaluation)
 		- (black_material + black_attacked_squares * 10 - weak_squares_around_black_king * 20 + black_pawn_evaluation)) * self.perspective()

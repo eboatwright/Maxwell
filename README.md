@@ -30,30 +30,26 @@
 #### Move Ordering
  - Hash move / best move from previous iteration
  - MVV-LVA
- - 2 Killer moves
- - History heuristic
- - Castling
- - Promotions
+ - 2 Killer Moves
+ - History Heuristic
  - Penalty for moving a piece to a square an opponent's piece attacks
 #### Search
+ - Principal Variation Search
  - Iterative deepening
- - Aspiration windows
-   - Starts at 40 and multiplies by 4 if out of alpha beta bounds
+ - Alpha-Beta Pruning
+ - Quiescence Search with Delta Pruning
+ - Transposition Table
+   - No set max size, but entries get removed after 10 moves without hits
+ - Null Move Pruning
+ - Razoring
+ - Reverse Futility Pruning
+ - Late Move Reductions
+ - Search Extensions
+   - Promotions
+   - Checks
  - Time management
    - If less than 7 moves have been played, it uses 2.5% of it's remaining time, otherwise 7%
    - This value is then also clamped between 0.25 and 20.0 seconds
- - Exits search if a mate is found within search depth
- - Alpha beta pruning
- - Quiescence search with Delta Pruning
- - Transposition table
-   - No set max size, but entries get removed after 10 moves without hits
- - Null move pruning
- - Razoring
- - Reverse futility pruning
- - Late move reduction
- - Search extensions
-   - Promotions
-   - Checks
 
 ## Helpful Sources & References
  - [Sebastian Lague's Chess Programming series](https://www.youtube.com/playlist?list=PLFt_AvWsXl0cvHyu32ajwh2qU1i6hl77c)
