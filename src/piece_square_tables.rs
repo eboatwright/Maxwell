@@ -11,15 +11,16 @@ pub const MIDDLEGAME_PAWN_TABLE: [i32; 64] = [
 	 0,  0,  0,  0,  0,  0,  0,  0,
 ];
 
-pub const ENDGAME_PAWN_TABLE: [i32; 64] = [ // TODO: tweak this (maybe lower the values?)
-	  0,  0,  0,  0,  0,  0,  0,  0,
-	100,100,100,100,100,100,100,100,
-	 70, 70, 70, 70, 70, 70, 70, 70,
-	 50, 50, 50, 50, 50, 50, 50, 50,
-	 30, 30, 30, 30, 30, 30, 30, 30,
-	 15, 15, 15, 15, 15, 15, 15, 15,
-	 15, 15, 15, 15, 15, 15, 15, 15,
-	  0,  0,  0,  0,  0,  0,  0,  0,
+// TODO: tweak these further
+pub const ENDGAME_PAWN_TABLE: [i32; 64] = [
+	 0,  0,  0,  0,  0,  0,  0,  0,
+	80, 80, 80, 80, 80, 80, 80, 80,
+	55, 55, 55, 55, 55, 55, 55, 55,
+	35, 35, 35, 35, 35, 35, 35, 35,
+	20, 20, 20, 20, 20, 20, 20, 20,
+	10, 10, 10, 10, 10, 10, 10, 10,
+	10, 10, 10, 10, 10, 10, 10, 10,
+	 0,  0,  0,  0,  0,  0,  0,  0,
 ];
 
 pub const KNIGHT_TABLE: [i32; 64] = [
@@ -91,7 +92,7 @@ pub const ENDGAME_KING_TABLE: [i32; 64] = [
 pub fn flip_index(i: usize) -> usize { i ^ 56 }
 
 pub const PAWN_WORTH:   i32 = 100;
-pub const KNIGHT_WORTH: i32 = 320; // Maybe increase knight and bishop worth to discourage trading for rook + pawn?
+pub const KNIGHT_WORTH: i32 = 320; // TODO: Maybe increase knight and bishop worth to discourage trading for rook + pawn?
 pub const BISHOP_WORTH: i32 = 330;
 pub const ROOK_WORTH:   i32 = 500;
 pub const QUEEN_WORTH:  i32 = 900;

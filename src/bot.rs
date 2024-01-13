@@ -2,6 +2,10 @@
 Aspiration Window:
 	Try this again when I have more features added back, and also try the more popular approach:
 	To drop the entire window if it falls out of bounds, and also with a smaller window
+
+	This goes deeper than I thought, I'm gonna have to get some help with this, because apparently
+	PVS + TT + AW = alot of problems
+
 	Rank Name                          Elo     +/-   Games   Score    Draw
 	   1 No window                      31      63     100   54.5%   17.0%
 	   2 Hold window                     0      65     100   50.0%   12.0%
@@ -53,6 +57,21 @@ Move Ordering tests:
 	   2 Current                         0      47     150   50.0%   29.3%
 	   3 Order protected square boost  -23      47     150   46.7%   29.3%
 	   4 Order both                    -33      48     150   45.3%   28.0%
+
+Reverse Futility Pruning:
+Rank Name                     Elo     +/-   Games   Score    Draw
+   1 RFP after razor          115      55     100   66.0%   38.0%
+   2 RFP before razor          45      56     100   56.5%   35.0%
+   3 Current                 -168      59     100   27.5%   33.0%
+
+Delta Pruning
+Rank Name                             Elo     +/-   Games   Score    Draw
+   1 Delta pruning                     28      54     100   54.0%   38.0%
+   2 Delta pruning with material check  7      57     100   51.0%   30.0%
+   3 Current                          -35      58     100   45.0%   30.0%
+
+I lowered the values of the pawn endgame PST, and this was the result XD
+Score of Lower pawn eval vs Test-Current: 25 - 9 - 16
 */
 
 
@@ -350,27 +369,17 @@ impl Bot {
 				}
 			}
 
-			// TODO
-			// Reverse Futility Pruning
-			// if depth_left <= MAX_DEPTH_LEFT_FOR_RFP
-			// && static_eval - RFP_THESHOLD_PER_PLY * (depth_left as i32) >= beta {
-			// 	return static_eval;
-			// }
-
 			// Razoring
 			if depth_left <= MAX_DEPTH_LEFT_FOR_RAZORING
 			&& static_eval + RAZORING_THRESHOLD_PER_PLY * (depth_left as i32) < alpha {
 				depth_left -= 1;
 			}
 
-			// TODO
-			/* Internal Iterative Reductions
-			I don't need to test if there's a hash move here, because if there was
-			it would have already exited this search
-			*/
-			// if depth_left > 3 {
-			// 	depth_left -= 1;
-			// }
+			// Reverse Futility Pruning
+			if depth_left <= MAX_DEPTH_LEFT_FOR_RFP
+			&& static_eval - RFP_THESHOLD_PER_PLY * (depth_left as i32) >= beta {
+				return static_eval;
+			}
 		}
 
 		if depth_left == 0 {
@@ -459,7 +468,7 @@ impl Bot {
 			}
 
 			if evaluation >= beta {
-				self.transposition_table.store(board.zobrist.key, depth_left, depth, beta, m, NodeType::LowerBound); // TODO: Store the aspiration window?
+				self.transposition_table.store(board.zobrist.key, depth_left, depth, beta, m, NodeType::LowerBound);
 
 				if m.capture == NO_PIECE as u8 {
 					self.move_sorter.push_killer_move(m, depth);
@@ -515,19 +524,17 @@ impl Bot {
 		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, u8::MAX);
 
 		for m in sorted_moves {
-			// TODO
 			// Delta Pruning
-			// if board.total_material_without_pawns > 0 // ?
-			// && !board.king_in_check(board.white_to_move) {
-			// 	let mut threshold = QUEEN_WORTH;
-			// 	if PROMOTABLE.contains(&m.flag) {
-			// 		threshold += BASE_WORTHS_OF_PIECE_TYPE[m.flag as usize] - PAWN_WORTH;
-			// 	}
+			if !board.king_in_check(board.white_to_move) { // && board.total_material_without_pawns > 0 made it worse
+				let mut threshold = QUEEN_WORTH;
+				if PROMOTABLE.contains(&m.flag) {
+					threshold += BASE_WORTHS_OF_PIECE_TYPE[m.flag as usize] - PAWN_WORTH;
+				}
 
-			// 	if evaluation < alpha - threshold {
-			// 		continue;
-			// 	}
-			// }
+				if evaluation < alpha - threshold {
+					continue;
+				}
+			}
 
 			board.make_move(m);
 			let evaluation = -self.quiescence_search(board, -beta, -alpha);
