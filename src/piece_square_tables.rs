@@ -92,7 +92,7 @@ pub const ENDGAME_KING_TABLE: [i32; 64] = [
 pub fn flip_index(i: usize) -> usize { i ^ 56 }
 
 pub const PAWN_WORTH:   i32 = 100;
-pub const KNIGHT_WORTH: i32 = 320; // TODO: Maybe increase knight and bishop worth to discourage trading for rook + pawn?
+pub const KNIGHT_WORTH: i32 = 320;
 pub const BISHOP_WORTH: i32 = 330;
 pub const ROOK_WORTH:   i32 = 500;
 pub const QUEEN_WORTH:  i32 = 900;

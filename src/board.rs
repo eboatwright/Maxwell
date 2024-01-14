@@ -960,7 +960,8 @@ impl Board {
 		let white_king_index = get_lsb(self.piece_bitboards[WHITE_KING]) as usize;
 		let black_king_index = get_lsb(self.piece_bitboards[BLACK_KING]) as usize;
 
-		 // TODO: weak squares, weak lines, or none?
+		// TODO: weak squares, weak lines, or none?
+		// TODO: Or count how many friendly pieces are around the king?
 
 		let weak_squares_around_white_king = ((
 				  self.precalculated_move_data.king_attacks[white_king_index]
@@ -975,9 +976,7 @@ impl Board {
 		// let weak_lines_from_white_king = (self.calculate_queen_attack_bitboard(white_king_index).count_ones() as f32 * (1.0 - endgame)) as i32;
 		// let weak_lines_from_black_king = (self.calculate_queen_attack_bitboard(black_king_index).count_ones() as f32 * (1.0 - endgame)) as i32;
 
-		/* TODO
-		a small boost for having the bishop pair?
-		*/
+		// TODO: a small boost for having the bishop pair?
 
 		 ((white_material + white_attacked_squares * 10 - weak_squares_around_white_king * 20 + white_pawn_evaluation)
 		- (black_material + black_attacked_squares * 10 - weak_squares_around_black_king * 20 + black_pawn_evaluation)) * self.perspective()

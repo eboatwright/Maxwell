@@ -1,10 +1,7 @@
 /* RESULTS
 Aspiration Window:
-	Try this again when I have more features added back, and also try the more popular approach:
-	To drop the entire window if it falls out of bounds, and also with a smaller window
-
-	This goes deeper than I thought, I'm gonna have to get some help with this, because apparently
-	PVS + TT + AW = alot of problems
+	The problems go deeper than I thought, I'm gonna have to get some help with this,
+	because apparently PVS + TT + AW = alot of problems
 
 	Rank Name                          Elo     +/-   Games   Score    Draw
 	   1 No window                      31      63     100   54.5%   17.0%
@@ -72,6 +69,17 @@ Rank Name                             Elo     +/-   Games   Score    Draw
 
 I lowered the values of the pawn endgame PST, and this was the result XD
 Score of Lower pawn eval vs Test-Current: 25 - 9 - 16
+
+
+First match vs v3.0.8:
+Score of Maxwell v3.Latest vs Maxwell v3.0.8: 14 - 25 - 11
+sadge
+
+
+20 did no better
+Score of Aspiration window (30) vs Current: 17 - 15 - 18
+Score of Aspiration window (30) vs Current: 19 - 18 - 13
+Score of Aspiration window (40) vs Current: 15 - 15 - 20
 */
 
 
@@ -88,7 +96,7 @@ use crate::opening_book::OpeningBook;
 use crate::Board;
 
 pub const MAX_SEARCH_EXTENSIONS: u8 = 16; // TODO
-pub const ASPIRATION_WINDOW: i32 = 25; // TODO
+pub const ASPIRATION_WINDOW: i32 = 30; // TODO
 
 pub const MIN_DEPTH_LEFT_FOR_NULL_MOVE_PRUNE: u8 = 3;
 
@@ -247,15 +255,11 @@ impl Bot {
 			self.evaluation_this_iteration = 0;
 
 
-			/* Aspiration Window
-			I think Aspiration Windows aren't working for me because when it searches with a smaller window,
-			the data will then get put into the transposition table, and then if it has to re-search, instead
-			of seeing the moves that it missed, it'll just grab the faulty values from the transposition table
-			*/
-			// let mut evaluation = self.alpha_beta_search(board, 0, depth, alpha, beta);
+			// Aspiration Window: not really working for this engine, idk if it's worth the search instability
+			// let mut evaluation = self.alpha_beta_search(board, 0, depth, alpha, beta, 0);
 
 			// if evaluation <= alpha || evaluation >= beta {
-			// 	evaluation = self.alpha_beta_search(board, 0, depth, -i32::MAX, i32::MAX);
+			// 	evaluation = self.alpha_beta_search(board, 0, depth, -i32::MAX, i32::MAX, 0);
 			// }
 
 			// alpha = evaluation - ASPIRATION_WINDOW;
@@ -432,13 +436,14 @@ impl Bot {
 			if i > 0 {
 				let mut reduction = 0;
 
+				// Reductions
 				// Late Move Reduction
 				if i > 3
 				&& depth_left > 2
 				&& depth > 0
 				&& extension == 0
-				&& m.capture == NO_PIECE as u8
-				&& !board.king_in_check(board.white_to_move) {
+				&& m.capture == NO_PIECE as u8 { // don't need to check for checks here because that's already an extension
+					// reduction += 1 + (depth_left - 2) / 2;
 					reduction += 1;
 
 					// History Reductions
@@ -447,10 +452,15 @@ impl Bot {
 					// 	// 1 + (HISTORY_THRESHOLD - history_value) / HISTORY_THRESHOLD_PER_PLY_REDUCTION for reduction?
 					// 	reduction += if history_value < HISTORY_THRESHOLD { 1 } else { 0 };
 					// }
+
+					// evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 2, -alpha - 1, -alpha, total_extensions);
+					// needs_full_search = evaluation > alpha;
 				}
 
+				// if needs_full_search {
 				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - reduction - 1, -alpha - 1, -alpha, total_extensions + extension);
-				needs_full_search = evaluation > alpha && evaluation < beta;
+				needs_full_search = evaluation > alpha && evaluation < beta; // && evaluation < beta?
+				// }
 			}
 
 			if needs_full_search {

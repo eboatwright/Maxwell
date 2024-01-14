@@ -1,5 +1,10 @@
 ![](/icon/Maxwell_316x316.png)
 # Maxwell Chess Engine
+ CCRL Blitz ratings<br>
+ | Date | Version | Rating | Rank |
+ | --- | --- |
+ | 1/14/24 | v3.0.8-1 | 1830 | 538 / 715 |
+
  A Chess engine written from scratch in Rust!<br>
  If you use this code verbatim, or as a reference, please credit me!<br><br>
  [Play against Maxwell on Lichess!](https://lichess.org/@/MaxwellOnLC) | [Some of Maxwell's Games](https://www.chess.com/library/collections/maxwells-games-my-chess-engine-2FFU82NM4)
