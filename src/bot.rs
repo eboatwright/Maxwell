@@ -83,7 +83,8 @@ Score of Aspiration window (40) vs Current: 15 - 15 - 20
 
 
 
-Score of PVS changes vs Current: 19 - 15 - 16
+Score of PVS changes 1 vs Current: 19 - 15 - 16
+Score of PVS changes 2 vs PVS changes 1: 19 - 14 - 17
 */
 
 
@@ -101,14 +102,6 @@ use crate::Board;
 
 pub const MAX_SEARCH_EXTENSIONS: u8 = 16; // TODO
 pub const ASPIRATION_WINDOW: i32 = 30; // TODO
-
-pub const MAX_DEPTH_LEFT_FOR_RFP: u8 = 4; // TODO
-pub const RFP_THESHOLD_PER_PLY: i32 = 60; // TODO
-
-pub const MAX_DEPTH_LEFT_FOR_RAZORING: u8 = 3;
-pub const RAZORING_THRESHOLD_PER_PLY: i32 = 300;
-
-pub const HISTORY_THRESHOLD: i32 = 2200;
 
 pub const PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES: f32 = 0.025; // 2.5%
 pub const PERCENT_OF_TIME_TO_USE_AFTER_6_FULL_MOVES: f32 = 0.07; // 7%
@@ -354,11 +347,18 @@ impl Bot {
 
 		let not_pv = alpha == beta - 1;
 
-		// TODO: && !evaluation_is_mate(alpha)?
+		// TODO: and not a mate evaluation?
 		if not_pv
 		&& depth > 0
-		&& depth_left > 0 { // && board.get_last_move().capture == NO_PIECE as u8 This made it play worse
+		&& depth_left > 0
+		&& !board.king_in_check(board.white_to_move) { // Checking if the last move was a capture made it worse
 			let static_eval = board.evaluate();
+
+			// Reverse Futility Pruning
+			if depth_left < 5 // maybe this should be higher?
+			&& static_eval - 60 * (depth_left as i32) >= beta { // tweak this threshold
+				return static_eval;
+			}
 
 			// Null Move Pruning
 			if depth_left > 2
@@ -366,8 +366,7 @@ impl Bot {
 			&& board.total_material_without_pawns > 0 // This doesn't work in king and pawn endgames because of zugzwang
 			&& board.try_null_move() {
 				// let reduction = 2 + (depth_left - 2) / 3; TODO
-				let reduction = 2;
-				let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - reduction - 1, -beta, -beta + 1, total_extensions);
+				let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, total_extensions);
 
 				board.undo_null_move();
 
@@ -377,15 +376,9 @@ impl Bot {
 			}
 
 			// Razoring
-			if depth_left <= MAX_DEPTH_LEFT_FOR_RAZORING
-			&& static_eval + RAZORING_THRESHOLD_PER_PLY * (depth_left as i32) < alpha {
+			if depth_left > 3
+			&& static_eval + 300 * (depth_left as i32) < alpha {
 				depth_left -= 1;
-			}
-
-			// Reverse Futility Pruning
-			if depth_left <= MAX_DEPTH_LEFT_FOR_RFP
-			&& static_eval - RFP_THESHOLD_PER_PLY * (depth_left as i32) >= beta {
-				return static_eval;
 			}
 		}
 
@@ -420,9 +413,8 @@ impl Bot {
 		// 	assert_eq!(hash_move.to_coordinates(), sorted_moves[0].to_coordinates());
 		// }
 
-		for i in 0..sorted_moves.len() {
-			let m = sorted_moves[i];
-			board.make_move(m);
+		for (i, m) in sorted_moves.iter().enumerate() {
+			board.make_move(*m);
 
 			let mut extension = 0;
 			if total_extensions < MAX_SEARCH_EXTENSIONS as u8 {
@@ -436,45 +428,47 @@ impl Bot {
 				}
 			}
 
-			// Principal Variation Search
+			/*
+			Thanks to everybody who replied to my Reddit thread here:
+			https://www.reddit.com/r/chessprogramming/comments/197ctk2/question_about_pvs_lmr/
+			*/
+
 			let mut evaluation = 0;
-			let mut needs_full_search = true;
+			let mut needs_fuller_search = true;
 
-			if i > 0 // > 3?
-			&& depth_left > 1 // > 2?
-			&& depth > 0 {
-				let mut reduction = 0;
-
+			// Principal Variation Search
+			if i > 0
+			// && depth > 0 // ?
+			&& depth_left > 1 {
 				// Late Move Reductions
-				if i > 4 // then remove these
-				&& depth_left > 2
+				if i > 3
 				&& extension == 0
 				&& m.capture == NO_PIECE as u8 {
-					reduction += 1 + (depth_left - 2) / 5;
+					let reduction = 1 + (depth_left - 2) / 5;
+
 					// History Reductions
 					// if depth_left - reduction > 3 {
 					// 	let history_value = self.move_sorter.history[m.piece as usize][m.to as usize];
 					// 	// TODO: Figure out some sort of formula for this reduction
-					// 	reduction += if history_value < HISTORY_THRESHOLD { 1 } else { 0 };
+					// 	reduction += if history_value < 2200 { 1 } else { 0 };
 					// }
+
+					// LMR Search
+					evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - reduction - 1, -alpha - 1, -alpha, total_extensions);
+					needs_fuller_search = evaluation > alpha;
 				}
 
-				// if needs_full_search {
-				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - reduction - 1, -alpha - 1, -alpha, total_extensions + extension);
-				needs_full_search = evaluation > alpha;
-				// }
-				// needs_full_search = evaluation > alpha && evaluation < beta; // ?
-				// needs_full_search = evaluation > alpha || evaluation >= beta; // ?
-				// needs_full_search = evaluation > alpha; // ?
+				if needs_fuller_search {
+					// PVS Search
+					evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1, -alpha - 1, -alpha, total_extensions + extension);
+					needs_fuller_search = evaluation > alpha;
+				}
 			}
 
-			if needs_full_search {
+			if needs_fuller_search {
+				// Full Window Search
 				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1, -beta, -alpha, total_extensions + extension);
 			}
-
-			// let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1, -beta, -alpha);
-
-
 
 			board.undo_last_move();
 
@@ -483,10 +477,10 @@ impl Bot {
 			}
 
 			if evaluation >= beta {
-				self.transposition_table.store(board.zobrist.key, depth_left, depth, beta, m, NodeType::LowerBound);
+				self.transposition_table.store(board.zobrist.key, depth_left, depth, beta, *m, NodeType::LowerBound);
 
 				if m.capture == NO_PIECE as u8 {
-					self.move_sorter.push_killer_move(m, depth);
+					self.move_sorter.push_killer_move(*m, depth);
 					self.move_sorter.history[m.piece as usize][m.to as usize] += (depth_left * depth_left) as i32;
 				}
 
@@ -494,7 +488,7 @@ impl Bot {
 			}
 
 			if evaluation > alpha {
-				best_move_this_search = m;
+				best_move_this_search = *m;
 				node_type = NodeType::Exact;
 				alpha = evaluation;
 

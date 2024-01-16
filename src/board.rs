@@ -923,7 +923,7 @@ impl Board {
 
 						if self.precalculated_move_data.squares_ahead_of_pawn[1][piece_index] & self.piece_bitboards[BLACK_PAWN] == 0
 						&& self.precalculated_move_data.file_in_front_of_pawn[1][piece_index] & self.piece_bitboards[WHITE_PAWN] == 0 { // Passed pawn
-							white_pawn_evaluation += PASSED_PAWN_BOOST[8 - piece_index / 8];
+							white_pawn_evaluation += PASSED_PAWN_BOOST[7 - piece_index / 8];
 						}
 					}
 				} else {
@@ -947,7 +947,7 @@ impl Board {
 			}
 		}
 
-		let pawn_evaluation_multiplier = (endgame + 0.3).clamp(0.3, 1.0);  // TODO
+		let pawn_evaluation_multiplier = (endgame + 0.3).clamp(0.3, 1.0); // TODO
 		white_pawn_evaluation = (white_pawn_evaluation as f32 * pawn_evaluation_multiplier) as i32;
 		black_pawn_evaluation = (black_pawn_evaluation as f32 * pawn_evaluation_multiplier) as i32;
 
@@ -977,6 +977,8 @@ impl Board {
 		// let weak_lines_from_black_king = (self.calculate_queen_attack_bitboard(black_king_index).count_ones() as f32 * (1.0 - endgame)) as i32;
 
 		// TODO: a small boost for having the bishop pair?
+
+		// TODO: rooks on open lines
 
 		 ((white_material + white_attacked_squares * 10 - weak_squares_around_white_king * 20 + white_pawn_evaluation)
 		- (black_material + black_attacked_squares * 10 - weak_squares_around_black_king * 20 + black_pawn_evaluation)) * self.perspective()

@@ -35,24 +35,24 @@
  - Passed, isolated and doubled pawns
  - Attacked squares around kings
 #### Move Ordering
- - Hash move / best move from previous iteration
+ - Best move from the previous iteration, otherwise from the transposition table
  - MVV-LVA
  - 2 Killer Moves
  - History Heuristic
  - Penalty for moving a piece to a square an opponent's piece attacks
 #### Search
- - Principal Variation Search
- - Iterative deepening
+ - Iterative Deepening
  - Alpha-Beta Pruning
- - Quiescence Search with Delta Pruning
- - Transposition Table
-   - No set max size, but entries get removed after 10 moves without hits
+ - Principal Variation Search
+ - Late Move Reductions
  - Null Move Pruning
  - Razoring
  - Reverse Futility Pruning
- - Late Move Reductions
+ - Quiescence Search with Delta Pruning
+ - Transposition Table
+   - No set max size, but entries get removed after 10 moves without hits
  - Search Extensions
-   - Promotions
+   - Pawn moves to the 2nd or 7th rank
    - Checks
  - Time management
    - If less than 7 moves have been played, it uses 2.5% of it's remaining time, otherwise 7%
