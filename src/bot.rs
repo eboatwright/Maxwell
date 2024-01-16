@@ -80,6 +80,10 @@ sadge
 Score of Aspiration window (30) vs Current: 17 - 15 - 18
 Score of Aspiration window (30) vs Current: 19 - 18 - 13
 Score of Aspiration window (40) vs Current: 15 - 15 - 20
+
+
+
+Score of PVS changes vs Current: 19 - 15 - 16
 */
 
 
@@ -97,8 +101,6 @@ use crate::Board;
 
 pub const MAX_SEARCH_EXTENSIONS: u8 = 16; // TODO
 pub const ASPIRATION_WINDOW: i32 = 30; // TODO
-
-pub const MIN_DEPTH_LEFT_FOR_NULL_MOVE_PRUNE: u8 = 3;
 
 pub const MAX_DEPTH_LEFT_FOR_RFP: u8 = 4; // TODO
 pub const RFP_THESHOLD_PER_PLY: i32 = 60; // TODO
@@ -359,12 +361,13 @@ impl Bot {
 			let static_eval = board.evaluate();
 
 			// Null Move Pruning
-			if depth_left >= MIN_DEPTH_LEFT_FOR_NULL_MOVE_PRUNE
+			if depth_left > 2
 			&& static_eval >= beta
 			&& board.total_material_without_pawns > 0 // This doesn't work in king and pawn endgames because of zugzwang
 			&& board.try_null_move() {
-				// let reduction = 3 - (depth_left - 3) / 2; // This didn't work at all lol
-				let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, total_extensions);
+				// let reduction = 2 + (depth_left - 2) / 3; TODO
+				let reduction = 2;
+				let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - reduction - 1, -beta, -beta + 1, total_extensions);
 
 				board.undo_null_move();
 
@@ -403,7 +406,8 @@ impl Bot {
 		}
 
 		let hash_move =
-			if depth == 0 {
+			if depth == 0
+			&& self.best_move != NULL_MOVE {
 				self.best_move
 			} else if let Some(data) = self.transposition_table.table.get(&board.zobrist.key) {
 				data.best_move
@@ -412,6 +416,9 @@ impl Bot {
 			};
 
 		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, hash_move, depth);
+		// if hash_move != NULL_MOVE {
+		// 	assert_eq!(hash_move.to_coordinates(), sorted_moves[0].to_coordinates());
+		// }
 
 		for i in 0..sorted_moves.len() {
 			let m = sorted_moves[i];
@@ -433,34 +440,32 @@ impl Bot {
 			let mut evaluation = 0;
 			let mut needs_full_search = true;
 
-			if i > 0 {
+			if i > 0 // > 3?
+			&& depth_left > 1 // > 2?
+			&& depth > 0 {
 				let mut reduction = 0;
 
-				// Reductions
-				// Late Move Reduction
-				if i > 3
+				// Late Move Reductions
+				if i > 4 // then remove these
 				&& depth_left > 2
-				&& depth > 0
 				&& extension == 0
-				&& m.capture == NO_PIECE as u8 { // don't need to check for checks here because that's already an extension
-					// reduction += 1 + (depth_left - 2) / 2;
-					reduction += 1;
-
+				&& m.capture == NO_PIECE as u8 {
+					reduction += 1 + (depth_left - 2) / 5;
 					// History Reductions
-					// if depth_left > 3 {
+					// if depth_left - reduction > 3 {
 					// 	let history_value = self.move_sorter.history[m.piece as usize][m.to as usize];
-					// 	// 1 + (HISTORY_THRESHOLD - history_value) / HISTORY_THRESHOLD_PER_PLY_REDUCTION for reduction?
+					// 	// TODO: Figure out some sort of formula for this reduction
 					// 	reduction += if history_value < HISTORY_THRESHOLD { 1 } else { 0 };
 					// }
-
-					// evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 2, -alpha - 1, -alpha, total_extensions);
-					// needs_full_search = evaluation > alpha;
 				}
 
 				// if needs_full_search {
 				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - reduction - 1, -alpha - 1, -alpha, total_extensions + extension);
-				needs_full_search = evaluation > alpha && evaluation < beta; // && evaluation < beta?
+				needs_full_search = evaluation > alpha;
 				// }
+				// needs_full_search = evaluation > alpha && evaluation < beta; // ?
+				// needs_full_search = evaluation > alpha || evaluation >= beta; // ?
+				// needs_full_search = evaluation > alpha; // ?
 			}
 
 			if needs_full_search {
@@ -502,9 +507,9 @@ impl Bot {
 			}
 		}
 
-		/* I don't need to check for a null move here, because the first move in the list
-		will always be the best move so far */
+		// if !not_pv { // ?
 		self.transposition_table.store(board.zobrist.key, depth_left, depth, alpha, best_move_this_search, node_type);
+		// }
 
 		alpha
 	}
@@ -536,10 +541,12 @@ impl Bot {
 		for m in sorted_moves {
 			// Delta Pruning
 			if !board.king_in_check(board.white_to_move) { // && board.total_material_without_pawns > 0 made it worse
-				let mut threshold = QUEEN_WORTH;
-				if PROMOTABLE.contains(&m.flag) {
-					threshold += BASE_WORTHS_OF_PIECE_TYPE[m.flag as usize] - PAWN_WORTH;
-				}
+				let threshold = QUEEN_WORTH +
+					if PROMOTABLE.contains(&m.flag) {
+						BASE_WORTHS_OF_PIECE_TYPE[m.flag as usize] - PAWN_WORTH
+					} else {
+						0
+					};
 
 				if evaluation < alpha - threshold {
 					continue;
