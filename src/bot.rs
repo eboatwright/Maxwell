@@ -85,6 +85,9 @@ Score of Aspiration window (40) vs Current: 15 - 15 - 20
 
 Score of PVS changes 1 vs Current: 19 - 15 - 16
 Score of PVS changes 2 vs PVS changes 1: 19 - 14 - 17
+
+Bruh
+Score of Removed PVS vs PVS changes 2: 19 - 13 - 18
 */
 
 
@@ -94,7 +97,7 @@ use crate::piece_square_tables::{PAWN_WORTH, QUEEN_WORTH};
 use crate::pieces::{PAWN, PROMOTABLE, NO_PIECE};
 use crate::utils::{CHECKMATE_EVAL, evaluation_is_mate, moves_ply_from_mate};
 use std::time::Instant;
-use crate::move_sorter::MoveSorter;
+use crate::move_sorter::{MoveSorter, MAX_SORT_MOVE_PLY};
 use crate::transposition_table::{TranspositionTable, NodeType};
 use crate::move_data::{MoveData, NULL_MOVE};
 use crate::opening_book::OpeningBook;
@@ -301,6 +304,11 @@ impl Bot {
 		if self.config.debug_output {
 			self.transposition_table.print_size();
 		}
+
+		// for i in 0..self.move_sorter.pv_length[0] {
+		// 	print!("{} ", self.move_sorter.pv_table[0][i].to_coordinates());
+		// }
+		// println!("");
 	}
 
 	fn should_cancel_search(&mut self) -> bool {
@@ -320,6 +328,8 @@ impl Bot {
 		if self.should_cancel_search() {
 			return 0;
 		}
+
+		self.move_sorter.set_pv_length(depth as usize);
 
 		self.positions_searched += 1;
 
@@ -398,20 +408,15 @@ impl Bot {
 			return 0;
 		}
 
-		let hash_move =
-			if depth == 0
-			&& self.best_move != NULL_MOVE {
-				self.best_move
-			} else if let Some(data) = self.transposition_table.table.get(&board.zobrist.key) {
-				data.best_move
-			} else {
-				NULL_MOVE
-			};
-
-		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, hash_move, depth);
-		// if hash_move != NULL_MOVE {
-		// 	assert_eq!(hash_move.to_coordinates(), sorted_moves[0].to_coordinates());
-		// }
+		let sorted_moves = self.move_sorter.sort_moves(
+			board,
+			legal_moves,
+			match self.transposition_table.table.get(&board.zobrist.key) {
+				Some(data) => data.best_move,
+				None => NULL_MOVE,
+			},
+			depth as usize,
+		);
 
 		for (i, m) in sorted_moves.iter().enumerate() {
 			board.make_move(*m);
@@ -436,10 +441,8 @@ impl Bot {
 			let mut evaluation = 0;
 			let mut needs_fuller_search = true;
 
-			// Principal Variation Search
 			if i > 0
-			// && depth > 0 // ?
-			&& depth_left > 1 {
+			&& depth_left > 2 {
 				// Late Move Reductions
 				if i > 3
 				&& extension == 0
@@ -453,13 +456,12 @@ impl Bot {
 					// 	reduction += if history_value < 2200 { 1 } else { 0 };
 					// }
 
-					// LMR Search
 					evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - reduction - 1, -alpha - 1, -alpha, total_extensions);
 					needs_fuller_search = evaluation > alpha;
 				}
 
+				// Principal Variation Search
 				if needs_fuller_search {
-					// PVS Search
 					evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1, -alpha - 1, -alpha, total_extensions + extension);
 					needs_fuller_search = evaluation > alpha;
 				}
@@ -480,7 +482,7 @@ impl Bot {
 				self.transposition_table.store(board.zobrist.key, depth_left, depth, beta, *m, NodeType::LowerBound);
 
 				if m.capture == NO_PIECE as u8 {
-					self.move_sorter.push_killer_move(*m, depth);
+					self.move_sorter.push_killer_move(*m, depth as usize);
 					self.move_sorter.history[m.piece as usize][m.to as usize] += (depth_left * depth_left) as i32;
 				}
 
@@ -488,6 +490,7 @@ impl Bot {
 			}
 
 			if evaluation > alpha {
+				self.move_sorter.push_pv_move(*m, depth as usize);
 				best_move_this_search = *m;
 				node_type = NodeType::Exact;
 				alpha = evaluation;
@@ -529,8 +532,7 @@ impl Bot {
 			return evaluation;
 		}
 
-		// Depth is set to u8::MAX because it's only used for killer moves, and we don't need that here
-		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, u8::MAX);
+		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, MAX_SORT_MOVE_PLY);
 
 		for m in sorted_moves {
 			// Delta Pruning

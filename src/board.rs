@@ -1006,6 +1006,7 @@ impl Board {
 	}
 
 	pub fn try_null_move(&mut self) -> bool {
+		// TOOD: || self.get_last_move() == NULL_MOVE?
 		if self.king_in_check(self.white_to_move)
 		|| self.king_in_check(!self.white_to_move) {
 			return false;
