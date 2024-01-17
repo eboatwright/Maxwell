@@ -89,7 +89,7 @@ Score of PVS changes 2 vs PVS changes 1: 19 - 14 - 17
 Bruh
 Score of Removed PVS vs PVS changes 2: 19 - 13 - 18
 
-Score of PVS changes 3 vs Removed PVS: 19 - 18 - 13
+Score of PVS changes 4 vs Removed PVS: 21 - 10 - 19
 */
 
 
@@ -307,13 +307,9 @@ impl Bot {
 			self.transposition_table.print_size();
 		}
 
-		// for i in 0..MAX_SORT_MOVE_PLY {
-		// 	for j in 0..self.move_sorter.pv_length[i] {
-		// 		print!("{} ", self.move_sorter.pv_table[i][j].to_coordinates());
-		// 	}
-		// 	println!("");
-		// }
-		// println!("");
+		// self.move_sorter.pv_table.print();
+		// self.move_sorter.pv_table.pop();
+		// self.move_sorter.pv_table.print();
 	}
 
 	fn should_cancel_search(&mut self) -> bool {
@@ -334,7 +330,7 @@ impl Bot {
 			return 0;
 		}
 
-		self.move_sorter.set_pv_length(depth as usize);
+		self.move_sorter.pv_table.set_pv_length(depth as usize);
 
 		self.positions_searched += 1;
 
@@ -371,7 +367,7 @@ impl Bot {
 
 			// Reverse Futility Pruning
 			if depth_left < 5 // maybe this should be higher?
-			&& static_eval - 60 * (depth_left as i32) >= beta { // tweak this threshold
+			&& static_eval - 90 * (depth_left as i32) >= beta { // tweak this threshold
 				return static_eval;
 			}
 
@@ -497,7 +493,7 @@ impl Bot {
 			}
 
 			if evaluation > alpha {
-				self.move_sorter.push_pv_move(*m, depth as usize);
+				self.move_sorter.pv_table.push_pv_move(*m, depth as usize);
 				best_move_this_search = *m;
 				node_type = NodeType::Exact;
 				alpha = evaluation;
@@ -511,7 +507,7 @@ impl Bot {
 			}
 		}
 
-		// if !not_pv { // ?
+		// if not_pv { // ?
 		self.transposition_table.store(board.zobrist.key, depth_left, depth, alpha, best_move_this_search, node_type);
 		// }
 

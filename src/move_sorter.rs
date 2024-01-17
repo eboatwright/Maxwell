@@ -1,3 +1,4 @@
+use crate::pv_table::PVTable;
 use crate::move_data::EN_PASSANT_FLAG;
 use crate::killer_moves::KillerMoves;
 use crate::move_data::{MoveData, NULL_MOVE};
@@ -17,8 +18,7 @@ pub const MVV_LVA: [i32; 36] = [
 ];
 
 pub struct MoveSorter {
-	pub pv_length: [usize; MAX_SORT_MOVE_PLY],
-	pub pv_table: [[MoveData; MAX_SORT_MOVE_PLY]; MAX_SORT_MOVE_PLY],
+	pub pv_table: PVTable,
 	pub killer_moves: [KillerMoves; MAX_SORT_MOVE_PLY],
 	pub history: [[i32; 64]; PIECE_COUNT],
 	// TODO: Countermoves?
@@ -27,8 +27,7 @@ pub struct MoveSorter {
 impl MoveSorter {
 	pub fn new() -> Self {
 		Self {
-			pv_length: [0; MAX_SORT_MOVE_PLY],
-			pv_table: [[NULL_MOVE; MAX_SORT_MOVE_PLY]; MAX_SORT_MOVE_PLY],
+			pv_table: PVTable::new(),
 			killer_moves: [KillerMoves::new(); MAX_SORT_MOVE_PLY],
 			history: [[0; 64]; PIECE_COUNT],
 		}
@@ -37,24 +36,6 @@ impl MoveSorter {
 	pub fn clear(&mut self) {
 		self.killer_moves = [KillerMoves::new(); MAX_SORT_MOVE_PLY];
 		self.history = [[0; 64]; PIECE_COUNT];
-	}
-
-	pub fn set_pv_length(&mut self, depth: usize) {
-		if depth < MAX_SORT_MOVE_PLY {
-			self.pv_length[depth] = depth;
-		}
-	}
-
-	pub fn push_pv_move(&mut self, data: MoveData, depth: usize) {
-		if depth + 1 < MAX_SORT_MOVE_PLY {
-			self.pv_table[depth][depth] = data;
-
-			for next_depth in (depth + 1)..self.pv_length[depth + 1] {
-				self.pv_table[depth][next_depth] = self.pv_table[depth + 1][next_depth];
-			}
-
-			self.pv_length[depth] = self.pv_length[depth + 1];
-		}
 	}
 
 	pub fn push_killer_move(&mut self, data: MoveData, depth: usize) {
@@ -79,7 +60,7 @@ impl MoveSorter {
 			let mut score = 0;
 
 			if depth < MAX_SORT_MOVE_PLY
-			&& m == self.pv_table[depth][depth] {
+			&& m == self.pv_table.get_pv_move(depth) {
 				score = i32::MAX;
 			} else if m == hash_move {
 				score = i32::MAX - 1;

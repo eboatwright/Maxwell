@@ -45,6 +45,7 @@ mod board;
 mod zobrist;
 mod perft;
 mod bot;
+mod pv_table;
 mod move_sorter;
 
 use crate::castling_rights::print_castling_rights;
