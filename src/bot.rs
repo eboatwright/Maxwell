@@ -88,6 +88,8 @@ Score of PVS changes 2 vs PVS changes 1: 19 - 14 - 17
 
 Bruh
 Score of Removed PVS vs PVS changes 2: 19 - 13 - 18
+
+Score of PVS changes 3 vs Removed PVS: 19 - 18 - 13
 */
 
 
@@ -305,8 +307,11 @@ impl Bot {
 			self.transposition_table.print_size();
 		}
 
-		// for i in 0..self.move_sorter.pv_length[0] {
-		// 	print!("{} ", self.move_sorter.pv_table[0][i].to_coordinates());
+		// for i in 0..MAX_SORT_MOVE_PLY {
+		// 	for j in 0..self.move_sorter.pv_length[i] {
+		// 		print!("{} ", self.move_sorter.pv_table[i][j].to_coordinates());
+		// 	}
+		// 	println!("");
 		// }
 		// println!("");
 	}
@@ -423,7 +428,7 @@ impl Bot {
 
 			let mut extension = 0;
 			if total_extensions < MAX_SEARCH_EXTENSIONS as u8 {
-				if board.king_in_check(board.white_to_move) { // TODO: or if the flag is a promotion?
+				if board.king_in_check(board.white_to_move) { // || PROMOTABLE.contains(&m.flag)?
 					extension = 1;
 				} else if m.piece == PAWN as u8 {
 					let rank = m.to / 8;
@@ -442,11 +447,13 @@ impl Bot {
 			let mut needs_fuller_search = true;
 
 			if i > 0
-			&& depth_left > 2 {
-				// Late Move Reductions
-				if i > 3
+			&& depth_left > 1 {
+				if i > 2
 				&& extension == 0
 				&& m.capture == NO_PIECE as u8 {
+					// TODO: Late Move Pruning?
+
+					// Late Move Reductions
 					let reduction = 1 + (depth_left - 2) / 5;
 
 					// History Reductions
