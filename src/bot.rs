@@ -359,35 +359,38 @@ impl Bot {
 		let not_pv = alpha == beta - 1;
 
 		// TODO: and not a mate evaluation?
-		if not_pv
-		&& depth > 0
+		if depth > 0
 		&& depth_left > 0
 		&& !board.king_in_check(board.white_to_move) { // Checking if the last move was a capture made it worse
 			let static_eval = board.evaluate();
 
-			// Reverse Futility Pruning
-			if depth_left < 5 // maybe this should be higher?
-			&& static_eval - 90 * (depth_left as i32) >= beta { // tweak this threshold
-				return static_eval;
-			}
+			if not_pv {
+				// TODO: all these need to be tweaked
+				if depth_left < 7
+				&& (static_eval + 300 * (depth_left as i32) < alpha // Futility Pruning
+				|| static_eval - 90 * (depth_left as i32) >= beta) { // Reverse Futility Pruning
+					return static_eval;
+				}
 
-			// Null Move Pruning
-			if depth_left > 2
-			&& static_eval >= beta
-			&& board.total_material_without_pawns > 0 // This doesn't work in king and pawn endgames because of zugzwang
-			&& board.try_null_move() {
-				// let reduction = 2 + (depth_left - 2) / 3; TODO
-				let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, total_extensions);
+				// Null Move Pruning
+				if depth_left > 2
+				&& static_eval >= beta
+				&& board.total_material_without_pawns > 0 // This doesn't work in king and pawn endgames because of zugzwang
+				&& board.try_null_move() {
+					// let reduction = 2;
+					let reduction = 2 + (depth_left - 2) / 4; // TODO
+					let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - reduction - 1, -beta, -beta + 1, total_extensions);
 
-				board.undo_null_move();
+					board.undo_null_move();
 
-				if evaluation >= beta {
-					return evaluation;
+					if evaluation >= beta {
+						return evaluation;
+					}
 				}
 			}
 
 			// Razoring
-			if depth_left > 3
+			if depth_left < 3
 			&& static_eval + 300 * (depth_left as i32) < alpha {
 				depth_left -= 1;
 			}
