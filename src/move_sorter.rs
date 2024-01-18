@@ -18,7 +18,7 @@ pub const MVV_LVA: [i32; 36] = [
 ];
 
 pub struct MoveSorter {
-	pub pv_table: PVTable,
+	// pub pv_table: PVTable,
 	pub killer_moves: [KillerMoves; MAX_SORT_MOVE_PLY],
 	pub history: [[i32; 64]; PIECE_COUNT],
 	// TODO: Countermoves?
@@ -27,7 +27,7 @@ pub struct MoveSorter {
 impl MoveSorter {
 	pub fn new() -> Self {
 		Self {
-			pv_table: PVTable::new(),
+			// pv_table: PVTable::new(),
 			killer_moves: [KillerMoves::new(); MAX_SORT_MOVE_PLY],
 			history: [[0; 64]; PIECE_COUNT],
 		}
@@ -59,11 +59,12 @@ impl MoveSorter {
 
 			let mut score = 0;
 
-			if depth < MAX_SORT_MOVE_PLY
-			&& m == self.pv_table.get_pv_move(depth) {
+			// if depth < MAX_SORT_MOVE_PLY
+			// && m == self.pv_table.get_pv_move(depth) {
+			// 	score = i32::MAX;
+			// } else
+			if m == hash_move {
 				score = i32::MAX;
-			} else if m == hash_move {
-				score = i32::MAX - 1;
 			} else {
 				if m.capture != NO_PIECE as u8 {
 					score += MVV_LVA[get_piece_type(m.piece as usize) * 6 + get_piece_type(m.capture as usize)] + 8000;

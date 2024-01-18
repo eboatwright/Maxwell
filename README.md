@@ -71,3 +71,5 @@
  - [PVS Implementation](https://web.archive.org/web/20071030220825/http://www.brucemo.com/compchess/programming/pvs.htm)
  - [LMR Implementation](https://web.archive.org/web/20150212051846/http://www.glaurungchess.com/lmr.html)
  - [Mediocre Chess](https://mediocrechess.blogspot.com/)
+ - [Tcheran](https://github.com/jgilchrist/tcheran/)
+ - [Rustic Chess Engine MVV-LVA](https://rustic-chess.org/search/ordering/mvv_lva.html)
