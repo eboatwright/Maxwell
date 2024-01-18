@@ -90,6 +90,9 @@ Bruh
 Score of Removed PVS vs PVS changes 2: 19 - 13 - 18
 
 Score of PVS changes 4 vs Removed PVS: 21 - 10 - 19
+
+Score of Pruning & reduction changes 1 vs Current: 21 - 19 - 10
+Score of Pruning & reduction changes 2 vs Current: 21 - 15 - 14
 */
 
 
@@ -330,18 +333,23 @@ impl Bot {
 			return 0;
 		}
 
-		self.move_sorter.pv_table.set_pv_length(depth as usize);
-
 		self.positions_searched += 1;
 
-		if depth > 0
-		&& (board.fifty_move_draw.current >= 50
-		|| board.insufficient_checkmating_material()
-		|| board.zobrist.is_threefold_repetition()) {
-			// Should I use this to discourage making a draw in a winning position?
-			// return -self.quiescence_search(board, alpha, beta);
-			return 0;
+		if depth > 0 {
+			if board.is_draw() {
+				// Should I use this to discourage making a draw in a winning position?
+				// return -self.quiescence_search(board, alpha, beta);
+				return 0;
+			}
+
+			// Mate Distance Pruning
+			let alpha = i32::max(alpha, -CHECKMATE_EVAL + depth as i32);
+			if alpha >= i32::min(beta, CHECKMATE_EVAL - depth as i32) {
+				return alpha;
+			}
 		}
+
+		self.move_sorter.pv_table.set_pv_length(depth as usize);
 
 		if let Some(data) = self.transposition_table.lookup(board.zobrist.key, depth_left, depth, alpha, beta) {
 			self.positions_searched -= 1;
@@ -358,27 +366,27 @@ impl Bot {
 
 		let not_pv = alpha == beta - 1;
 
-		// TODO: and not a mate evaluation?
 		if depth > 0
 		&& depth_left > 0
 		&& !board.king_in_check(board.white_to_move) { // Checking if the last move was a capture made it worse
 			let static_eval = board.evaluate();
 
 			if not_pv {
-				// TODO: all these need to be tweaked
+				// TODO: all these values need to be tweaked
 				if depth_left < 7
-				&& (static_eval + 300 * (depth_left as i32) < alpha // Futility Pruning
-				|| static_eval - 90 * (depth_left as i32) >= beta) { // Reverse Futility Pruning
+				// && depth_left > 1
+				&& (static_eval + 500 * (depth_left as i32) < alpha // Futility Pruning
+				|| static_eval - 100 * (depth_left as i32) >= beta) { // Reverse Futility Pruning
 					return static_eval;
 				}
 
 				// Null Move Pruning
-				if depth_left > 2
+				if depth_left > 1
 				&& static_eval >= beta
 				&& board.total_material_without_pawns > 0 // This doesn't work in king and pawn endgames because of zugzwang
 				&& board.try_null_move() {
 					// let reduction = 2;
-					let reduction = 2 + (depth_left - 2) / 4; // TODO
+					let reduction = 1 + (depth_left - 2) / 4; // TODO
 					let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - reduction - 1, -beta, -beta + 1, total_extensions);
 
 					board.undo_null_move();
@@ -446,7 +454,7 @@ impl Bot {
 			let mut needs_fuller_search = true;
 
 			if i > 0
-			&& depth_left > 1 {
+			&& depth_left > 1 { // 1 or 2?
 				if i > 2
 				&& extension == 0
 				&& m.capture == NO_PIECE as u8 {

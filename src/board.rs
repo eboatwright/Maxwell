@@ -1024,4 +1024,10 @@ impl Board {
 		self.zobrist.pop();
 		self.moves.pop();
 	}
+
+	pub fn is_draw(&self) -> bool {
+		   self.fifty_move_draw.current >= 50
+		|| self.insufficient_checkmating_material()
+		|| self.zobrist.is_threefold_repetition()
+	}
 }
