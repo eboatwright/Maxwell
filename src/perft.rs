@@ -43,7 +43,7 @@ fn perft(board: &mut Board, results: &mut PerftResults, depth_left: u8, depth: u
 		return;
 	}
 
-	for data in board.get_legal_moves_for_color(board.white_to_move, false) {
+	for data in board.get_pseudo_legal_moves_for_color(board.white_to_move, false) {
 		let position_count_before_move = results.positions;
 
 		if data.capture != NO_PIECE as u8 {
@@ -61,7 +61,9 @@ fn perft(board: &mut Board, results: &mut PerftResults, depth_left: u8, depth: u
 			results.promotions += 1;
 		}
 
-		board.make_move(data);
+		if !board.make_move(data) {
+			continue;
+		}
 
 		if board.king_in_check(board.white_to_move) {
 			results.checks += 1;

@@ -257,9 +257,9 @@ impl Bot {
 			return data.evaluation;
 		}
 
-		let is_pv = alpha != beta - 1;
+		let not_pv = alpha == beta - 1;
 
-		if !is_pv
+		if not_pv
 		&& depth > 0
 		&& depth_left > 0
 		&& board.get_last_move().capture == NO_PIECE as u8 // ?
@@ -302,18 +302,11 @@ impl Bot {
 		let mut best_move_this_search = NULL_MOVE;
 		let mut node_type = NodeType::UpperBound;
 
-		let legal_moves = board.get_legal_moves_for_color(board.white_to_move, false);
-		if legal_moves.is_empty() {
-			if board.king_in_check(board.white_to_move) {
-				let mate_score = CHECKMATE_EVAL - depth as i32;
-				return -mate_score;
-			}
-			return 0;
-		}
+		let moves = board.get_pseudo_legal_moves_for_color(board.white_to_move, false);
 
 		let sorted_moves = self.move_sorter.sort_moves(
 			board,
-			legal_moves,
+			moves,
 			if depth == 0
 			&& self.best_move != NULL_MOVE {
 				self.best_move
@@ -326,9 +319,11 @@ impl Bot {
 			depth as usize,
 		);
 
-		for i in 0..sorted_moves.len() {
-			let m = sorted_moves[i];
-			board.make_move(m);
+		let mut i = 0;
+		for (_, m) in sorted_moves {
+			if !board.make_move(m) {
+				continue;
+			}
 
 			let mut extension = 0;
 			if total_extensions < MAX_SEARCH_EXTENSIONS as u8 {
@@ -390,6 +385,16 @@ impl Bot {
 					self.evaluation_this_iteration = evaluation;
 				}
 			}
+
+			i += 1;
+		}
+
+		if i == 0 {
+			if board.king_in_check(board.white_to_move) {
+				let mate_score = CHECKMATE_EVAL - depth as i32;
+				return -mate_score;
+			}
+			return 0;
 		}
 
 		self.transposition_table.store(board.zobrist.key, depth_left, depth, alpha, best_move_this_search, node_type);
@@ -413,14 +418,14 @@ impl Bot {
 			alpha = evaluation;
 		}
 
-		let legal_moves = board.get_legal_moves_for_color(board.white_to_move, true);
+		let legal_moves = board.get_pseudo_legal_moves_for_color(board.white_to_move, true);
 		if legal_moves.is_empty() {
 			return evaluation;
 		}
 
 		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, usize::MAX);
 
-		for m in sorted_moves {
+		for (_, m) in sorted_moves {
 			// Delta Pruning
 			if !board.king_in_check(board.white_to_move) {
 				let threshold = QUEEN_WORTH +
@@ -435,7 +440,10 @@ impl Bot {
 				}
 			}
 
-			board.make_move(m);
+			if !board.make_move(m) {
+				continue;
+			}
+
 			let evaluation = -self.quiescence_search(board, -beta, -alpha);
 			board.undo_last_move();
 

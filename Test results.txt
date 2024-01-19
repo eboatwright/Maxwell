@@ -1,2 +1,7 @@
 REWRITE v1 vs v3.0.8
 +17, -14, =19
+
+                     Elo     +/-    Games   Score   Draw
+1 Re-write v2        63      58     100     59.0%   30.0%
+2 Re-write v1        -7      58     100     49.0%   28.0%
+3 Maxwell v3.0.8    -56      56     100     42.0%   34.0%

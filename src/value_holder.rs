@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct ValueHolder<T: Copy> {
 	pub current: T,
 	pub index: usize,

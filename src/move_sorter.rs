@@ -44,25 +44,18 @@ impl MoveSorter {
 		}
 	}
 
-	pub fn sort_moves(&mut self, board: &mut Board, moves: Vec<MoveData>, hash_move: MoveData, depth: usize) -> Vec<MoveData> {
+	pub fn sort_moves(&mut self, board: &mut Board, moves: Vec<MoveData>, hash_move: MoveData, depth: usize) -> Vec<(i32, MoveData)> {
 		if moves.is_empty() {
 			return vec![];
 		}
 
-		let num_of_moves = moves.len();
-		let mut scores = vec![(0, 0); num_of_moves];
+		let mut scores = vec![];
 
 		let squares_opponent_attacks = board.get_attacked_squares_for_color((!board.white_to_move) as usize);
 
-		for i in 0..num_of_moves {
-			let m = moves[i];
-
+		for m in moves {
 			let mut score = 0;
 
-			// if depth < MAX_SORT_MOVE_PLY
-			// && m == self.pv_table.get_pv_move(depth) {
-			// 	score = i32::MAX;
-			// } else
 			if m == hash_move {
 				score = i32::MAX;
 			} else {
@@ -92,16 +85,10 @@ impl MoveSorter {
 				}
 			}
 
-			scores[i] = (score, i);
+			scores.push((score, m));
 		}
 
 		scores.sort_by(|a, b| b.0.cmp(&a.0));
-
-		let mut ordered = vec![NULL_MOVE; num_of_moves];
-		for i in 0..num_of_moves {
-			ordered[i] = moves[scores[i].1];
-		}
-
-		ordered
+		scores
 	}
 }

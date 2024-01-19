@@ -1,4 +1,11 @@
 /* TODO
+overhaul CLI / UCI interface:
+	add UCI option for TT size
+	error handling
+	"go" and "go infinite" commands
+
+rewrite TT to use % instead of aging
+
 big idea:
 	remove all constant variables, and put them into the BotConfig struct,
 	then write my own tuning / matchmaking program that will tweak the values

@@ -230,12 +230,12 @@ impl Board {
 	pub fn play_move(&mut self, data: MoveData) -> bool {
 		let promoting = PROMOTABLE.contains(&data.flag);
 		if self.white_to_move == is_piece_white(self.get_piece(data.from)) {
-			let legal_moves = self.get_legal_moves_for_piece(data.from, false);
-			for m in legal_moves {
+			let moves = self.get_moves_for_piece(data.from, false);
+			for m in moves {
 				if (!promoting || data.flag == m.flag)
 				&& m.from == data.from
-				&& m.to == data.to {
-					self.make_move(m);
+				&& m.to == data.to
+				&& self.make_move(m) {
 					return true;
 				}
 			}
@@ -245,7 +245,7 @@ impl Board {
 		false
 	}
 
-	pub fn make_move(&mut self, data: MoveData) {
+	pub fn make_move(&mut self, data: MoveData) -> bool {
 		let piece_color = is_piece_white(data.piece as usize) as usize;
 		let other_color = !is_piece_white(data.piece as usize) as usize;
 
@@ -356,6 +356,13 @@ impl Board {
 
 		self.moves.push(data);
 		self.white_to_move = !self.white_to_move;
+
+		if self.king_in_check(!self.white_to_move) {
+			self.undo_last_move();
+			return false;
+		}
+
+		true
 	}
 
 	pub fn undo_last_move(&mut self) -> bool {
@@ -447,7 +454,7 @@ impl Board {
 		self.piece_bitboards[build_piece(king_is_white, KING)] & attacked_squares != 0
 	}
 
-	pub fn get_legal_moves_for_color(&mut self, white_pieces: bool, only_captures: bool) -> Vec<MoveData> {
+	pub fn get_pseudo_legal_moves_for_color(&mut self, white_pieces: bool, only_captures: bool) -> Vec<MoveData> {
 		let mut result = vec![];
 
 		let pieces = if white_pieces {
@@ -461,14 +468,26 @@ impl Board {
 
 			while bitboard != 0 {
 				let piece_index = pop_lsb(&mut bitboard);
-				result.extend(self.get_legal_moves_for_piece(piece_index, only_captures));
+				result.extend(self.get_moves_for_piece(piece_index, only_captures));
 			}
 		}
+
+		// for i in (0..result.len()).rev() {
+		// 	self.make_move(result[i]);
+
+		// 	if self.king_in_check(!self.white_to_move) {
+		// 		result.remove(i);
+		// 	}
+
+		// 	self.undo_last_move();
+		// }
+
+		// result
 
 		result
 	}
 
-	pub fn get_legal_moves_for_piece(&mut self, piece_index: u8, only_captures: bool) -> Vec<MoveData> {
+	pub fn get_moves_for_piece(&mut self, piece_index: u8, only_captures: bool) -> Vec<MoveData> {
 		let mut result = vec![];
 
 		let piece = self.get_piece(piece_index);
@@ -841,22 +860,6 @@ impl Board {
 			}
 
 			_ => {}
-		}
-
-		for i in (0..result.len()).rev() {
-			let data = result[i];
-
-			// if data.piece == NO_PIECE as u8 {
-			// 	println!("Illegal move found! {:#?} on piece: {}, and index: {}, captures only: {}", data, piece_type, piece_index, only_captures);
-			// }
-
-			self.make_move(data);
-
-			if self.king_in_check(!self.white_to_move) {
-				result.remove(i);
-			}
-
-			self.undo_last_move();
 		}
 
 		result
