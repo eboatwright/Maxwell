@@ -1,10 +1,5 @@
 /* TODO
-overhaul CLI / UCI interface:
-	add UCI option for TT size
-	error handling
-	"go" and "go infinite" commands
-
-rewrite TT to use % instead of aging
+overhaul CLI / UCI interface with proper error handling
 
 big idea:
 	remove all constant variables, and put them into the BotConfig struct,
@@ -76,7 +71,7 @@ pub const ENDGAME_POSITION:  &str = "8/pk4p1/2prp3/3p1p2/3P2p1/R2BP3/2P2KPP/8 w 
 pub const PAWN_EVAL_TESTING: &str = "4k3/p1pp4/8/4pp1P/2P4P/8/P5P1/4K3 w - - 0 1";
 
 fn main() {
-	let bot_config = BotConfig::from_args(std::env::args().collect::<Vec<String>>());
+	let mut bot_config = BotConfig::from_args(std::env::args().collect::<Vec<String>>());
 
 	// let mut log = Log::none();
 
@@ -105,8 +100,22 @@ fn main() {
 			"uci" => {
 				println!("id name Maxwell v3.1.0");
 				println!("id author eboatwright");
+				println!("option name Hash type spin default 256 min 0 max 4000");
 
 				println!("uciok");
+			}
+
+			"setoption" => {
+				// setoption name Hash value 32
+				// I KNOW this is horrible I'm gonna rewrite all this eventually
+
+				match command_split[2] {
+					"Hash" => {
+						bot_config.tt_size_in_mb = command_split[4].parse::<usize>().unwrap_or(256);
+					}
+
+					_ => {}
+				}
 			}
 
 			"isready" => println!("readyok"),
@@ -117,6 +126,7 @@ fn main() {
 				bot = Bot::new(bot_config.clone());
 			}
 
+			// TODO: allow "position fen"
 			// Format: position startpos (moves e2e4 e7e5 ...)
 			"position" => {
 				for _ in 0..board.moves.len() {
@@ -137,24 +147,30 @@ fn main() {
 			}
 
 			// Format:
-			// go (movetime, wtime) X (btime Y)
+			// go (infinite)
 			// go depth X
+			// go (movetime, wtime) X (btime Y)
 			"go" => {
 				let my_time_label = if board.white_to_move { "wtime" } else { "btime" };
 				let mut my_time = 0.0;
 				let mut depth_to_search = 255 - MAX_SEARCH_EXTENSIONS;
 
-				for i in [1, 3] {
-					if command_split[i] == my_time_label
-					|| command_split[i] == "movetime" {
-						if let Ok(time_in_millis) = command_split[i + 1].parse::<i32>() {
-							my_time = time_in_millis as f32 / 1000.0;
-							break;
-						}
-					} else if command_split[i] == "depth" {
-						if let Ok(_depth_to_search) = command_split[i + 1].parse::<u8>() {
-							depth_to_search = _depth_to_search;
-							break;
+				if command_split.len() > 2 {
+					for i in [1, 3] {
+						if command_split[i] == my_time_label
+						|| command_split[i] == "movetime" {
+							if let Ok(time_in_millis) = command_split[i + 1].parse::<i32>() {
+								// This is capped at 1 millisecond, because if my_time is 0
+								// it will just ignore the time limit and calculate.
+								// (And also because sometimes Cutechess gives negative time for some reason)
+								my_time = i32::max(1, time_in_millis) as f32 / 1000.0;
+								break;
+							}
+						} else if command_split[i] == "depth" {
+							if let Ok(_depth_to_search) = command_split[i + 1].parse::<u8>() {
+								depth_to_search = _depth_to_search;
+								break;
+							}
 						}
 					}
 				}

@@ -1,3 +1,5 @@
+// CURRENTLY NOT BEING USED
+
 use crate::move_data::{MoveData, NULL_MOVE};
 use crate::move_sorter::MAX_SORT_MOVE_PLY;
 

@@ -72,4 +72,4 @@
  - [LMR Implementation](https://web.archive.org/web/20150212051846/http://www.glaurungchess.com/lmr.html)
  - [Mediocre Chess](https://mediocrechess.blogspot.com/)
  - [Tcheran](https://github.com/jgilchrist/tcheran/)
- - [Rustic Chess Engine MVV-LVA](https://rustic-chess.org/search/ordering/mvv_lva.html)
+ - [Rustic (Engine and Book)](https://github.com/mvanthoor/rustic)

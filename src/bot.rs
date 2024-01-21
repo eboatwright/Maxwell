@@ -1,10 +1,10 @@
 use crate::STARTING_FEN;
 use crate::piece_square_tables::{PAWN_WORTH, QUEEN_WORTH};
 use crate::pieces::{PAWN, PROMOTABLE, NO_PIECE};
-use crate::utils::{CHECKMATE_EVAL, evaluation_is_mate, moves_ply_from_mate};
+use crate::utils::{CHECKMATE_EVAL, evaluation_is_mate, ply_from_mate};
 use std::time::Instant;
 use crate::move_sorter::MoveSorter;
-use crate::transposition_table::{TranspositionTable, NodeType};
+use crate::transposition_table::{TranspositionTable, EvalBound};
 use crate::move_data::{MoveData, NULL_MOVE};
 use crate::opening_book::OpeningBook;
 use crate::Board;
@@ -23,6 +23,7 @@ pub struct BotConfig {
 	pub debug_output: bool,
 	pub opening_book: bool,
 	pub time_management: bool,
+	pub tt_size_in_mb: usize,
 }
 
 impl BotConfig {
@@ -35,6 +36,7 @@ impl BotConfig {
 			debug_output: Self::get_arg_value(&args, "debug_output").unwrap_or(_true.clone()) == _true,
 			opening_book: Self::get_arg_value(&args, "opening_book").unwrap_or(_false.clone()) == _true,
 			time_management: Self::get_arg_value(&args, "time_management").unwrap_or(_true.clone()) == _true,
+			tt_size_in_mb: (Self::get_arg_value(&args, "tt_size").unwrap_or("256".to_string())).parse::<usize>().unwrap_or(256),
 		}
 	}
 
@@ -65,22 +67,18 @@ pub struct Bot {
 
 	pub best_move: MoveData,
 	best_move_this_iteration: MoveData,
-	best_move_depth_searched_at: u8,
 
 	evaluation: i32,
 	evaluation_this_iteration: i32,
 
 	positions_searched: u128,
 	quiescence_searched: u128,
-	transposition_hits: u128,
 }
 
 impl Bot {
 	pub fn new(config: BotConfig) -> Self {
-		let in_opening_book = config.opening_book;
-
 		Self {
-			config,
+			config: config.clone(),
 
 			time_to_think: 0.0,
 			think_timer: Instant::now(),
@@ -88,21 +86,19 @@ impl Bot {
 			searched_one_move: false,
 
 			opening_book: OpeningBook::create(),
-			in_opening_book,
+			in_opening_book: config.opening_book,
 
 			move_sorter: MoveSorter::new(),
-			transposition_table: TranspositionTable::empty(),
+			transposition_table: TranspositionTable::empty(config.tt_size_in_mb),
 
 			best_move: NULL_MOVE,
 			best_move_this_iteration: NULL_MOVE,
-			best_move_depth_searched_at: 0,
 
 			evaluation: 0,
 			evaluation_this_iteration: 0,
 
 			positions_searched: 0,
 			quiescence_searched: 0,
-			transposition_hits: 0,
 		}
 	}
 
@@ -146,7 +142,7 @@ impl Bot {
 
 		self.positions_searched = 0;
 		self.quiescence_searched = 0;
-		self.transposition_hits = 0;
+		self.transposition_table.hits = 0;
 
 		self.move_sorter.clear();
 
@@ -158,7 +154,7 @@ impl Bot {
 			self.best_move_this_iteration = NULL_MOVE;
 			self.evaluation_this_iteration = 0;
 
-
+			// TODO: work on aspiration windows
 			loop {
 				let (alpha, beta) = (last_evaluation - window, last_evaluation + window);
 
@@ -170,7 +166,6 @@ impl Bot {
 
 				window *= 4;
 			}
-
 
 			if !self.search_cancelled
 			|| self.searched_one_move {
@@ -186,11 +181,11 @@ impl Bot {
 				self.positions_searched,
 				self.quiescence_searched,
 				self.positions_searched + self.quiescence_searched,
-				self.transposition_hits,
+				self.transposition_table.hits,
 			));
 
 			if evaluation_is_mate(self.evaluation) {
-				let moves_until_mate = moves_ply_from_mate(self.evaluation);
+				let moves_until_mate = ply_from_mate(self.evaluation);
 				if moves_until_mate <= depth {
 					self.println(format!("Mate found in {}", (moves_until_mate as f32 * 0.5).ceil()));
 					break;
@@ -205,7 +200,6 @@ impl Bot {
 
 		self.println(format!("{} seconds", self.think_timer.elapsed().as_secs_f32()));
 
-		self.transposition_table.update();
 		if self.config.debug_output {
 			self.transposition_table.print_size();
 		}
@@ -240,27 +234,30 @@ impl Bot {
 
 			// Mate Distance Pruning
 			let alpha = i32::max(alpha, -CHECKMATE_EVAL + depth as i32);
-			if alpha >= i32::min(beta, CHECKMATE_EVAL - depth as i32) {
+			let beta = i32::min(beta, CHECKMATE_EVAL - depth as i32);
+			if alpha >= beta {
 				return alpha;
 			}
 		}
 
-		if let Some(data) = self.transposition_table.lookup(board.zobrist.key, depth_left, depth, alpha, beta) {
-			self.transposition_hits += 1;
+		let (tt_eval, hash_move) = self.transposition_table.lookup(board.zobrist.key, depth_left, depth, alpha, beta);
 
-			if depth == 0 {
-				self.best_move_this_iteration = data.best_move;
-				self.best_move_depth_searched_at = data.depth_left;
-				self.evaluation_this_iteration = data.evaluation;
+		// We can't return on depth 0, because if a hash collision occurs, it might return an illegal move
+		if depth > 0 {
+			if let Some(tt_eval) = tt_eval {
+				return tt_eval;
 			}
-
-			return data.evaluation;
+			// else if depth_left > 3 {
+			// 	// Internal Iterative Reductions
+			// 	depth_left -= 1;
+			// }
 		}
 
+		// This detects a null / zero window search, which is used in non PV nodes
+		// This will also never be true if depth == 0 because the bounds will never be zero
 		let not_pv = alpha == beta - 1;
 
 		if not_pv
-		&& depth > 0
 		&& depth_left > 0
 		&& board.get_last_move().capture == NO_PIECE as u8 // ?
 		&& !board.king_in_check(board.white_to_move) {
@@ -300,21 +297,22 @@ impl Bot {
 		}
 
 		let mut best_move_this_search = NULL_MOVE;
-		let mut node_type = NodeType::UpperBound;
+		let mut eval_bound = EvalBound::UpperBound;
 
 		let moves = board.get_pseudo_legal_moves_for_color(board.white_to_move, false);
 
 		let sorted_moves = self.move_sorter.sort_moves(
 			board,
 			moves,
+			/*
+			The best move is _not_ the same as the hash move, because we could have
+			found a new best move right before exiting the search, before tt.store gets called
+			*/
 			if depth == 0
 			&& self.best_move != NULL_MOVE {
 				self.best_move
 			} else {
-				match self.transposition_table.table.get(&board.zobrist.key) {
-					Some(data) => data.best_move,
-					None => NULL_MOVE,
-				}
+				hash_move.unwrap_or(NULL_MOVE)
 			},
 			depth as usize,
 		);
@@ -339,7 +337,7 @@ impl Bot {
 				}
 			}
 
-			// Late Move Reduction / (Kind of) Principal Variation Search
+			// Late Move Reduction
 			let mut evaluation = 0;
 			let mut needs_full_search = true;
 
@@ -363,7 +361,7 @@ impl Bot {
 			}
 
 			if evaluation >= beta {
-				self.transposition_table.store(board.zobrist.key, depth_left, depth, beta, m, NodeType::LowerBound);
+				self.transposition_table.store(board.zobrist.key, depth_left, depth, beta, m, EvalBound::LowerBound);
 
 				if m.capture == NO_PIECE as u8 {
 					self.move_sorter.push_killer_move(m, depth as usize);
@@ -375,13 +373,12 @@ impl Bot {
 
 			if evaluation > alpha {
 				best_move_this_search = m;
-				node_type = NodeType::Exact;
+				eval_bound = EvalBound::Exact;
 				alpha = evaluation;
 
 				if depth == 0 {
 					self.searched_one_move = true;
 					self.best_move_this_iteration = best_move_this_search;
-					self.best_move_depth_searched_at = depth_left;
 					self.evaluation_this_iteration = evaluation;
 				}
 			}
@@ -397,7 +394,9 @@ impl Bot {
 			return 0;
 		}
 
-		self.transposition_table.store(board.zobrist.key, depth_left, depth, alpha, best_move_this_search, node_type);
+		if best_move_this_search != NULL_MOVE {
+			self.transposition_table.store(board.zobrist.key, depth_left, depth, alpha, best_move_this_search, eval_bound);
+		}
 
 		alpha
 	}

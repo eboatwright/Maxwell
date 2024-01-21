@@ -1,11 +1,17 @@
-use crate::utils::evaluation_is_mate;
-use crate::MoveData;
-use std::collections::HashMap;
+/*
+This TT implementation is a mashup of Rustic, Coding Adventure Bot and Weiawaga
+Thanks for the inspiration!
+*/
 
-pub const ENTRY_SIZE: usize = std::mem::size_of::<u64>() + std::mem::size_of::<TranspositionData>();
+use crate::utils::evaluation_is_mate;
+use crate::move_data::MoveData;
+use std::mem::size_of;
+
+pub const MEGABYTE: usize = 1024 * 1024;
+pub const ENTRY_SIZE: usize = size_of::<Option<TranspositionData>>();
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub enum NodeType {
+pub enum EvalBound {
 	UpperBound,
 	LowerBound,
 	Exact,
@@ -13,96 +19,108 @@ pub enum NodeType {
 
 #[derive(Copy, Clone)]
 pub struct TranspositionData {
+	pub key: u64,
 	pub depth_left: u8,
 	pub evaluation: i32,
-	pub best_move: MoveData,
-	pub age: u8,
-	pub node_type: NodeType,
+	pub best_move: u16,
+	pub eval_bound: EvalBound,
 }
 
 pub struct TranspositionTable {
-	pub table: HashMap<u64, TranspositionData>,
+	size_in_mb: usize,
+	entry_count: usize,
+	length: usize,
+	pub table: Vec<Option<TranspositionData>>,
+
+	pub hits: u128,
 }
 
 impl TranspositionTable {
-	pub fn empty() -> Self {
+	pub fn empty(size_in_mb: usize) -> Self {
+		let length = (size_in_mb * MEGABYTE) / ENTRY_SIZE;
+
 		Self {
-			table: HashMap::new(),
+			size_in_mb,
+			entry_count: 0,
+			length,
+			table: vec![None; length],
+
+			hits: 0,
 		}
 	}
 
-	pub fn store(&mut self, key: u64, depth_left: u8, depth: u8, evaluation: i32, best_move: MoveData, node_type: NodeType) {
+	pub fn get_index(&self, key: u64) -> usize { (key as usize) % self.length }
+
+	pub fn store(&mut self, key: u64, depth_left: u8, depth: u8, evaluation: i32, best_move: MoveData, eval_bound: EvalBound) {
+		if self.length == 0 {
+			return;
+		}
+
 		let mut fixed_mate_evaluation = evaluation;
 		if evaluation_is_mate(evaluation) {
 			let sign = if evaluation > 0 { 1 } else { -1 };
 			fixed_mate_evaluation = (evaluation * sign + depth as i32) * sign;
 		}
 
-		self.table.insert(key,
-			TranspositionData {
-				depth_left,
-				evaluation: fixed_mate_evaluation,
-				best_move,
-				age: 0,
-				node_type,
-			}
-		);
+		let index = self.get_index(key);
+
+		// if self.table[index].is_none() {
+		// 	self.entry_count += 1;
+		// }
+
+		self.table[index] =
+			Some(
+				TranspositionData {
+					key,
+					depth_left,
+					evaluation: fixed_mate_evaluation,
+					best_move: best_move.to_binary(),
+					eval_bound,
+				}
+			);
 	}
 
-	pub fn lookup(&mut self, key: u64, depth_left: u8, depth: u8, alpha: i32, beta: i32) -> Option<TranspositionData> {
-		if let Some(data) = self.table.get_mut(&key) {
-			if data.depth_left >= depth_left {
-				let mut fixed_mate_evaluation = data.evaluation;
-				if evaluation_is_mate(data.evaluation) {
-					let sign = if data.evaluation > 0 { 1 } else { -1 };
-					fixed_mate_evaluation = (data.evaluation * sign - depth as i32) * sign;
-				}
+	pub fn lookup(&mut self, key: u64, depth_left: u8, depth: u8, alpha: i32, beta: i32) -> (Option<i32>, Option<MoveData>) {
+		if self.length == 0 {
+			return (None, None);
+		}
 
+		if let Some(data) = self.table[self.get_index(key)] {
+			if data.key == key {
+				self.hits += 1;
+				let mut return_evaluation = None;
 
-				match data.node_type {
-					NodeType::UpperBound => {
-						if fixed_mate_evaluation <= alpha {
-							data.age = 0;
-							return Some(TranspositionData {
-								evaluation: fixed_mate_evaluation,
-								..*data
-							});
-						}
+				if data.depth_left >= depth_left {
+					let mut fixed_mate_evaluation = data.evaluation;
+
+					if evaluation_is_mate(data.evaluation) {
+						let sign = if data.evaluation > 0 { 1 } else { -1 };
+						fixed_mate_evaluation = (data.evaluation * sign - depth as i32) * sign;
 					}
 
-					NodeType::LowerBound => {
-						if fixed_mate_evaluation >= beta {
-							data.age = 0;
-							return Some(TranspositionData {
-								evaluation: fixed_mate_evaluation,
-								..*data
-							});
-						}
-					}
-
-					NodeType::Exact => {
-						data.age = 0;
-						return Some(TranspositionData {
-							evaluation: fixed_mate_evaluation,
-							..*data
-						});
+					match data.eval_bound {
+						EvalBound::LowerBound =>
+							if fixed_mate_evaluation >= beta {
+								return_evaluation = Some(fixed_mate_evaluation);
+							},
+						EvalBound::UpperBound =>
+							if fixed_mate_evaluation <= alpha {
+								return_evaluation = Some(fixed_mate_evaluation);
+							},
+						EvalBound::Exact =>
+							return_evaluation = Some(fixed_mate_evaluation),
 					}
 				}
+
+				return (return_evaluation, Some(MoveData::from_binary(data.best_move)));
 			}
 		}
-		None
-	}
 
-	pub fn update(&mut self) {
-		self.table.retain(|_, data| {
-			data.age += 1;
-			data.age <= 10
-		});
+		(None, None)
 	}
 
 	pub fn print_size(&self) {
-		let length = (self.table.len() * ENTRY_SIZE) as f32 / 1_000_000.0;
-		let capacity = (self.table.capacity() * ENTRY_SIZE) as f32 / 1_000_000.0;
-		println!("Transposition table size: {} MB / {} MB", length, capacity);
+		let size = (self.entry_count * ENTRY_SIZE) as f32 / MEGABYTE as f32;
+		println!("Transposition table size: {} MB / {} MB", size, self.size_in_mb);
 	}
 }

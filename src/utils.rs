@@ -49,7 +49,7 @@ pub fn evaluation_is_mate(evaluation: i32) -> bool {
 	evaluation.abs() > CHECKMATE_EVAL - 100
 }
 
-pub fn moves_ply_from_mate(evaluation: i32) -> u8 {
+pub fn ply_from_mate(evaluation: i32) -> u8 {
 	(CHECKMATE_EVAL - evaluation.abs()) as u8
 }
 
