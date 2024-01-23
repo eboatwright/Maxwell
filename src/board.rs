@@ -1009,9 +1009,10 @@ impl Board {
 	}
 
 	pub fn try_null_move(&mut self) -> bool {
+		// TODO
 		if self.get_last_move() == NULL_MOVE
-		|| self.king_in_check(self.white_to_move)
-		|| self.king_in_check(!self.white_to_move) {
+		|| self.king_in_check(self.white_to_move) // Maybe only check this before calling this function instead of inside the function?
+		|| self.king_in_check(!self.white_to_move) { // ?
 			return false;
 		}
 

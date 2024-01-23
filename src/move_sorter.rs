@@ -38,13 +38,13 @@ impl MoveSorter {
 		self.history = [[0; 64]; PIECE_COUNT];
 	}
 
-	pub fn push_killer_move(&mut self, data: MoveData, depth: usize) {
-		if depth < MAX_SORT_MOVE_PLY {
-			self.killer_moves[depth].push(data);
+	pub fn push_killer_move(&mut self, data: MoveData, ply: usize) {
+		if ply < MAX_SORT_MOVE_PLY {
+			self.killer_moves[ply].push(data);
 		}
 	}
 
-	pub fn sort_moves(&mut self, board: &mut Board, moves: Vec<MoveData>, hash_move: MoveData, depth: usize) -> Vec<(i32, MoveData)> {
+	pub fn sort_moves(&mut self, board: &mut Board, moves: Vec<MoveData>, hash_move: MoveData, ply: usize) -> Vec<(i32, MoveData)> {
 		if moves.is_empty() {
 			return vec![];
 		}
@@ -64,8 +64,8 @@ impl MoveSorter {
 
 					// TODO: static exchange evaluation
 				} else {
-					if depth < MAX_SORT_MOVE_PLY
-					&& self.killer_moves[depth].is_killer(m) {
+					if ply < MAX_SORT_MOVE_PLY
+					&& self.killer_moves[ply].is_killer(m) {
 						score += 5000;
 					}
 

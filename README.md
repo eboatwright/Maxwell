@@ -3,15 +3,10 @@
  A Chess engine written from scratch in Rust.<br>
  If you use this code verbatim, or as a reference, please credit me!<br><br>
  
- CCRL Blitz ratings
- | Date | Version | Rating | Rank |
- | --- | --- | --- | --- |
- | 1/14/24 | v3.0.8-1 | 1830 | 538 / 715 |
- 
  <br><br>
- [Play against Maxwell on Lichess!](https://lichess.org/@/MaxwellOnLC) | [Some of Maxwell's Games](https://www.chess.com/library/collections/maxwells-games-my-chess-engine-2FFU82NM4)
+ [Play against Maxwell on Lichess!](https://lichess.org/@/MaxwellOnLC) | [Some of Maxwell's Games](https://www.chess.com/library/collections/maxwells-games-my-chess-engine-2FFU82NM4) | [Maxwell's CCRL](https://computerchess.org.uk/ccrl/404/cgi/engine_details.cgi?print=Details&each_game=1&eng=Maxwell%203.0.8-1%2064-bit#Maxwell_3_0_8-1_64-bit)
 
-## Features
+## Features - NOT UP TO DATE WITH DEV BRANCH
 #### Parameters
  - fen=\<FEN STRING>: Sets up the board by a fen string (Doesn't work for UCI games) (default=STARTING_FEN)
  - debug=\<BOOLEAN>: Toggle debug output that gets outputed per ply (default=true)
@@ -56,7 +51,7 @@
    - Checks
  - Time management
    - If less than 7 moves have been played, it uses 2.5% of it's remaining time, otherwise 7%
-   - This value is then also clamped between 0.25 and 20.0 seconds
+   - This value is then also clamped between 0.2 and 20.0 seconds
 
 ## Helpful Sources & References
  - [Sebastian Lague's Chess Programming series](https://www.youtube.com/playlist?list=PLFt_AvWsXl0cvHyu32ajwh2qU1i6hl77c)

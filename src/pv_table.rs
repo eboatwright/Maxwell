@@ -30,21 +30,21 @@ impl PVTable {
 		println!("");
 	}
 
-	pub fn set_pv_length(&mut self, depth: usize) {
-		if depth < MAX_SORT_MOVE_PLY {
-			self.length[depth] = depth;
+	pub fn set_pv_length(&mut self, ply: usize) {
+		if ply < MAX_SORT_MOVE_PLY {
+			self.length[ply] = ply;
 		}
 	}
 
-	pub fn push_pv_move(&mut self, data: MoveData, depth: usize) {
-		if depth + 1 < MAX_SORT_MOVE_PLY {
-			self.table[depth][depth] = data;
+	pub fn push_pv_move(&mut self, data: MoveData, ply: usize) {
+		if ply + 1 < MAX_SORT_MOVE_PLY {
+			self.table[ply][ply] = data;
 
-			for next_depth in (depth + 1)..self.length[depth + 1] {
-				self.table[depth][next_depth] = self.table[depth + 1][next_depth];
+			for next_depth in (ply + 1)..self.length[ply + 1] {
+				self.table[ply][next_depth] = self.table[ply + 1][next_depth];
 			}
 
-			self.length[depth] = self.length[depth + 1];
+			self.length[ply] = self.length[ply + 1];
 		}
 	}
 
@@ -54,7 +54,7 @@ impl PVTable {
 		self.length[0] -= 1;
 	}
 
-	pub fn get_pv_move(&self, depth: usize) -> MoveData {
-		self.table[depth][depth]
+	pub fn get_pv_move(&self, ply: usize) -> MoveData {
+		self.table[ply][ply]
 	}
 }

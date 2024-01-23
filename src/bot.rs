@@ -11,12 +11,6 @@ use crate::Board;
 
 pub const MAX_SEARCH_EXTENSIONS: u8 = 16; // TODO
 
-pub const PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES: f32 = 0.025; // 2.5%
-pub const PERCENT_OF_TIME_TO_USE_AFTER_6_FULL_MOVES: f32 = 0.07; // 7%
-
-pub const MIN_TIME_PER_MOVE: f32 = 0.25; // seconds
-pub const MAX_TIME_PER_MOVE: f32 = 20.0;
-
 #[derive(Clone, Debug)]
 pub struct BotConfig {
 	pub fen: String,
@@ -108,7 +102,7 @@ impl Bot {
 		}
 	}
 
-	pub fn start(&mut self, board: &mut Board, moves: String, my_time: f32, depth_to_search: u8) {
+	pub fn start(&mut self, board: &mut Board, moves: String, my_time: f32, depth: u8) {
 		if self.in_opening_book {
 			let opening_move = self.opening_book.get_opening_move(moves);
 			if opening_move == NULL_MOVE {
@@ -123,12 +117,12 @@ impl Bot {
 			if self.config.time_management
 			&& my_time > 0.0 {
 				let time_percentage = if board.moves.len() / 2 <= 6 {
-					PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES
+					0.025
 				} else {
-					PERCENT_OF_TIME_TO_USE_AFTER_6_FULL_MOVES
+					0.07
 				};
 
-				(my_time * time_percentage).clamp(MIN_TIME_PER_MOVE, MAX_TIME_PER_MOVE)
+				(my_time * time_percentage).clamp(0.2, 20.0)
 			} else {
 				my_time
 			};
@@ -149,7 +143,7 @@ impl Bot {
 		let mut window = 40;
 
 		self.think_timer = Instant::now();
-		for depth in 1..=depth_to_search {
+		for current_depth in 1..=depth {
 			self.searched_one_move = false;
 			self.best_move_this_iteration = NULL_MOVE;
 			self.evaluation_this_iteration = 0;
@@ -158,7 +152,7 @@ impl Bot {
 			loop {
 				let (alpha, beta) = (last_evaluation - window, last_evaluation + window);
 
-				let evaluation = self.alpha_beta_search(board, 0, depth, alpha, beta, 0);
+				let evaluation = self.alpha_beta_search(board, current_depth, 0, alpha, beta, 0);
 
 				if alpha < evaluation && evaluation < beta {
 					break;
@@ -174,7 +168,7 @@ impl Bot {
 			}
 
 			self.println(format!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {} + Quiescence positions searched: {} = {}, Transposition Hits: {}",
-				depth,
+				current_depth,
 				window,
 				self.evaluation * board.perspective(),
 				self.best_move.to_coordinates(),
@@ -186,7 +180,7 @@ impl Bot {
 
 			if evaluation_is_mate(self.evaluation) {
 				let moves_until_mate = ply_from_mate(self.evaluation);
-				if moves_until_mate <= depth {
+				if moves_until_mate <= current_depth {
 					self.println(format!("Mate found in {}", (moves_until_mate as f32 * 0.5).ceil()));
 					break;
 				}
@@ -213,19 +207,20 @@ impl Bot {
 	fn alpha_beta_search(
 		&mut self,
 		board: &mut Board,
-		depth: u8,
-		mut depth_left: u8,
+		mut depth: u8,
+		ply: u8,
 		mut alpha: i32,
 		beta: i32,
 		total_extensions: u8,
 	) -> i32 {
+		// TODO: try moving this into the move loop and break instead of return 0?
 		if self.should_cancel_search() {
 			return 0;
 		}
 
 		self.positions_searched += 1;
 
-		if depth > 0 {
+		if ply > 0 {
 			if board.is_draw() {
 				// Should I use this to discourage making a draw in a winning position?
 				// return -self.quiescence_search(board, alpha, beta);
@@ -233,32 +228,33 @@ impl Bot {
 			}
 
 			// Mate Distance Pruning
-			let alpha = i32::max(alpha, -CHECKMATE_EVAL + depth as i32);
-			let beta = i32::min(beta, CHECKMATE_EVAL - depth as i32);
+			let mate_value = CHECKMATE_EVAL - ply as i32;
+			let alpha = i32::max(alpha, -CHECKMATE_EVAL + ply as i32);
+			let beta = i32::min(beta, CHECKMATE_EVAL - ply as i32);
 			if alpha >= beta {
 				return alpha;
 			}
 		}
 
-		let (tt_eval, hash_move) = self.transposition_table.lookup(board.zobrist.key, depth_left, depth, alpha, beta);
+		let (tt_eval, hash_move) = self.transposition_table.lookup(board.zobrist.key, ply, depth, alpha, beta);
 
-		// We can't return on depth 0, because if a hash collision occurs, it might return an illegal move
-		if depth > 0 {
+		// We don't really want to return from the root node, because if a hash collision occurs (although very rare)
+		// It will return an illegal move
+		if ply > 0 {
 			if let Some(tt_eval) = tt_eval {
 				return tt_eval;
 			}
-			// else if depth_left > 3 {
-			// 	// Internal Iterative Reductions
-			// 	depth_left -= 1;
-			// }
 		}
 
 		// This detects a null / zero window search, which is used in non PV nodes
-		// This will also never be true if depth == 0 because the bounds will never be zero
+		// This will also never be true if ply == 0 because the bounds will never be zero at ply 0
 		let not_pv = alpha == beta - 1;
 
+		// TODO: Maybe allow these pruning techniques during PV nodes?
+		// Or maybe just make them more aggressive to allow for more search
+		// time on PV lines?
 		if not_pv
-		&& depth_left > 0
+		&& depth > 0
 		&& board.get_last_move().capture == NO_PIECE as u8 // ?
 		&& !board.king_in_check(board.white_to_move) {
 			// TODO: move these around
@@ -266,11 +262,11 @@ impl Bot {
 			let static_eval = board.evaluate();
 
 			// Null Move Pruning
-			if depth_left > 2
+			if depth > 2
 			&& static_eval >= beta
-			// && board.total_material_without_pawns > 0
+			// && board.total_material_without_pawns > 0 // TODO
 			&& board.try_null_move() {
-				let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, total_extensions);
+				let evaluation = -self.alpha_beta_search(board, depth - 3, ply + 1, -beta, -beta + 1, total_extensions);
 
 				board.undo_null_move();
 
@@ -280,19 +276,19 @@ impl Bot {
 			}
 
 			// Reverse Futility Pruning
-			if depth_left < 5
-			&& static_eval - 60 * (depth_left as i32) >= beta { // TODO: tweak this threshold
+			if depth < 5
+			&& static_eval - 60 * (depth as i32) >= beta { // TODO: tweak this threshold
 				return static_eval;
 			}
 
 			// Razoring
-			if depth_left < 4
-			&& static_eval + 300 * (depth_left as i32) < alpha {
-				depth_left -= 1;
+			if depth < 4
+			&& static_eval + 300 * (depth as i32) < alpha {
+				depth -= 1;
 			}
 		}
 
-		if depth_left == 0 {
+		if depth == 0 {
 			return self.quiescence_search(board, alpha, beta);
 		}
 
@@ -308,13 +304,13 @@ impl Bot {
 			The best move is _not_ the same as the hash move, because we could have
 			found a new best move right before exiting the search, before tt.store gets called
 			*/
-			if depth == 0
+			if ply == 0
 			&& self.best_move != NULL_MOVE {
 				self.best_move
 			} else {
 				hash_move.unwrap_or(NULL_MOVE)
 			},
-			depth as usize,
+			ply as usize,
 		);
 
 		let mut i = 0;
@@ -327,7 +323,7 @@ impl Bot {
 			if total_extensions < MAX_SEARCH_EXTENSIONS as u8 {
 				if board.king_in_check(board.white_to_move) {
 					extension = 1;
-				} else {
+				} else { // TODO: does this help at all? Or maybe try checking for a promotion flag
 					if m.piece == PAWN as u8 {
 						let rank = m.to / 8;
 						if rank == 1 || rank == 6 {
@@ -337,21 +333,27 @@ impl Bot {
 				}
 			}
 
-			// Late Move Reduction
+			// Late Move Reductions
 			let mut evaluation = 0;
 			let mut needs_full_search = true;
 
 			if i > 2
-			&& depth_left > 2
+			&& depth > 2
 			&& extension == 0
 			&& m.capture == NO_PIECE as u8 {
-				// let reduction = 1;
-				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 2, -alpha - 1, -alpha, total_extensions);
+				// let mut reduction = 1;
+
+				// if hash_move.is_none() {
+				// 	// Internal Iterative Reductions
+				// 	reduction += 1;
+				// }
+
+				evaluation = -self.alpha_beta_search(board, depth - 2, ply + 1, -alpha - 1, -alpha, total_extensions);
 				needs_full_search = evaluation > alpha;
 			}
 
 			if needs_full_search {
-				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1 + extension, -beta, -alpha, total_extensions + extension);
+				evaluation = -self.alpha_beta_search(board, depth - 1 + extension, ply + 1, -beta, -alpha, total_extensions + extension);
 			}
 
 			board.undo_last_move();
@@ -361,11 +363,11 @@ impl Bot {
 			}
 
 			if evaluation >= beta {
-				self.transposition_table.store(board.zobrist.key, depth_left, depth, beta, m, EvalBound::LowerBound);
+				self.transposition_table.store(board.zobrist.key, depth, ply, beta, m, EvalBound::LowerBound);
 
 				if m.capture == NO_PIECE as u8 {
-					self.move_sorter.push_killer_move(m, depth as usize);
-					self.move_sorter.history[m.piece as usize][m.to as usize] += (depth_left * depth_left) as i32;
+					self.move_sorter.push_killer_move(m, ply as usize);
+					self.move_sorter.history[m.piece as usize][m.to as usize] += (depth * depth) as i32;
 				}
 
 				return beta;
@@ -376,7 +378,7 @@ impl Bot {
 				eval_bound = EvalBound::Exact;
 				alpha = evaluation;
 
-				if depth == 0 {
+				if ply == 0 {
 					self.searched_one_move = true;
 					self.best_move_this_iteration = best_move_this_search;
 					self.evaluation_this_iteration = evaluation;
@@ -388,14 +390,14 @@ impl Bot {
 
 		if i == 0 {
 			if board.king_in_check(board.white_to_move) {
-				let mate_score = CHECKMATE_EVAL - depth as i32;
+				let mate_score = CHECKMATE_EVAL - ply as i32;
 				return -mate_score;
 			}
 			return 0;
 		}
 
 		if best_move_this_search != NULL_MOVE {
-			self.transposition_table.store(board.zobrist.key, depth_left, depth, alpha, best_move_this_search, eval_bound);
+			self.transposition_table.store(board.zobrist.key, depth, ply, alpha, best_move_this_search, eval_bound);
 		}
 
 		alpha

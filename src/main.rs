@@ -1,5 +1,6 @@
 /* TODO
 overhaul CLI / UCI interface with proper error handling
+look into using "buckets" for transposition table
 
 big idea:
 	remove all constant variables, and put them into the BotConfig struct,
@@ -15,6 +16,7 @@ check out pin detection to speed up check detection?
 figure out how to implement "pondering" to think on opponent's time
 
 Random ideas to try
+History reductions
 https://www.chessprogramming.org/Internal_Iterative_Deepening
 https://www.chessprogramming.org/Static_Exchange_Evaluation
 https://www.chessprogramming.org/History_Leaf_Pruning
@@ -86,7 +88,7 @@ fn main() {
 
 		io::stdin()
 			.read_line(&mut command)
-			.expect("Failed to read command");
+			.expect("Failed to read terminal input");
 
 		// log.write(format!("Got command: {}\n", command));
 

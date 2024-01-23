@@ -37,8 +37,8 @@ impl PerftResults {
 	}
 }
 
-fn perft(board: &mut Board, results: &mut PerftResults, depth_left: u8, depth: u8) {
-	if depth_left == 0 {
+fn perft(board: &mut Board, results: &mut PerftResults, depth: u8, ply: u8) {
+	if depth == 0 {
 		results.positions += 1;
 		return;
 	}
@@ -69,10 +69,10 @@ fn perft(board: &mut Board, results: &mut PerftResults, depth_left: u8, depth: u
 			results.checks += 1;
 		}
 
-		perft(board, results, depth_left - 1, depth + 1);
+		perft(board, results, depth - 1, ply + 1);
 		board.undo_last_move();
 
-		if depth == 0 {
+		if ply == 0 {
 			let positions_this_move = results.positions - position_count_before_move;
 			println!("{}: {}", data.to_coordinates(), positions_this_move);
 		}
