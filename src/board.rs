@@ -1008,11 +1008,9 @@ impl Board {
 		&& self.piece_bitboards[BLACK_PAWN] == 0
 	}
 
+	// Must be called when not in check!
 	pub fn try_null_move(&mut self) -> bool {
-		// TODO
-		if self.get_last_move() == NULL_MOVE
-		|| self.king_in_check(self.white_to_move) // Maybe only check this before calling this function instead of inside the function?
-		|| self.king_in_check(!self.white_to_move) { // ?
+		if self.get_last_move() == NULL_MOVE {
 			return false;
 		}
 

@@ -13,7 +13,16 @@ Score of Re-write v3 (Not root) vs Re-write v3 (Not PV): 131 - 60 - 109
 Score of Re-write v3 (Not root) vs Re-write v3 (All): 33 - 33 - 36
 Score of Re-write v3 (Depth replace) vs Re-write v3 (Always replace): 74 - 60 - 66
 
+
+TT replacement schemes
                                              Elo     +/-   Games   Points   Draw
 1 Re-write v3 (Higher depth, exact bound)    37      37     200    110.5    40.5%
 2 Re-write v3 (Higher depth, equals key)    -7       37     200     98.0    40.0%
 3 Re-write v3 (Higher depth)                -30      38     200     91.5    39.5%
+
+
+v4 contains fixes for Null Move Pruning
+                    Elo     +/-    Games   Points   Draw
+1 Re-write v4       33      45     150     82.0     34.7%
+2 Re-write v3       12      46     150     77.5     32.7%
+3 Re-write v2      -44      43     150     65.5     40.7%

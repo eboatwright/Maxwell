@@ -264,7 +264,7 @@ impl Bot {
 			// Null Move Pruning
 			if depth > 2
 			&& static_eval >= beta
-			// && board.total_material_without_pawns > 0 // TODO
+			&& board.total_material_without_pawns > 0
 			&& board.try_null_move() {
 				let evaluation = -self.alpha_beta_search(board, depth - 3, ply + 1, -beta, -beta + 1, total_extensions);
 
