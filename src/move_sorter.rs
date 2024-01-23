@@ -80,6 +80,7 @@ impl MoveSorter {
 				// 	score += BASE_WORTHS_OF_PIECE_TYPE[m.flag as usize] + 12000;
 				// }
 
+				// TODO: should this be on quiet moves only?
 				if squares_opponent_attacks & (1 << m.to) != 0 {
 					score -= 2 * BASE_WORTHS_OF_PIECE_TYPE[get_piece_type(m.piece as usize)];
 				}

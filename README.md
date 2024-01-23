@@ -38,14 +38,14 @@
 #### Search
  - Iterative Deepening
  - Alpha-Beta Pruning
- - Principal Variation Search
  - Late Move Reductions
  - Null Move Pruning
  - Razoring
  - Reverse Futility Pruning
  - Quiescence Search with Delta Pruning
  - Transposition Table
-   - No set max size, but entries get removed after 10 moves without hits
+   - UCI Hash option to change max size, default is 256 MB
+   - Replacement scheme prefers higher depth and exact evaluation bound
  - Search Extensions
    - Pawn moves to the 2nd or 7th rank
    - Checks
