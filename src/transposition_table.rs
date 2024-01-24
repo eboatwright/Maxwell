@@ -1,5 +1,5 @@
 /*
-This TT implementation is a mashup of Rustic, Coding Adventure Bot and Weiawaga
+Rustic, Coding Adventure Bot and Weiawaga were very helpful resources while developing this TT
 Thanks for the inspiration!
 */
 

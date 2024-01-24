@@ -132,7 +132,6 @@ impl Bot {
 		let last_evaluation = self.evaluation;
 
 		self.best_move = NULL_MOVE;
-		self.evaluation = 0;
 
 		self.positions_searched = 0;
 		self.quiescence_searched = 0;
@@ -140,6 +139,7 @@ impl Bot {
 
 		self.move_sorter.clear();
 
+		// TODO: tweak this
 		let mut window = 40;
 
 		self.think_timer = Instant::now();
@@ -148,13 +148,13 @@ impl Bot {
 			self.best_move_this_iteration = NULL_MOVE;
 			self.evaluation_this_iteration = 0;
 
-			// TODO: work on aspiration windows
 			loop {
-				let (alpha, beta) = (last_evaluation - window, last_evaluation + window);
+				let (alpha, beta) = (self.evaluation - window, self.evaluation + window);
 
 				let evaluation = self.alpha_beta_search(board, current_depth, 0, alpha, beta, 0);
 
-				if alpha < evaluation && evaluation < beta {
+				if evaluation > alpha
+				&& evaluation < beta {
 					break;
 				}
 
@@ -283,7 +283,7 @@ impl Bot {
 
 			// Razoring
 			if depth < 4
-			&& static_eval + 300 * (depth as i32) < alpha {
+			&& static_eval + 300 * (depth as i32) < alpha { // TODO: tweak this threshold
 				depth -= 1;
 			}
 		}
@@ -407,6 +407,8 @@ impl Bot {
 		}
 
 		self.quiescence_searched += 1;
+
+		// I tried looking up the TT here, but somehow it increased node counts and search time
 
 		let evaluation = board.evaluate();
 		if evaluation >= beta {

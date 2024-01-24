@@ -15,6 +15,8 @@ calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
 check out pin detection to speed up check detection?
 figure out how to implement "pondering" to think on opponent's time
 
+https://www.chessprogramming.org/Texel's_Tuning_Method
+
 Random ideas to try
 History reductions
 https://www.chessprogramming.org/Internal_Iterative_Deepening
@@ -23,6 +25,7 @@ https://www.chessprogramming.org/History_Leaf_Pruning
 https://www.chessprogramming.org/Futility_Pruning#MoveCountBasedPruning
 https://www.chessprogramming.org/Countermove_Heuristic
 https://www.chessprogramming.org/ProbCut
+https://www.chessprogramming.org/Razoring#Strelka
 
 Some random resources I found: (Not using them right now but they could be useful)
 https://analog-hors.github.io/site/magic-bitboards/

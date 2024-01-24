@@ -1,5 +1,7 @@
 use crate::pieces::*;
 
+// TODO: maybe combine base piece values and piece square tables?
+
 pub const MIDDLEGAME_PAWN_TABLE: [i32; 64] = [
 	 0,  0,  0,  0,  0,  0,  0,  0,
 	50, 50, 50, 50, 50, 50, 50, 50,
