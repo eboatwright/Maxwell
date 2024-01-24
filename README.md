@@ -47,11 +47,11 @@
    - UCI Hash option to change max size, default is 256 MB
    - Replacement scheme prefers higher depth and exact evaluation bound
  - Search Extensions
-   - Pawn moves to the 2nd or 7th rank
    - Checks
+   - Pawn moves to the 2nd or 7th rank
  - Time management
    - If less than 7 moves have been played, it uses 2.5% of it's remaining time, otherwise 7%
-   - This value is then also clamped between 0.2 and 20.0 seconds
+   - This value is then also clamped between 0.05 and 20.0 seconds
 
 ## Helpful Sources & References
  - [Sebastian Lague's Chess Programming series](https://www.youtube.com/playlist?list=PLFt_AvWsXl0cvHyu32ajwh2qU1i6hl77c)

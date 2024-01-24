@@ -334,7 +334,6 @@ impl Board {
 			self.castling_rights.current &= !WHITE_CASTLE_SHORT;
 		}
 
-
 		if data.capture == NO_PIECE as u8
 		&& get_piece_type(data.piece as usize) != PAWN {
 			self.fifty_move_draw.current += 1;

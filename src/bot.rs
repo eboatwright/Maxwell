@@ -122,7 +122,7 @@ impl Bot {
 					0.07
 				};
 
-				(my_time * time_percentage).clamp(0.2, 20.0)
+				(my_time * time_percentage).clamp(0.05, 20.0)
 			} else {
 				my_time
 			};
@@ -323,12 +323,10 @@ impl Bot {
 			if total_extensions < MAX_SEARCH_EXTENSIONS as u8 {
 				if board.king_in_check(board.white_to_move) {
 					extension = 1;
-				} else { // TODO: does this help at all? Or maybe try checking for a promotion flag
-					if m.piece == PAWN as u8 {
-						let rank = m.to / 8;
-						if rank == 1 || rank == 6 {
-							extension = 1;
-						}
+				} else if m.piece == PAWN as u8 {
+					let rank = m.to / 8;
+					if rank == 1 || rank == 6 {
+						extension = 1;
 					}
 				}
 			}

@@ -26,3 +26,14 @@ v4 contains fixes for Null Move Pruning
 1 Re-write v4       33      45     150     82.0     34.7%
 2 Re-write v3       12      46     150     77.5     32.7%
 3 Re-write v2      -44      43     150     65.5     40.7%
+
+
+Promotion extension tests
+                                 Elo     +/-   Games   Points   Draw
+Pawn one step from promotion     26      45    150     80.5     35.3%
+Promotion flag                  -7       45    150     73.5     35.3%
+Neither                         -19      45    150     71.0     34.7%
+
+
+Tests TODO:
+	TT enabled vs TT disabled
