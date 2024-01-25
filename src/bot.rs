@@ -252,17 +252,25 @@ impl Bot {
 		// TODO: Maybe allow these pruning techniques during PV nodes?
 		// Or maybe just make them more aggressive to allow for more search
 		// time on PV lines?
+
+		// TODO: maybe disable these pruning techniques when the opponent has no material, because it can't
+		// checkmate with N+B during games so I think it's pruning too much in those positions
 		if not_pv
 		&& depth > 0
 		&& !board.king_in_check(board.white_to_move) {
-			// TODO: move these around
-
 			let static_eval = board.evaluate();
+
+			// if not_pv { // ?
+			// Reverse Futility Pruning
+			if depth < 8 // TODO: 6?
+			&& static_eval - 60 * (depth as i32) >= beta { // TODO: tweak this threshold
+				return static_eval;
+			}
 
 			// Null Move Pruning
 			if depth > 2
 			&& static_eval >= beta
-			&& board.total_material_without_pawns > 0
+			&& board.total_material_without_pawns > 0 // TODO: maybe change this to endgame_multiplier?
 			&& board.get_last_move().capture == NO_PIECE as u8 // Moving the check from the above check to only NMP was a decent improvement
 			&& board.try_null_move() {
 				let evaluation = -self.alpha_beta_search(board, depth - 3, ply + 1, -beta, -beta + 1, total_extensions);
@@ -273,12 +281,7 @@ impl Bot {
 					return evaluation;
 				}
 			}
-
-			// Reverse Futility Pruning
-			if depth < 5
-			&& static_eval - 60 * (depth as i32) >= beta { // TODO: tweak this threshold
-				return static_eval;
-			}
+			// }
 
 			// Razoring
 			if depth < 4
@@ -316,6 +319,8 @@ impl Bot {
 			ply as usize,
 		);
 
+		// let mut found_pv = false;
+
 		let mut i = 0;
 		for (_, m) in sorted_moves {
 			if !board.make_move(m) {
@@ -334,24 +339,33 @@ impl Bot {
 				}
 			}
 
-			// Late Move Reductions
 			let mut evaluation = 0;
 			let mut needs_full_search = true;
 
+			// Late Move Reductions
 			if i > 2
 			&& depth > 2
 			&& extension == 0
 			&& m.capture == NO_PIECE as u8 {
-				// let mut reduction = 1;
-
-				// if hash_move.is_none() {
-				// 	// Internal Iterative Reductions
-				// 	reduction += 1;
-				// }
-
 				evaluation = -self.alpha_beta_search(board, depth - 2, ply + 1, -alpha - 1, -alpha, total_extensions);
 				needs_full_search = evaluation > alpha;
 			}
+
+			// Principal Variation Search
+			// if found_pv || not_pv {
+			// 	if i > 2
+			// 	&& extension == 0
+			// 	&& m.capture == NO_PIECE as u8 {
+			// 		// Late Move Reductions
+			// 		evaluation = -self.alpha_beta_search(board, depth.saturating_sub(3), ply + 1, -alpha - 1, -alpha, total_extensions);
+			// 		needs_fuller_search = evaluation > alpha;
+			// 	}
+
+			// 	if needs_fuller_search {
+			// 		evaluation = -self.alpha_beta_search(board, depth - 1, ply + 1, -alpha - 1, -alpha, total_extensions + extension);
+			// 		needs_fuller_search = evaluation > alpha;
+			// 	}
+			// }
 
 			if needs_full_search {
 				evaluation = -self.alpha_beta_search(board, depth - 1 + extension, ply + 1, -beta, -alpha, total_extensions + extension);
@@ -375,6 +389,8 @@ impl Bot {
 			}
 
 			if evaluation > alpha {
+				// found_pv = true;
+
 				best_move_this_search = m;
 				eval_bound = EvalBound::Exact;
 				alpha = evaluation;

@@ -1,6 +1,7 @@
 /* TODO
 overhaul CLI / UCI interface with proper error handling
 look into using "buckets" for transposition table
+count white and black material separately
 
 big idea:
 	remove all constant variables, and put them into the BotConfig struct,

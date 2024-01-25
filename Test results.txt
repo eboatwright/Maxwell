@@ -51,9 +51,12 @@ Capture check only before NMP vs Re-write v5 (Capture check before any pruning) 
 
 
                                                 Elo     +/-    Games   Points    Draw
-Capture check before NMP                        17      20     800     419.0     31.3%
+Re-write v6 (Capture check before NMP)          17      20     800     419.0     31.3%
 Removed capture check                           7       20     800     408.0     31.5%
 Re-write v5 (Capture check before pruning)     -23      20     800     373.0     29.8%
+
+
+Score of Re-write v7 (RFP before NMP) vs Re-write v6: 136 - 120 - 144
 
 
 Tests TODO:
