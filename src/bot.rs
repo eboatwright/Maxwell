@@ -218,9 +218,9 @@ impl Bot {
 			return 0;
 		}
 
-		self.positions_searched += 1;
-
 		if ply > 0 {
+			self.positions_searched += 1;
+
 			if board.is_draw() {
 				// Should I use this to discourage making a draw in a winning position?
 				// return -self.quiescence_search(board, alpha, beta);
@@ -228,7 +228,6 @@ impl Bot {
 			}
 
 			// Mate Distance Pruning
-			let mate_value = CHECKMATE_EVAL - ply as i32;
 			let alpha = i32::max(alpha, -CHECKMATE_EVAL + ply as i32);
 			let beta = i32::min(beta, CHECKMATE_EVAL - ply as i32);
 			if alpha >= beta {
@@ -255,7 +254,6 @@ impl Bot {
 		// time on PV lines?
 		if not_pv
 		&& depth > 0
-		&& board.get_last_move().capture == NO_PIECE as u8 // ?
 		&& !board.king_in_check(board.white_to_move) {
 			// TODO: move these around
 
@@ -265,6 +263,7 @@ impl Bot {
 			if depth > 2
 			&& static_eval >= beta
 			&& board.total_material_without_pawns > 0
+			&& board.get_last_move().capture == NO_PIECE as u8 // Moving the check from the above check to only NMP was a decent improvement
 			&& board.try_null_move() {
 				let evaluation = -self.alpha_beta_search(board, depth - 3, ply + 1, -beta, -beta + 1, total_extensions);
 
@@ -289,6 +288,10 @@ impl Bot {
 		}
 
 		if depth == 0 {
+			// The current position will now be searched as a quiescence position, so we
+			// put positions searched back to where it was to avoid double counting nodes
+			// (This was in Tcheran's changelog, and I realized I have the exact same problem)
+			self.positions_searched -= 1;
 			return self.quiescence_search(board, alpha, beta);
 		}
 

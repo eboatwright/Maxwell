@@ -1,5 +1,6 @@
-!!! For X - Y - Z the order is Wins, Losses, Draws
-
+For X - Y - Z the order is: Wins, Losses, Draws
+Time control: 30+0.5 or 10+0.2
+================================================================
 
 Re-write v1 vs v3.0.8: 17 - 14 - 19
 
@@ -41,6 +42,18 @@ Re-write v4 vs Aspiration window drops after out of bounds: 275 - 263 - 262
 
 
 Re-write v5 (Uses evaluation from the last iteration instead from the last search) vs Re-write v4: 106 - 93 - 101
+
+
+Removed capture check before doing pruning techniques vs Re-write v5: 126 - 98 - 76
+
+
+Capture check only before NMP vs Re-write v5 (Capture check before any pruning) 54 - 37 - 35
+
+
+                                                Elo     +/-    Games   Points    Draw
+Capture check before NMP                        17      20     800     419.0     31.3%
+Removed capture check                           7       20     800     408.0     31.5%
+Re-write v5 (Capture check before pruning)     -23      20     800     373.0     29.8%
 
 
 Tests TODO:
