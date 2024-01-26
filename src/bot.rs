@@ -252,9 +252,6 @@ impl Bot {
 		// TODO: Maybe allow these pruning techniques during PV nodes?
 		// Or maybe just make them more aggressive to allow for more search
 		// time on PV lines?
-
-		// TODO: maybe disable these pruning techniques when the opponent has no material, because it can't
-		// checkmate with N+B during games so I think it's pruning too much in those positions
 		if not_pv
 		&& depth > 0
 		&& !board.king_in_check(board.white_to_move) {
@@ -270,7 +267,8 @@ impl Bot {
 			// Null Move Pruning
 			if depth > 2
 			&& static_eval >= beta
-			&& board.total_material_without_pawns > 0 // TODO: maybe change this to endgame_multiplier?
+			&& board.total_material_without_pawns > 0
+			// && board.endgame_multiplier() < 1.0 // TODO
 			&& board.get_last_move().capture == NO_PIECE as u8 // Moving the check from the above check to only NMP was a decent improvement
 			&& board.try_null_move() {
 				let evaluation = -self.alpha_beta_search(board, depth - 3, ply + 1, -beta, -beta + 1, total_extensions);
@@ -319,7 +317,7 @@ impl Bot {
 			ply as usize,
 		);
 
-		// let mut found_pv = false;
+		let mut found_pv = false;
 
 		let mut i = 0;
 		for (_, m) in sorted_moves {
@@ -340,34 +338,27 @@ impl Bot {
 			}
 
 			let mut evaluation = 0;
-			let mut needs_full_search = true;
+			let mut needs_fuller_search = true;
 
 			// Late Move Reductions
-			if i > 2
-			&& depth > 2
+			if i > 3 // 2?
+			&& depth > 2 // 1?
 			&& extension == 0
 			&& m.capture == NO_PIECE as u8 {
-				evaluation = -self.alpha_beta_search(board, depth - 2, ply + 1, -alpha - 1, -alpha, total_extensions);
-				needs_full_search = evaluation > alpha;
+				let reduction = 2 + (depth - 2) / 5; // TODO: tweak this
+
+				evaluation = -self.alpha_beta_search(board, depth.saturating_sub(reduction), ply + 1, -alpha - 1, -alpha, total_extensions);
+				needs_fuller_search = evaluation > alpha && evaluation < beta; // && evaluation < beta?
 			}
 
 			// Principal Variation Search
-			// if found_pv || not_pv {
-			// 	if i > 2
-			// 	&& extension == 0
-			// 	&& m.capture == NO_PIECE as u8 {
-			// 		// Late Move Reductions
-			// 		evaluation = -self.alpha_beta_search(board, depth.saturating_sub(3), ply + 1, -alpha - 1, -alpha, total_extensions);
-			// 		needs_fuller_search = evaluation > alpha;
-			// 	}
+			if needs_fuller_search
+			&& found_pv {
+				evaluation = -self.alpha_beta_search(board, depth - 1, ply + 1, -alpha - 1, -alpha, total_extensions + extension);
+				needs_fuller_search = evaluation > alpha; // && evaluation < beta?
+			}
 
-			// 	if needs_fuller_search {
-			// 		evaluation = -self.alpha_beta_search(board, depth - 1, ply + 1, -alpha - 1, -alpha, total_extensions + extension);
-			// 		needs_fuller_search = evaluation > alpha;
-			// 	}
-			// }
-
-			if needs_full_search {
+			if needs_fuller_search {
 				evaluation = -self.alpha_beta_search(board, depth - 1 + extension, ply + 1, -beta, -alpha, total_extensions + extension);
 			}
 
@@ -389,7 +380,7 @@ impl Bot {
 			}
 
 			if evaluation > alpha {
-				// found_pv = true;
+				found_pv = true;
 
 				best_move_this_search = m;
 				eval_bound = EvalBound::Exact;

@@ -59,5 +59,8 @@ Re-write v5 (Capture check before pruning)     -23      20     800     373.0    
 Score of Re-write v7 (RFP before NMP) vs Re-write v6: 136 - 120 - 144
 
 
+Score of Re-write v8 (New PVS) vs Re-write v7: 161 - 117 - 122
+
+
 Tests TODO:
 	TT enabled vs TT disabled

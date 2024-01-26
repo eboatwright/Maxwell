@@ -1,4 +1,7 @@
 /* TODO
+the engine makes horrible endgame blunders for some reason:
+	making a 3-fold repetition when it's K+Q vs K, K+N+B vs K and K+P vs K
+
 overhaul CLI / UCI interface with proper error handling
 look into using "buckets" for transposition table
 count white and black material separately
