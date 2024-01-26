@@ -62,5 +62,8 @@ Score of Re-write v7 (RFP before NMP) vs Re-write v6: 136 - 120 - 144
 Score of Re-write v8 (New PVS) vs Re-write v7: 161 - 117 - 122
 
 
+Score of Re-write v9 (LMR & PVS changes) vs Re-write v8 (New PVS): 418 - 241 - 341
+
+
 Tests TODO:
 	TT enabled vs TT disabled

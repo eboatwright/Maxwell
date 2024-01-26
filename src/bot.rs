@@ -341,14 +341,23 @@ impl Bot {
 			let mut needs_fuller_search = true;
 
 			// Late Move Reductions
-			if i > 3 // 2?
-			&& depth > 2 // 1?
+			if i > 3
+			// && depth > 1
+			// && depth > 2
 			&& extension == 0
 			&& m.capture == NO_PIECE as u8 {
-				let reduction = 2 + (depth - 2) / 5; // TODO: tweak this
+				let mut reduction = 2;
+
+				if found_pv {
+					reduction += 1;
+				}
+
+				if not_pv {
+					reduction += 1;
+				}
 
 				evaluation = -self.alpha_beta_search(board, depth.saturating_sub(reduction), ply + 1, -alpha - 1, -alpha, total_extensions);
-				needs_fuller_search = evaluation > alpha && evaluation < beta; // && evaluation < beta?
+				needs_fuller_search = evaluation > alpha; // && evaluation < beta?
 			}
 
 			// Principal Variation Search

@@ -106,12 +106,10 @@ impl TranspositionTable {
 						fixed_mate_evaluation = (data.evaluation * sign - ply as i32) * sign;
 					}
 
-					if match data.eval_bound {
-						EvalBound::LowerBound => fixed_mate_evaluation >= beta,
-						EvalBound::UpperBound => fixed_mate_evaluation <= alpha,
-						EvalBound::Exact => true,
-					} {
-						return_evaluation = Some(fixed_mate_evaluation);
+					match data.eval_bound {
+						EvalBound::LowerBound => if fixed_mate_evaluation >= beta { return_evaluation = Some(beta); },
+						EvalBound::UpperBound => if fixed_mate_evaluation <= alpha { return_evaluation = Some(alpha); },
+						EvalBound::Exact => return_evaluation = Some(fixed_mate_evaluation),
 					}
 				}
 
