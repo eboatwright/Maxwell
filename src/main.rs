@@ -1,6 +1,8 @@
 /* TODO
-the engine makes horrible endgame blunders for some reason:
-	making a 3-fold repetition when it's K+Q vs K, K+N+B vs K and K+P vs K
+It still makes 3-fold repetitions when it's completely winning and low time
+
+Every few thousand games or so, it'll play an illegal move: always "e1g1" so I gotta go
+look thorugh the castling logic
 
 overhaul CLI / UCI interface with proper error handling
 look into using "buckets" for transposition table
@@ -70,14 +72,15 @@ use std::io;
 use colored::Colorize;
 use std::time::Instant;
 
-pub const STARTING_FEN:      &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const KIWIPETE_FEN:      &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
-pub const TEST_POSITION_4:   &str = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
-pub const DRAWN_ENDGAME_FEN: &str = "8/8/8/3k4/R5p1/P5r1/4K3/8 w - - 0 1";
-pub const MATE_IN_5_FEN:     &str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
-pub const PAWN_ENDGAME_FEN:  &str = "8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1";
-pub const ENDGAME_POSITION:  &str = "8/pk4p1/2prp3/3p1p2/3P2p1/R2BP3/2P2KPP/8 w - - 8 35";
-pub const PAWN_EVAL_TESTING: &str = "4k3/p1pp4/8/4pp1P/2P4P/8/P5P1/4K3 w - - 0 1";
+pub const STARTING_FEN:         &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+pub const KIWIPETE_FEN:         &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
+pub const TEST_POSITION_4:      &str = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
+pub const DRAWN_ENDGAME_FEN:    &str = "8/8/8/3k4/R5p1/P5r1/4K3/8 w - - 0 1";
+pub const MATE_IN_5_FEN:        &str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
+pub const PAWN_ENDGAME_FEN:     &str = "8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1";
+pub const ONE_PAWN_ENDGAME_FEN: &str = "8/8/1k6/8/8/1K6/1P6/8 w - - 0 1";
+pub const ENDGAME_POSITION:     &str = "8/pk4p1/2prp3/3p1p2/3P2p1/R2BP3/2P2KPP/8 w - - 8 35";
+pub const PAWN_EVAL_TESTING:    &str = "4k3/p1pp4/8/4pp1P/2P4P/8/P5P1/4K3 w - - 0 1";
 
 fn main() {
 	let mut bot_config = BotConfig::from_args(std::env::args().collect::<Vec<String>>());
@@ -223,7 +226,7 @@ fn main() {
 			"print" => board.print(),
 			"bitboards" => board.print_bitboards(),
 			"castlingrights" => print_castling_rights(board.castling_rights.current),
-			"zobrist" => println!("{}", board.zobrist.key),
+			"zobrist" => println!("{}", board.zobrist.key.current),
 			"eval" => println!("{}", board.evaluate() * board.perspective()),
 
 			"ttsize" => bot.transposition_table.print_size(),

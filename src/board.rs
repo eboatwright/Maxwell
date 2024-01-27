@@ -98,11 +98,7 @@ impl Board {
 			}
 		}
 
-		// This has to be done after the board is setup (Duh)
-		let mut zobrist = Zobrist::generate();
-		zobrist.generate_initial_key(&mut board);
-		board.zobrist = zobrist;
-
+		board.zobrist = Zobrist::generate(&mut board);
 		board.calculate_attacked_squares();
 
 		board
@@ -439,7 +435,7 @@ impl Board {
 
 		self.fifty_move_draw.pop();
 		self.castling_rights.pop();
-		self.zobrist.pop();
+		self.zobrist.key.pop();
 
 		self.attacked_squares_calculated = [false; 2];
 
@@ -480,8 +476,6 @@ impl Board {
 
 		// 	self.undo_last_move();
 		// }
-
-		// result
 
 		result
 	}
@@ -1022,13 +1016,13 @@ impl Board {
 
 	pub fn undo_null_move(&mut self) {
 		self.white_to_move = !self.white_to_move;
-		self.zobrist.pop();
+		self.zobrist.key.pop();
 		self.moves.pop();
 	}
 
 	pub fn is_draw(&self) -> bool {
 		   self.fifty_move_draw.current >= 50
 		|| self.insufficient_checkmating_material()
-		|| self.zobrist.is_threefold_repetition()
+		|| self.zobrist.is_repetition()
 	}
 }

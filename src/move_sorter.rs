@@ -20,6 +20,7 @@ pub const MVV_LVA: [i32; 36] = [
 pub struct MoveSorter {
 	// pub pv_table: PVTable,
 	pub killer_moves: [KillerMoves; MAX_SORT_MOVE_PLY],
+	// pub history: [[[i32; 64]; 64]; 2],
 	pub history: [[i32; 64]; PIECE_COUNT],
 	// TODO: Countermoves?
 }

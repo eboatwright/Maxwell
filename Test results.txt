@@ -1,5 +1,5 @@
 For X - Y - Z the order is: Wins, Losses, Draws
-Time control: 30+0.5 or 10+0.2
+Time controls I usually use: 30+0.5 or 10+0.2
 ================================================================
 
 Re-write v1 vs v3.0.8: 17 - 14 - 19
@@ -63,6 +63,12 @@ Score of Re-write v8 (New PVS) vs Re-write v7: 161 - 117 - 122
 
 
 Score of Re-write v9 (LMR & PVS changes) vs Re-write v8 (New PVS): 418 - 241 - 341
+
+
+Score of Re-write v10 vs Re-write v9: 138 - 135 - 127
+
+
+Score of Re-write v10 vs Maxwell v3.0.8: 754 - 171 - 331 (1256 games!)
 
 
 Tests TODO:

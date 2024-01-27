@@ -44,6 +44,10 @@ fn perft(board: &mut Board, results: &mut PerftResults, depth: u8, ply: u8) {
 	}
 
 	for data in board.get_pseudo_legal_moves_for_color(board.white_to_move, false) {
+		if !board.make_move(data) {
+			continue;
+		}
+
 		let position_count_before_move = results.positions;
 
 		if data.capture != NO_PIECE as u8 {
@@ -59,10 +63,6 @@ fn perft(board: &mut Board, results: &mut PerftResults, depth: u8, ply: u8) {
 
 		if PROMOTABLE.contains(&data.flag) {
 			results.promotions += 1;
-		}
-
-		if !board.make_move(data) {
-			continue;
 		}
 
 		if board.king_in_check(board.white_to_move) {

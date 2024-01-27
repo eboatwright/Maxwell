@@ -228,14 +228,15 @@ impl Bot {
 			}
 
 			// Mate Distance Pruning
-			let alpha = i32::max(alpha, -CHECKMATE_EVAL + ply as i32);
-			let beta = i32::min(beta, CHECKMATE_EVAL - ply as i32);
+			let mate_value = CHECKMATE_EVAL - ply as i32;
+			let alpha = i32::max(alpha, -mate_value);
+			let beta = i32::min(beta, mate_value - 1);
 			if alpha >= beta {
 				return alpha;
 			}
 		}
 
-		let (tt_eval, hash_move) = self.transposition_table.lookup(board.zobrist.key, ply, depth, alpha, beta);
+		let (tt_eval, hash_move) = self.transposition_table.lookup(board.zobrist.key.current, ply, depth, alpha, beta);
 
 		// We don't really want to return from the root node, because if a hash collision occurs (although very rare)
 		// It will return an illegal move
@@ -363,6 +364,7 @@ impl Bot {
 			// Principal Variation Search
 			if needs_fuller_search
 			&& found_pv {
+				// Oops I forgot depth - 1 + extension
 				evaluation = -self.alpha_beta_search(board, depth - 1, ply + 1, -alpha - 1, -alpha, total_extensions + extension);
 				needs_fuller_search = evaluation > alpha; // && evaluation < beta?
 			}
@@ -378,7 +380,7 @@ impl Bot {
 			}
 
 			if evaluation >= beta {
-				self.transposition_table.store(board.zobrist.key, depth, ply, beta, m, EvalBound::LowerBound);
+				self.transposition_table.store(board.zobrist.key.current, depth, ply, beta, m, EvalBound::LowerBound);
 
 				if m.capture == NO_PIECE as u8 {
 					self.move_sorter.push_killer_move(m, ply as usize);
@@ -414,7 +416,7 @@ impl Bot {
 		}
 
 		if best_move_this_search != NULL_MOVE {
-			self.transposition_table.store(board.zobrist.key, depth, ply, alpha, best_move_this_search, eval_bound);
+			self.transposition_table.store(board.zobrist.key.current, depth, ply, alpha, best_move_this_search, eval_bound);
 		}
 
 		alpha

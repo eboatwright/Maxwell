@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ValueHolder<T: Copy> {
 	pub current: T,
 	pub index: usize,
@@ -26,6 +26,10 @@ impl<T: Copy> ValueHolder<T> where T: Copy {
 	pub fn pop(&mut self) {
 		self.index -= 1;
 		self.current = self.history[self.index];
+	}
+
+	pub fn last(&mut self) -> Option<T> {
+		self.history.last().copied()
 	}
 
 	pub fn clear(&mut self) {
