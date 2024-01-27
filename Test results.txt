@@ -71,5 +71,8 @@ Score of Re-write v10 vs Re-write v9: 138 - 135 - 127
 Score of Re-write v10 vs Maxwell v3.0.8: 754 - 171 - 331 (1256 games!)
 
 
+Score of Re-write v10 vs Added extension to PVS searches: 99 - 85 - 116 (?)
+
+
 Tests TODO:
 	TT enabled vs TT disabled

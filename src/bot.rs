@@ -364,7 +364,7 @@ impl Bot {
 			// Principal Variation Search
 			if needs_fuller_search
 			&& found_pv {
-				// Oops I forgot depth - 1 + extension
+				// Adding the extension to this search actually made it worse?
 				evaluation = -self.alpha_beta_search(board, depth - 1, ply + 1, -alpha - 1, -alpha, total_extensions + extension);
 				needs_fuller_search = evaluation > alpha; // && evaluation < beta?
 			}
