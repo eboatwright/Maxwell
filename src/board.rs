@@ -313,20 +313,27 @@ impl Board {
 				self.color_bitboards[0] ^= 1;
 				self.color_bitboards[0] ^= 1 << 3;
 			}
-		} else if data.from == 0
-		|| data.to == 0 {
+		}
+
+		if data.from == 0 {
 			self.castling_rights.current &= !BLACK_CASTLE_LONG;
-		} else if data.from == 7
-		|| data.to == 7 {
+		} else if data.from == 7 {
 			self.castling_rights.current &= !BLACK_CASTLE_SHORT;
-		} else if data.from == 56
-		|| data.to == 56 {
+		} else if data.from == 56 {
 			self.castling_rights.current &= !WHITE_CASTLE_LONG;
-		} else if data.from == 63
-		|| data.to == 63 {
+		} else if data.from == 63 {
 			self.castling_rights.current &= !WHITE_CASTLE_SHORT;
 		}
 
+		if data.to == 0 {
+			self.castling_rights.current &= !BLACK_CASTLE_LONG;
+		} else if data.to == 7 {
+			self.castling_rights.current &= !BLACK_CASTLE_SHORT;
+		} else if data.to == 56 {
+			self.castling_rights.current &= !WHITE_CASTLE_LONG;
+		} else if data.to == 63 {
+			self.castling_rights.current &= !WHITE_CASTLE_SHORT;
+		}
 
 		if data.capture == NO_PIECE as u8
 		&& get_piece_type(data.piece as usize) != PAWN {
