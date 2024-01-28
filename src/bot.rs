@@ -343,7 +343,7 @@ impl Bot {
 
 			// Late Move Reductions
 			if i > 3
-			// && depth > 1
+			&& depth > 1
 			// && depth > 2
 			&& extension == 0
 			&& m.capture == NO_PIECE as u8 {
@@ -365,7 +365,7 @@ impl Bot {
 			if needs_fuller_search
 			&& found_pv {
 				// Adding the extension to this search actually made it worse?
-				evaluation = -self.alpha_beta_search(board, depth - 1, ply + 1, -alpha - 1, -alpha, total_extensions + extension);
+				evaluation = -self.alpha_beta_search(board, depth - 1, ply + 1, -alpha - 1, -alpha, total_extensions);
 				needs_fuller_search = evaluation > alpha; // && evaluation < beta?
 			}
 

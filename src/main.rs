@@ -1,9 +1,8 @@
 /* TODO
 It still makes 3-fold repetitions when it's completely winning and low time
+	(I think this might have been fixed with the new draw detection changes?)
 
-Every few thousand games or so, it'll play an illegal move: always "e1g1" so I gotta go
-look thorugh the castling logic
-
+maybe remove the whole search extension logic and just add to depth?
 overhaul CLI / UCI interface with proper error handling
 look into using "buckets" for transposition table
 count white and black material separately

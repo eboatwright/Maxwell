@@ -77,15 +77,10 @@ impl Zobrist {
 		zobrist
 	}
 
-	// TODO: take in the current fifty move counter, and only count positions from there?
-	pub fn is_repetition(&self) -> bool {
+	pub fn is_repetition(&self, fifty_move_counter: usize) -> bool {
 		// let mut count = 0;
-		for i in 0..self.key.index {
+		for i in ((self.key.index - fifty_move_counter)..self.key.index).step_by(2) {
 			if self.key.history[i] == self.key.current {
-				// count += 1;
-				// if count >= 2 {
-				// 	return true;
-				// }
 				return true;
 			}
 		}

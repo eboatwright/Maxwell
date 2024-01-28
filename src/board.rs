@@ -23,7 +23,7 @@ pub struct Board {
 	pub attacked_squares_bitboards: [u64; 2],
 
 	pub castling_rights: ValueHolder<u8>,
-	pub fifty_move_draw: ValueHolder<u8>,
+	pub fifty_move_counter: ValueHolder<u8>,
 
 	pub en_passant_file: usize,
 	pub white_to_move: bool,
@@ -48,7 +48,7 @@ impl Board {
 		if fen[2].contains('q') { castling_rights ^= BLACK_CASTLE_LONG; }
 		if fen[2].contains('k') { castling_rights ^= BLACK_CASTLE_SHORT; }
 
-		let fifty_move_draw = fen[4].parse::<u8>().unwrap_or(0);
+		let fifty_move_counter = fen[4].parse::<u8>().unwrap_or(0);
 
 		let mut board = Self {
 			precalculated_move_data: PrecalculatedMoveData::calculate(),
@@ -58,7 +58,7 @@ impl Board {
 			attacked_squares_bitboards: [0; 2],
 
 			castling_rights: ValueHolder::new(castling_rights),
-			fifty_move_draw: ValueHolder::new(fifty_move_draw),
+			fifty_move_counter: ValueHolder::new(fifty_move_counter),
 
 			en_passant_file: 0, // This isn't implemented at all
 			// en_passant_file: if fen[3] == "-" { 0 } else { (coordinate_to_index(fen[3]) % 8) + 1 },
@@ -316,28 +316,36 @@ impl Board {
 				self.color_bitboards[0] ^= 1;
 				self.color_bitboards[0] ^= 1 << 3;
 			}
-		} else if data.from == 0
-		|| data.to == 0 {
+		}
+
+		if data.from == 0 {
 			self.castling_rights.current &= !BLACK_CASTLE_LONG;
-		} else if data.from == 7
-		|| data.to == 7 {
+		} else if data.from == 7 {
 			self.castling_rights.current &= !BLACK_CASTLE_SHORT;
-		} else if data.from == 56
-		|| data.to == 56 {
+		} else if data.from == 56 {
 			self.castling_rights.current &= !WHITE_CASTLE_LONG;
-		} else if data.from == 63
-		|| data.to == 63 {
+		} else if data.from == 63 {
+			self.castling_rights.current &= !WHITE_CASTLE_SHORT;
+		}
+
+		if data.to == 0 {
+			self.castling_rights.current &= !BLACK_CASTLE_LONG;
+		} else if data.to == 7 {
+			self.castling_rights.current &= !BLACK_CASTLE_SHORT;
+		} else if data.to == 56 {
+			self.castling_rights.current &= !WHITE_CASTLE_LONG;
+		} else if data.to == 63 {
 			self.castling_rights.current &= !WHITE_CASTLE_SHORT;
 		}
 
 		if data.capture == NO_PIECE as u8
 		&& get_piece_type(data.piece as usize) != PAWN {
-			self.fifty_move_draw.current += 1;
+			self.fifty_move_counter.current += 1;
 		} else {
-			self.fifty_move_draw.current = 0;
+			self.fifty_move_counter.current = 0;
 		}
 
-		self.fifty_move_draw.push();
+		self.fifty_move_counter.push();
 		self.castling_rights.push();
 
 		self.zobrist.make_move(
@@ -433,7 +441,7 @@ impl Board {
 			}
 		}
 
-		self.fifty_move_draw.pop();
+		self.fifty_move_counter.pop();
 		self.castling_rights.pop();
 		self.zobrist.key.pop();
 
@@ -1021,8 +1029,8 @@ impl Board {
 	}
 
 	pub fn is_draw(&self) -> bool {
-		   self.fifty_move_draw.current >= 50
+		   self.fifty_move_counter.current >= 100
 		|| self.insufficient_checkmating_material()
-		|| self.zobrist.is_repetition()
+		|| self.zobrist.is_repetition(self.fifty_move_counter.current as usize)
 	}
 }
