@@ -77,5 +77,12 @@ Score of Re-write v10 vs Added extension to PVS searches: 99 - 85 - 116 (?)
 Score of Re-write v11 vs Re-write v10: 376 - 343 - 481
 
 
+Score of With alpha TT stores vs Without alpha TT stores (Re-write v11): 239 - 256 - 355
+
+
+Don't allow more than one null move in the search tree at once vs Re-write v11: 175 - 167 - 268
+	Techincally a win, but the scores were fluctuating a good bit, and I'm not so sure about it
+
+
 Tests TODO:
 	TT enabled vs TT disabled

@@ -1,4 +1,4 @@
-use crate::pv_table::PVTable;
+// use crate::pv_table::PVTable;
 use crate::move_data::EN_PASSANT_FLAG;
 use crate::killer_moves::KillerMoves;
 use crate::move_data::{MoveData, NULL_MOVE};
@@ -20,15 +20,15 @@ pub const MVV_LVA: [i32; 36] = [
 pub struct MoveSorter {
 	// pub pv_table: PVTable,
 	pub killer_moves: [KillerMoves; MAX_SORT_MOVE_PLY],
-	// pub history: [[[i32; 64]; 64]; 2],
 	pub history: [[i32; 64]; PIECE_COUNT],
-	// TODO: Countermoves?
+	// TODO:
+	// pub history: [[i32; 64]; 64],
+	// pub countermoves: [[MoveData; 64]; PIECE_COUNT],
 }
 
 impl MoveSorter {
 	pub fn new() -> Self {
 		Self {
-			// pv_table: PVTable::new(),
 			killer_moves: [KillerMoves::new(); MAX_SORT_MOVE_PLY],
 			history: [[0; 64]; PIECE_COUNT],
 		}
@@ -51,7 +51,6 @@ impl MoveSorter {
 		}
 
 		let mut scores = vec![];
-
 		let squares_opponent_attacks = board.get_attacked_squares_for_color((!board.white_to_move) as usize);
 
 		for m in moves {

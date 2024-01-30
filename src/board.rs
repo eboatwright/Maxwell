@@ -1031,6 +1031,6 @@ impl Board {
 	pub fn is_draw(&self) -> bool {
 		   self.fifty_move_counter.current >= 100
 		|| self.insufficient_checkmating_material()
-		|| self.zobrist.is_repetition(self.fifty_move_counter.current as usize)
+		|| self.zobrist.is_repetition(self.fifty_move_counter.current as usize) // TODO: should I take into account null moves?
 	}
 }

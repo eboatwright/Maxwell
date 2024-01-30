@@ -1,41 +1,3 @@
-/* TODO
-It still makes 3-fold repetitions when it's completely winning and low time
-	(I think this might have been fixed with the new draw detection changes?)
-
-maybe remove the whole search extension logic and just add to depth?
-overhaul CLI / UCI interface with proper error handling
-look into using "buckets" for transposition table
-count white and black material separately
-
-big idea:
-	remove all constant variables, and put them into the BotConfig struct,
-	then write my own tuning / matchmaking program that will tweak the values
-	and play matches until it finds better values...
-
-thoughts on NNUE:
-	I've wanted to learn how to write neural net for a long time, so I want to implement NNUE eventually.
-	But what I'm not going to do is just find a SF NNUE library and stick it in there because that's lame
-
-calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
-check out pin detection to speed up check detection?
-figure out how to implement "pondering" to think on opponent's time
-
-https://www.chessprogramming.org/Texel's_Tuning_Method
-
-Random ideas to try
-History reductions
-https://www.chessprogramming.org/Internal_Iterative_Deepening
-https://www.chessprogramming.org/Static_Exchange_Evaluation
-https://www.chessprogramming.org/History_Leaf_Pruning
-https://www.chessprogramming.org/Futility_Pruning#MoveCountBasedPruning
-https://www.chessprogramming.org/Countermove_Heuristic
-https://www.chessprogramming.org/ProbCut
-https://www.chessprogramming.org/Razoring#Strelka
-
-Some random resources I found: (Not using them right now but they could be useful)
-https://analog-hors.github.io/site/magic-bitboards/
-*/
-
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unused_imports)]
@@ -59,6 +21,7 @@ mod perft;
 mod bot;
 mod pv_table;
 mod move_sorter;
+mod move_list;
 
 use crate::castling_rights::print_castling_rights;
 use crate::bot::{Bot, BotConfig, MAX_SEARCH_EXTENSIONS};

@@ -129,8 +129,6 @@ impl Bot {
 
 		self.search_cancelled = false;
 
-		let last_evaluation = self.evaluation;
-
 		self.best_move = NULL_MOVE;
 
 		self.positions_searched = 0;
@@ -192,6 +190,17 @@ impl Bot {
 			}
 		}
 
+		if self.best_move == NULL_MOVE {
+			let legal_moves = board.get_pseudo_legal_moves_for_color(board.white_to_move, false);
+			for m in legal_moves {
+				if board.make_move(m) {
+					board.undo_last_move(); // Technically not necessary, but makes me happy :>
+					self.best_move = m;
+					break;
+				}
+			}
+		}
+
 		self.println(format!("{} seconds", self.think_timer.elapsed().as_secs_f32()));
 
 		if self.config.debug_output {
@@ -244,6 +253,12 @@ impl Bot {
 			if let Some(tt_eval) = tt_eval {
 				return tt_eval;
 			}
+
+			// Internal Iterative Reductions
+			// if depth > 3
+			// && hash_move.is_none() {
+			// 	depth -= 1;
+			// }
 		}
 
 		// This detects a null / zero window search, which is used in non PV nodes
@@ -255,6 +270,8 @@ impl Bot {
 		// time on PV lines?
 		if not_pv
 		&& depth > 0
+		// && !evaluation_is_mate(alpha) // TODO
+		// && !evaluation_is_mate(beta) // TODO
 		&& !board.king_in_check(board.white_to_move) {
 			let static_eval = board.evaluate();
 
@@ -280,6 +297,24 @@ impl Bot {
 					return evaluation;
 				}
 			}
+
+			// Random NMP testing
+			// if depth > 1
+			// && (static_eval >= beta || depth < 5)
+			// && board.total_material_without_pawns > 0
+			// && !evaluation_is_mate(beta)
+			// // && board.endgame_multiplier() < 1.0 // TODO
+			// && board.get_last_move().capture == NO_PIECE as u8 // Moving the check from the above check to only NMP was a decent improvement
+			// && board.try_null_move() {
+			// 	let reduction = 3 + depth / 10;
+			// 	let evaluation = -self.alpha_beta_search(board, depth.saturating_sub(reduction), ply + 1, -beta, -beta + 1, total_extensions);
+
+			// 	board.undo_null_move();
+
+			// 	if evaluation >= beta {
+			// 		return evaluation;
+			// 	}
+			// }
 			// }
 
 			// Razoring
@@ -320,7 +355,7 @@ impl Bot {
 
 		let mut found_pv = false;
 
-		let mut i = 0;
+		let mut legal_moves_found = 0;
 		for (_, m) in sorted_moves {
 			if !board.make_move(m) {
 				continue;
@@ -342,7 +377,7 @@ impl Bot {
 			let mut needs_fuller_search = true;
 
 			// Late Move Reductions
-			if i > 3
+			if legal_moves_found > 3
 			&& depth > 1
 			// && depth > 2
 			&& extension == 0
@@ -404,10 +439,10 @@ impl Bot {
 				}
 			}
 
-			i += 1;
+			legal_moves_found += 1;
 		}
 
-		if i == 0 {
+		if legal_moves_found == 0 {
 			if board.king_in_check(board.white_to_move) {
 				let mate_score = CHECKMATE_EVAL - ply as i32;
 				return -mate_score;
@@ -415,6 +450,8 @@ impl Bot {
 			return 0;
 		}
 
+		// I've seen a small improvement if I don't store EvalBound::UpperBound
+		// but idk I'll come back to this later
 		if best_move_this_search != NULL_MOVE {
 			self.transposition_table.store(board.zobrist.key.current, depth, ply, alpha, best_move_this_search, eval_bound);
 		}
@@ -440,12 +477,12 @@ impl Bot {
 			alpha = evaluation;
 		}
 
-		let legal_moves = board.get_pseudo_legal_moves_for_color(board.white_to_move, true);
-		if legal_moves.is_empty() {
+		let moves = board.get_pseudo_legal_moves_for_color(board.white_to_move, true);
+		if moves.is_empty() {
 			return evaluation;
 		}
 
-		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, usize::MAX);
+		let sorted_moves = self.move_sorter.sort_moves(board, moves, NULL_MOVE, usize::MAX);
 
 		for (_, m) in sorted_moves {
 			// Delta Pruning

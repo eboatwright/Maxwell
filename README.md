@@ -12,9 +12,11 @@
  - debug=\<BOOLEAN>: Toggle debug output that gets outputed per ply (default=true)
  - opening_book=\<BOOLEAN>: Toggle built-in opening book (default=false)
  - time_management=\<BOOLEAN>: Toggle time management, if false the bot will use all the remaining time (default=true)
+ - tt_size=\<INTEGER>: Sets the hash size in Megabytes, there's also a UCI option for this under the name "Hash" (default=256)
 #### UCI Interface
  - uci, isready, ucinewgame, position, go, stop, and quit commands
  - "position" is only implemented for "position startpos", "position fen" is not yet implemented
+ - "Hash" UCI option, which sets the hash / transposition table size in Megabytes
 #### Board Representation
  - Purely bitboards
  - Supports loading from FEN strings
@@ -23,6 +25,7 @@
  - Magic bitboards for sliding pieces
  - Hardcoded pawn movement
  - Bitboard masks for other pieces calculated at startup
+ - Calculates pseudo-legal moves, then skips illegal moves in move loop
 #### Evaluation
  - Material count
  - Piece square tables
@@ -30,19 +33,21 @@
  - Passed, isolated and doubled pawns
  - Attacked squares around kings
 #### Move Ordering
- - Best move from the previous iteration, otherwise from the transposition table
+ - Best move from the previous iteration, otherwise whatever move from the transposition table
  - MVV-LVA
  - 2 Killer Moves
  - History Heuristic
  - Penalty for moving a piece to a square an opponent's piece attacks
 #### Search
  - Iterative Deepening
+ - Negamax
+ - Principal Variation Search
  - Alpha-Beta Pruning
  - Late Move Reductions
  - Null Move Pruning
  - Razoring
  - Reverse Futility Pruning
- - Quiescence Search with Delta Pruning
+ - Quiescence Search with Delta Pruning (No TT hits)
  - Transposition Table
    - UCI Hash option to change max size, default is 256 MB
    - Replacement scheme prefers higher depth and exact evaluation bound
@@ -53,7 +58,7 @@
    - If less than 7 moves have been played, it uses 2.5% of it's remaining time, otherwise 7%
    - This value is then also clamped between 0.05 and 20.0 seconds
 
-## Helpful Sources & References
+## Helpful Sources & References (In no particular order)
  - [Sebastian Lague's Chess Programming series](https://www.youtube.com/playlist?list=PLFt_AvWsXl0cvHyu32ajwh2qU1i6hl77c)
  - [The Chess Programming Wiki](https://www.chessprogramming.org/Main_Page)
  - [BBC Engine Development](https://www.youtube.com/playlist?list=PLmN0neTso3Jxh8ZIylk74JpwfiWNI76Cs)
@@ -68,3 +73,5 @@
  - [Mediocre Chess](https://mediocrechess.blogspot.com/)
  - [Tcheran](https://github.com/jgilchrist/tcheran/)
  - [Rustic (Engine and Book)](https://github.com/mvanthoor/rustic)
+ - [Chess Programming Reddit](https://www.reddit.com/r/chessprogramming/)
+ - [TalkChess Forum](https://talkchess.com/forum3/index.php)
