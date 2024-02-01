@@ -4,7 +4,8 @@
  If you use this code verbatim, or as a reference, please credit me!<br><br>
  
  <br><br>
- [Play against Maxwell on Lichess!](https://lichess.org/@/MaxwellOnLC) | [Some of Maxwell's Games](https://www.chess.com/library/collections/maxwells-games-my-chess-engine-2FFU82NM4) | [Maxwell's CCRL](https://computerchess.org.uk/ccrl/404/cgi/engine_details.cgi?print=Details&each_game=1&eng=Maxwell%203.0.8-1%2064-bit#Maxwell_3_0_8-1_64-bit)
+ Rating Lists featuring Maxwell: [CCRL Blitz](https://computerchess.org.uk/ccrl/404/) | [MCERL](https://www.chessengeria.eu/mcerl)<br>
+ [Play against Maxwell on Lichess!](https://lichess.org/@/MaxwellOnLC) | [Some of Maxwell's Games](https://www.chess.com/library/collections/maxwells-games-my-chess-engine-2FFU82NM4)
 
 ## Features - NOT UP TO DATE WITH DEV BRANCH
 #### Parameters

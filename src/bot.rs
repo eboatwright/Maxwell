@@ -255,7 +255,8 @@ impl Bot {
 			}
 
 			// Internal Iterative Reductions
-			// if depth > 3
+			// if not_pv
+			// && depth > 2
 			// && hash_move.is_none() {
 			// 	depth -= 1;
 			// }
@@ -270,26 +271,42 @@ impl Bot {
 		// time on PV lines?
 		if not_pv
 		&& depth > 0
-		// && !evaluation_is_mate(alpha) // TODO
-		// && !evaluation_is_mate(beta) // TODO
+		&& !evaluation_is_mate(beta)
 		&& !board.king_in_check(board.white_to_move) {
 			let static_eval = board.evaluate();
 
-			// if not_pv { // ?
+			// TODO: work on this next
 			// Reverse Futility Pruning
-			if depth < 8 // TODO: 6?
-			&& static_eval - 60 * (depth as i32) >= beta { // TODO: tweak this threshold
+			if depth < 8
+			&& static_eval - 60 * (depth as i32) >= beta {
 				return static_eval;
 			}
 
+			// Strelka Razoring (Slightly modified)
+			// if depth < 4 {
+			// 	let razoring_threshold = static_eval +
+			// 		if depth == 1 {
+			// 			150
+			// 		} else {
+			// 			350
+			// 		};
+
+			// 	if razoring_threshold < beta {
+			// 		let evaluation = self.quiescence_search(board, alpha, beta);
+			// 		if evaluation < beta {
+			// 			return i32::max(evaluation, razoring_threshold);
+			// 		}
+			// 	}
+			// }
+
 			// Null Move Pruning
-			if depth > 2
-			&& static_eval >= beta
-			&& board.total_material_without_pawns > 0
-			// && board.endgame_multiplier() < 1.0 // TODO
+			if depth > 1
+			&& static_eval >= beta // Fruit used || depth > X here, but I haven't found great results with that
+			&& board.total_material_without_pawns[board.white_to_move as usize] > 0
 			&& board.get_last_move().capture == NO_PIECE as u8 // Moving the check from the above check to only NMP was a decent improvement
 			&& board.try_null_move() {
-				let evaluation = -self.alpha_beta_search(board, depth - 3, ply + 1, -beta, -beta + 1, total_extensions);
+				let reduction = 3 + (depth - 2) / 3;
+				let evaluation = -self.alpha_beta_search(board, depth.saturating_sub(reduction), ply + 1, -beta, -beta + 1, total_extensions);
 
 				board.undo_null_move();
 
@@ -298,28 +315,10 @@ impl Bot {
 				}
 			}
 
-			// Random NMP testing
-			// if depth > 1
-			// && (static_eval >= beta || depth < 5)
-			// && board.total_material_without_pawns > 0
-			// && !evaluation_is_mate(beta)
-			// // && board.endgame_multiplier() < 1.0 // TODO
-			// && board.get_last_move().capture == NO_PIECE as u8 // Moving the check from the above check to only NMP was a decent improvement
-			// && board.try_null_move() {
-			// 	let reduction = 3 + depth / 10;
-			// 	let evaluation = -self.alpha_beta_search(board, depth.saturating_sub(reduction), ply + 1, -beta, -beta + 1, total_extensions);
-
-			// 	board.undo_null_move();
-
-			// 	if evaluation >= beta {
-			// 		return evaluation;
-			// 	}
-			// }
-			// }
-
+			// TODO: definitely work on this, maybe allow it outside pv nodes?
 			// Razoring
 			if depth < 4
-			&& static_eval + 300 * (depth as i32) < alpha { // TODO: tweak this threshold
+			&& static_eval + 300 * (depth as i32) < alpha { // TODO: tweak this
 				depth -= 1;
 			}
 		}
@@ -362,7 +361,7 @@ impl Bot {
 			}
 
 			let mut extension = 0;
-			if total_extensions < MAX_SEARCH_EXTENSIONS as u8 {
+			if total_extensions < MAX_SEARCH_EXTENSIONS {
 				if board.king_in_check(board.white_to_move) {
 					extension = 1;
 				} else if m.piece == PAWN as u8 {
@@ -379,7 +378,6 @@ impl Bot {
 			// Late Move Reductions
 			if legal_moves_found > 3
 			&& depth > 1
-			// && depth > 2
 			&& extension == 0
 			&& m.capture == NO_PIECE as u8 {
 				let mut reduction = 2;
@@ -389,7 +387,7 @@ impl Bot {
 				}
 
 				if not_pv {
-					reduction += 1;
+					reduction += 1; // TODO: + depth / 6
 				}
 
 				evaluation = -self.alpha_beta_search(board, depth.saturating_sub(reduction), ply + 1, -alpha - 1, -alpha, total_extensions);

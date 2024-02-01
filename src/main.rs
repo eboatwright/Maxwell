@@ -23,6 +23,7 @@ mod pv_table;
 mod move_sorter;
 mod move_list;
 
+use crate::utils::move_str_is_valid;
 use crate::castling_rights::print_castling_rights;
 use crate::bot::{Bot, BotConfig, MAX_SEARCH_EXTENSIONS};
 use crate::perft::*;
@@ -64,6 +65,7 @@ fn main() {
 
 		// log.write(format!("Got command: {}\n", command));
 
+		// The length of this Vec will always be > 0
 		let command_split = command.trim()
 			.split(' ')
 			.collect::<Vec<&str>>();
@@ -80,15 +82,19 @@ fn main() {
 			}
 
 			"setoption" => {
-				// setoption name Hash value 32
-				// I KNOW this is horrible I'm gonna rewrite all this eventually
+				// 0         1    2             3     4
+				// setoption name <Option name> value <Value>
 
-				match command_split[2] {
-					"Hash" => {
-						bot_config.tt_size_in_mb = command_split[4].parse::<usize>().unwrap_or(256);
+				if let Some(option_name) = command_split.get(2) {
+					if let Some(value) = command_split.get(4) {
+						match *option_name {
+							"Hash" => {
+								bot_config.tt_size_in_mb = value.parse::<usize>().unwrap_or(256);
+							}
+
+							_ => {}
+						}
 					}
-
-					_ => {}
 				}
 			}
 
@@ -100,13 +106,15 @@ fn main() {
 				bot = Bot::new(bot_config.clone());
 			}
 
-			// TODO: allow "position fen"
+			// TODO: re-write this command, and allow "position fen"
 			// Format: position startpos (moves e2e4 e7e5 ...)
 			"position" => {
+				// Reset the board to the initial position
 				for _ in 0..board.moves.len() {
 					board.undo_last_move();
 				}
 
+				// "moves" is for the opening book
 				moves.clear();
 				for coordinates in command_split.iter().skip(3) {
 					moves += &format!("{} ", coordinates);
@@ -120,32 +128,42 @@ fn main() {
 				moves.pop();
 			}
 
-			// Format:
-			// go (infinite)
-			// go depth X
-			// go (movetime, wtime) X (btime Y)
 			"go" => {
-				let my_time_label = if board.white_to_move { "wtime" } else { "btime" };
 				let mut my_time = 0.0;
 				let mut depth_to_search = 255 - MAX_SEARCH_EXTENSIONS;
 
+				// Anything below 3 words is treated is treated as "go infinite"
 				if command_split.len() > 2 {
-					for i in [1, 3] {
-						if command_split[i] == my_time_label
-						|| command_split[i] == "movetime" {
-							if let Ok(time_in_millis) = command_split[i + 1].parse::<i32>() {
-								// This is capped at 1 millisecond, because if my_time is 0
-								// it will just ignore the time limit and calculate.
-								// (And also because sometimes Cutechess gives negative time for some reason)
-								my_time = i32::max(1, time_in_millis) as f32 / 1000.0;
-								break;
-							}
-						} else if command_split[i] == "depth" {
-							if let Ok(_depth_to_search) = command_split[i + 1].parse::<u8>() {
-								depth_to_search = _depth_to_search;
-								break;
+					let go_type = command_split[1];
+
+					// This is pretty dang ugly, but it works, and is safe :D
+					match go_type {
+						// go depth X
+						"depth" => {
+							if let Some(_depth_to_search) = command_split.get(2) {
+								if let Ok(_depth_to_search) = _depth_to_search.parse::<u8>() {
+									depth_to_search = _depth_to_search;
+								}
 							}
 						}
+
+						// go movetime X
+						"movetime" => {
+							if let Some(time_in_millis) = command_split.get(2) {
+								// These are capped to one millisecond, because 0.0 time is treated as "go infinite"
+								my_time = f32::max(1.0, time_in_millis.parse::<f32>().unwrap_or(0.0)) / 1000.0;
+							}
+						}
+
+						// go wtime X btime Y
+						"wtime" => {
+							let time_index = if board.white_to_move { 2 } else { 4 };
+							if let Some(time_in_millis) = command_split.get(time_index) {
+								my_time = f32::max(1.0, time_in_millis.parse::<f32>().unwrap_or(0.0)) / 1000.0;
+							}
+						}
+
+						_ => {}
 					}
 				}
 
@@ -155,7 +173,7 @@ fn main() {
 				// log.write(format!("bestmove {}", bot.best_move.to_coordinates()));
 			}
 
-			"stop" => bot.search_cancelled = true,
+			"stop" => bot.search_cancelled = true, // Now that I think about it, this doesn't actually do anything LMAO
 			"quit" => break,
 
 			// My debug tools
@@ -163,9 +181,15 @@ fn main() {
 			// "play" => play(command_split[1] == "white"),
 
 			"move" => {
-				let data = MoveData::from_coordinates(command_split[1].to_string());
-				if board.play_move(data) {
-					board.print();
+				if let Some(move_coordinates) = command_split.get(1) {
+					if move_str_is_valid(move_coordinates) {
+						let data = MoveData::from_coordinates(move_coordinates.to_string());
+						if board.play_move(data) {
+							board.print();
+						}
+					} else {
+						println!("Invalid move");
+					}
 				}
 			}
 
@@ -198,8 +222,10 @@ fn main() {
 			}
 
 			"perft" => {
-				let depth = command_split[1].parse::<u8>().expect("Invalid depth");
-				PerftResults::calculate(&mut board, depth);
+				if let Some(depth) = command_split.get(1) {
+					let depth = depth.parse::<u8>().unwrap_or(0);
+					PerftResults::calculate(&mut board, depth);
+				}
 			}
 
 			// "test" => {

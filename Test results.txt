@@ -84,5 +84,17 @@ Don't allow more than one null move in the search tree at once vs Re-write v11: 
 	Techincally a win, but the scores were fluctuating a good bit, and I'm not so sure about it
 
 
+v12 vs v11 was equal, because v12 was just a bit of code cleanup
+
+
+Strelka razoring vs Re-write v12: 234 - 304 - 368
+
+
+NMP reduction (> 1, and 3 + (depth - 2) / 5) vs Re-write v12: 255 - 254 - 391
+
+
+Re-write v13 (NMP changes: > 1, and 3 + (depth - 2) / 3) vs Re-write v12: 171 - 122 - 207
+
+
 Tests TODO:
 	TT enabled vs TT disabled

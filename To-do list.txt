@@ -43,3 +43,4 @@ https://www.chessprogramming.org/Enhanced_Transposition_Cutoff
 
 Some random resources I found: (Not using them right now but they could be useful)
 https://analog-hors.github.io/site/magic-bitboards/
+https://mediocrechess.blogspot.com/2006/12/guide-attacked-squares.html

@@ -25,9 +25,9 @@ impl PVTable {
 			for j in 0..self.length[i] {
 				print!("{} ", self.table[i][j].to_coordinates());
 			}
-			println!("");
+			println!();
 		}
-		println!("");
+		println!();
 	}
 
 	pub fn set_pv_length(&mut self, ply: usize) {

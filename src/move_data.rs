@@ -1,6 +1,6 @@
 use crate::pieces::{char_to_piece, get_piece_type};
 use crate::pieces::{PROMOTABLE, piece_to_char, NO_PIECE};
-use crate::utils::{coordinate_to_index, index_to_coordinate};
+use crate::utils::{coordinate_to_index, SQUARE_COORDINATES};
 
 // 1, 2, 3, 4 for promoting pieces
 pub const DOUBLE_PAWN_PUSH_FLAG: u8 = 5;
@@ -60,8 +60,8 @@ impl MoveData {
 			};
 
 		format!("{}{}{}",
-			index_to_coordinate(self.from),
-			index_to_coordinate(self.to),
+			SQUARE_COORDINATES[self.from as usize],
+			SQUARE_COORDINATES[self.to as usize],
 			promotion,
 		)
 	}

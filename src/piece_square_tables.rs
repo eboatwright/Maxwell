@@ -13,8 +13,6 @@ pub const MIDDLEGAME_PAWN_TABLE: [i32; 64] = [
 	 0,  0,  0,  0,  0,  0,  0,  0,
 ];
 
-// I had changed these values to this and I'm *pretty* sure that it destroyed the previous
-// version but now I'm doubting myself
 // pub const ENDGAME_PAWN_TABLE: [i32; 64] = [
 // 	 0,  0,  0,  0,  0,  0,  0,  0,
 // 	80, 80, 80, 80, 80, 80, 80, 80,

@@ -20,7 +20,6 @@ pub struct Board {
 
 	pub piece_bitboards: [u64; BITBOARD_COUNT],
 	pub color_bitboards: [u64; 2],
-	pub attacked_squares_bitboards: [u64; 2],
 
 	pub castling_rights: ValueHolder<u8>,
 	pub fifty_move_counter: ValueHolder<u8>,
@@ -28,13 +27,14 @@ pub struct Board {
 	pub en_passant_file: usize,
 	pub white_to_move: bool,
 
-	pub total_material_without_pawns: i32,
+	pub total_material_without_pawns: [i32; 2],
 
 	pub zobrist: Zobrist,
 
 	pub moves: Vec<MoveData>,
 
-	attacked_squares_calculated: [bool; 2],
+	pub attacked_squares_cache: [Option<u64>; 2],
+	// TODO: smaller version of the transposition table for evaluation cache?
 }
 
 impl Board {
@@ -55,7 +55,6 @@ impl Board {
 
 			piece_bitboards: [0; BITBOARD_COUNT],
 			color_bitboards: [0; 2],
-			attacked_squares_bitboards: [0; 2],
 
 			castling_rights: ValueHolder::new(castling_rights),
 			fifty_move_counter: ValueHolder::new(fifty_move_counter),
@@ -64,13 +63,13 @@ impl Board {
 			// en_passant_file: if fen[3] == "-" { 0 } else { (coordinate_to_index(fen[3]) % 8) + 1 },
 			white_to_move: fen[1] == "w",
 
-			total_material_without_pawns: 0,
+			total_material_without_pawns: [0, 0],
 
 			zobrist: Zobrist::default(),
 
 			moves: vec![],
 
-			attacked_squares_calculated: [false; 2],
+			attacked_squares_cache: [None; 2],
 		};
 
 		let piece_rows = fen[0].split('/').collect::<Vec<&str>>();
@@ -87,12 +86,13 @@ impl Board {
 					board.color_bitboards[is_piece_white(piece) as usize] |= 1 << i;
 					i += 1;
 
+					let piece_is_white = is_piece_white(piece);
 					let piece_type = get_piece_type(piece);
 
 					if piece_type != PAWN
 					&& piece_type != KING {
 						let piece_worth = BASE_WORTHS_OF_PIECE_TYPE[piece_type];
-						board.total_material_without_pawns += piece_worth;
+						board.total_material_without_pawns[piece_is_white as usize] += piece_worth;
 					}
 				}
 			}
@@ -111,12 +111,12 @@ impl Board {
 
 	pub fn get_attacked_squares_for_color(&mut self, color: usize) -> u64 {
 		self.calculate_attacked_squares_for_color(color);
-		self.attacked_squares_bitboards[color]
+		self.attacked_squares_cache[color].unwrap()
 	}
 
 	// This is SLOOOOOOOOOOOOOWWWWWWW :[
 	pub fn calculate_attacked_squares_for_color(&mut self, color: usize) {
-		if self.attacked_squares_calculated[color] {
+		if self.attacked_squares_cache[color].is_some() {
 			return;
 		}
 
@@ -141,8 +141,7 @@ impl Board {
 			}
 		}
 
-		self.attacked_squares_bitboards[color] = attacked_squares;
-		self.attacked_squares_calculated[color] = true;
+		self.attacked_squares_cache[color] = Some(attacked_squares);
 	}
 
 	pub fn print(&self) {
@@ -191,9 +190,10 @@ impl Board {
 		print_bitboard("Black pieces", "1".bold().italic().white().on_black(), self.color_bitboards[0]);
 		print_bitboard("White pieces", "1".bold().italic().normal().on_white(), self.color_bitboards[1]);
 
-		self.calculate_attacked_squares();
-		print_bitboard("Black attacked squares", "1".bold().italic().white().on_black(), self.attacked_squares_bitboards[0]);
-		print_bitboard("White attacked squares", "1".bold().italic().normal().on_white(), self.attacked_squares_bitboards[1]);
+		let black_attacked_squares = self.get_attacked_squares_for_color(0);
+		let white_attacked_squares = self.get_attacked_squares_for_color(1);
+		print_bitboard("Black attacked squares", "1".bold().italic().white().on_black(), black_attacked_squares);
+		print_bitboard("White attacked squares", "1".bold().italic().normal().on_white(), white_attacked_squares);
 	}
 
 	pub fn get_last_move(&self) -> MoveData {
@@ -256,7 +256,7 @@ impl Board {
 			self.piece_bitboards[data.piece as usize] ^= 1 << data.to;
 		} else {
 			self.piece_bitboards[build_piece(piece_color == 1, data.flag as usize)] ^= 1 << data.to;
-			self.total_material_without_pawns += BASE_WORTHS_OF_PIECE_TYPE[data.flag as usize];
+			self.total_material_without_pawns[piece_color] += BASE_WORTHS_OF_PIECE_TYPE[data.flag as usize];
 		}
 
 		self.color_bitboards[piece_color] ^= 1 << data.from;
@@ -265,7 +265,7 @@ impl Board {
 		if data.capture != NO_PIECE as u8 {
 			let capture_type = get_piece_type(data.capture as usize);
 			if capture_type != PAWN {
-				self.total_material_without_pawns -= BASE_WORTHS_OF_PIECE_TYPE[capture_type];
+				self.total_material_without_pawns[other_color] -= BASE_WORTHS_OF_PIECE_TYPE[capture_type];
 			}
 
 			if data.flag == EN_PASSANT_FLAG {
@@ -355,7 +355,7 @@ impl Board {
 			self.castling_rights.history[self.castling_rights.index - 1],
 		);
 
-		self.attacked_squares_calculated = [false; 2];
+		self.attacked_squares_cache = [None; 2];
 
 		self.moves.push(data);
 		self.white_to_move = !self.white_to_move;
@@ -383,7 +383,7 @@ impl Board {
 			self.piece_bitboards[last_move.piece as usize] ^= 1 << last_move.to;
 		} else {
 			self.piece_bitboards[build_piece(piece_color == 1, last_move.flag as usize)] ^= 1 << last_move.to;
-			self.total_material_without_pawns -= BASE_WORTHS_OF_PIECE_TYPE[last_move.flag as usize];
+			self.total_material_without_pawns[piece_color] -= BASE_WORTHS_OF_PIECE_TYPE[last_move.flag as usize];
 		}
 
 		self.color_bitboards[piece_color] ^= 1 << last_move.from;
@@ -392,7 +392,7 @@ impl Board {
 		if last_move.capture != NO_PIECE as u8 {
 			let capture_type = get_piece_type(last_move.capture as usize);
 			if capture_type != PAWN {
-				self.total_material_without_pawns += BASE_WORTHS_OF_PIECE_TYPE[capture_type];
+				self.total_material_without_pawns[other_color] += BASE_WORTHS_OF_PIECE_TYPE[capture_type];
 			}
 
 			if last_move.flag == EN_PASSANT_FLAG {
@@ -409,35 +409,33 @@ impl Board {
 				self.piece_bitboards[last_move.capture as usize] ^= 1 << last_move.to;
 				self.color_bitboards[other_color] ^= 1 << last_move.to;
 			}
-		} else {
-			if last_move.flag == SHORT_CASTLE_FLAG {
-				if piece_color == 1 {
-					self.piece_bitboards[WHITE_ROOK] ^= 1 << 63;
-					self.piece_bitboards[WHITE_ROOK] ^= 1 << 61;
+		} else if last_move.flag == SHORT_CASTLE_FLAG {
+			if piece_color == 1 {
+				self.piece_bitboards[WHITE_ROOK] ^= 1 << 63;
+				self.piece_bitboards[WHITE_ROOK] ^= 1 << 61;
 
-					self.color_bitboards[1] ^= 1 << 63;
-					self.color_bitboards[1] ^= 1 << 61;
-				} else {
-					self.piece_bitboards[BLACK_ROOK] ^= 1 << 7;
-					self.piece_bitboards[BLACK_ROOK] ^= 1 << 5;
+				self.color_bitboards[1] ^= 1 << 63;
+				self.color_bitboards[1] ^= 1 << 61;
+			} else {
+				self.piece_bitboards[BLACK_ROOK] ^= 1 << 7;
+				self.piece_bitboards[BLACK_ROOK] ^= 1 << 5;
 
-					self.color_bitboards[0] ^= 1 << 7;
-					self.color_bitboards[0] ^= 1 << 5;
-				}
-			} else if last_move.flag == LONG_CASTLE_FLAG {
-				if piece_color == 1 {
-					self.piece_bitboards[WHITE_ROOK] ^= 1 << 56;
-					self.piece_bitboards[WHITE_ROOK] ^= 1 << 59;
+				self.color_bitboards[0] ^= 1 << 7;
+				self.color_bitboards[0] ^= 1 << 5;
+			}
+		} else if last_move.flag == LONG_CASTLE_FLAG {
+			if piece_color == 1 {
+				self.piece_bitboards[WHITE_ROOK] ^= 1 << 56;
+				self.piece_bitboards[WHITE_ROOK] ^= 1 << 59;
 
-					self.color_bitboards[1] ^= 1 << 56;
-					self.color_bitboards[1] ^= 1 << 59;
-				} else {
-					self.piece_bitboards[BLACK_ROOK] ^= 1; // << 0
-					self.piece_bitboards[BLACK_ROOK] ^= 1 << 3;
+				self.color_bitboards[1] ^= 1 << 56;
+				self.color_bitboards[1] ^= 1 << 59;
+			} else {
+				self.piece_bitboards[BLACK_ROOK] ^= 1; // << 0
+				self.piece_bitboards[BLACK_ROOK] ^= 1 << 3;
 
-					self.color_bitboards[0] ^= 1;
-					self.color_bitboards[0] ^= 1 << 3;
-				}
+				self.color_bitboards[0] ^= 1;
+				self.color_bitboards[0] ^= 1 << 3;
 			}
 		}
 
@@ -445,7 +443,7 @@ impl Board {
 		self.castling_rights.pop();
 		self.zobrist.key.pop();
 
-		self.attacked_squares_calculated = [false; 2];
+		self.attacked_squares_cache = [None; 2];
 
 		self.white_to_move = !self.white_to_move;
 
@@ -890,7 +888,7 @@ impl Board {
 	// Returns a value between 0.0 and 1.0 to reflect whether you're in an endgame or not
 	// the closer to 1.0, the more of an endgame it is
 	pub fn endgame_multiplier(&self) -> f32 {
-		(1.5 - self.total_material_without_pawns as f32 * (0.9 / MAX_ENDGAME_MATERIAL as f32)).clamp(0.0, 1.0)
+		(1.5 - self.total_material_without_pawns.iter().sum::<i32>() as f32 * (0.9 / MAX_ENDGAME_MATERIAL)).clamp(0.0, 1.0)
 		// (1.0 - self.total_material_without_pawns as f32 * (1.0 / MAX_ENDGAME_MATERIAL)).clamp(0.0, 1.0)
 	}
 
@@ -955,27 +953,27 @@ impl Board {
 		white_pawn_evaluation = (white_pawn_evaluation as f32 * pawn_evaluation_multiplier) as i32;
 		black_pawn_evaluation = (black_pawn_evaluation as f32 * pawn_evaluation_multiplier) as i32;
 
-		self.calculate_attacked_squares();
+		let white_attacks_bitboard = self.get_attacked_squares_for_color(1);
+		let black_attacks_bitboard = self.get_attacked_squares_for_color(0);
 
-		// TODO: try taking the square root of this?
-		let white_attacked_squares = self.attacked_squares_bitboards[1].count_ones() as i32;
-		let black_attacked_squares = self.attacked_squares_bitboards[0].count_ones() as i32;
+		// Taking the sqrt of this made it worse
+		let white_attacks_score = white_attacks_bitboard.count_ones() as i32 * 10;
+		let black_attacks_score = black_attacks_bitboard.count_ones() as i32 * 10;
 
 		let white_king_index = get_lsb(self.piece_bitboards[WHITE_KING]) as usize;
 		let black_king_index = get_lsb(self.piece_bitboards[BLACK_KING]) as usize;
 
 		// TODO: weak squares, weak lines, or none?
 		// TODO: Or count how many friendly pieces are around the king?
-
-		let weak_squares_around_white_king = ((
+		let white_king_weakness_penalty = ((
 				  self.precalculated_move_data.king_attacks[white_king_index]
-				& self.attacked_squares_bitboards[0]
-			).count_ones() as f32 * (1.0 - endgame)) as i32;
+				& black_attacks_bitboard
+			).count_ones() as f32 * (1.0 - endgame)) as i32 * 20;
 
-		let weak_squares_around_black_king = ((
+		let black_king_weakness_penalty = ((
 				  self.precalculated_move_data.king_attacks[black_king_index]
-				& self.attacked_squares_bitboards[1]
-			).count_ones() as f32 * (1.0 - endgame)) as i32;
+				& white_attacks_bitboard
+			).count_ones() as f32 * (1.0 - endgame)) as i32 * 20;
 
 		// let weak_lines_from_white_king = (self.calculate_queen_attack_bitboard(white_king_index).count_ones() as f32 * (1.0 - endgame)) as i32;
 		// let weak_lines_from_black_king = (self.calculate_queen_attack_bitboard(black_king_index).count_ones() as f32 * (1.0 - endgame)) as i32;
@@ -984,15 +982,15 @@ impl Board {
 
 		// TODO: rooks on open lines
 
-		 ((white_material + white_attacked_squares * 10 - weak_squares_around_white_king * 20 + white_pawn_evaluation)
-		- (black_material + black_attacked_squares * 10 - weak_squares_around_black_king * 20 + black_pawn_evaluation)) * self.perspective()
+		 ((white_material + white_attacks_score - white_king_weakness_penalty + white_pawn_evaluation)
+		- (black_material + black_attacks_score - black_king_weakness_penalty + black_pawn_evaluation)) * self.perspective()
 	}
 
 	pub fn can_short_castle(&mut self, white: bool) -> bool {
 		// self.king_in_check calculates attacked squares
 		   !self.king_in_check(white)
 		&&  self.castling_rights.current & SHORT_CASTLING_RIGHTS[white as usize] != 0
-		&& (self.occupied_bitboard() | self.attacked_squares_bitboards[(!white) as usize]) & SHORT_CASTLE_MASK[white as usize] == 0
+		&& (self.occupied_bitboard() | self.attacked_squares_cache[(!white) as usize].unwrap()) & SHORT_CASTLE_MASK[white as usize] == 0
 	}
 
 	pub fn can_long_castle(&mut self, white: bool) -> bool {
@@ -1000,11 +998,11 @@ impl Board {
 		   !self.king_in_check(white)
 		&&  self.castling_rights.current & LONG_CASTLING_RIGHTS[white as usize] != 0
 		&&  EXTRA_LONG_CASTLE_SQUARE_CHECK[white as usize] & occupied == 0
-		&& (occupied | self.attacked_squares_bitboards[(!white) as usize]) & LONG_CASTLE_MASK[white as usize] == 0
+		&& (occupied | self.attacked_squares_cache[(!white) as usize].unwrap()) & LONG_CASTLE_MASK[white as usize] == 0
 	}
 
 	pub fn insufficient_checkmating_material(&self) -> bool {
-		   self.total_material_without_pawns < ROOK_WORTH
+		   self.total_material_without_pawns.iter().sum::<i32>() < ROOK_WORTH
 		&& self.piece_bitboards[WHITE_PAWN] == 0
 		&& self.piece_bitboards[BLACK_PAWN] == 0
 	}
