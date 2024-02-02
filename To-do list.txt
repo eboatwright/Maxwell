@@ -27,7 +27,7 @@ History reductions / pruning
 https://www.chessprogramming.org/Internal_Iterative_Deepening
 https://www.chessprogramming.org/Static_Exchange_Evaluation
 https://www.chessprogramming.org/History_Leaf_Pruning
-https://www.chessprogramming.org/Futility_Pruning#MoveCountBasedPruning
+https://www.chessprogramming.org/Futility_Pruning#MoveCountBasedPruning (Late move pruning)
 https://www.chessprogramming.org/Countermove_Heuristic
 https://www.chessprogramming.org/ProbCut
 https://www.chessprogramming.org/Razoring#Strelka
