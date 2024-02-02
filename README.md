@@ -3,7 +3,6 @@
  A Chess engine written from scratch in Rust.<br>
  If you use this code verbatim, or as a reference, please credit me!<br><br>
  
- <br><br>
  Rating Lists featuring Maxwell: [CCRL Blitz](https://computerchess.org.uk/ccrl/404/) | [MCERL](https://www.chessengeria.eu/mcerl)<br>
  [Play against Maxwell on Lichess!](https://lichess.org/@/MaxwellOnLC) | [Some of Maxwell's Games](https://www.chess.com/library/collections/maxwells-games-my-chess-engine-2FFU82NM4)
 
@@ -38,6 +37,7 @@
  - MVV-LVA
  - 2 Killer Moves
  - History Heuristic
+   - Indexed by side to move, move start square, move end square
  - Penalty for moving a piece to a square an opponent's piece attacks
 #### Search
  - Iterative Deepening
@@ -45,12 +45,12 @@
  - Principal Variation Search
  - Alpha-Beta Pruning
  - Late Move Reductions
+ - Reverse Futility Pruning
  - Null Move Pruning
  - Razoring
- - Reverse Futility Pruning
  - Quiescence Search with Delta Pruning (No TT hits)
  - Transposition Table
-   - UCI Hash option to change max size, default is 256 MB
+   - UCI "Hash" option to change max size, default is 256 MB
    - Replacement scheme prefers higher depth and exact evaluation bound
  - Search Extensions
    - Checks

@@ -20,23 +20,23 @@ pub const MVV_LVA: [i32; 36] = [
 pub struct MoveSorter {
 	// pub pv_table: PVTable,
 	pub killer_moves: [KillerMoves; MAX_SORT_MOVE_PLY],
-	pub history: [[i32; 64]; PIECE_COUNT],
-	// TODO:
-	// pub history: [[i32; 64]; 64],
-	// pub countermoves: [[MoveData; 64]; PIECE_COUNT],
+	// pub countermoves: [[MoveData; 64]; PIECE_COUNT], // TODO
+	pub history: [[[i32; 64]; 64]; 2],
 }
 
 impl MoveSorter {
 	pub fn new() -> Self {
 		Self {
 			killer_moves: [KillerMoves::new(); MAX_SORT_MOVE_PLY],
-			history: [[0; 64]; PIECE_COUNT],
+			// countermoves: [[NULL_MOVE; 64]; PIECE_COUNT],
+			history: [[[0; 64]; 64]; 2],
 		}
 	}
 
 	pub fn clear(&mut self) {
 		self.killer_moves = [KillerMoves::new(); MAX_SORT_MOVE_PLY];
-		self.history = [[0; 64]; PIECE_COUNT];
+		// self.countermoves = [[NULL_MOVE; 64]; PIECE_COUNT];
+		self.history = [[[0; 64]; 64]; 2];
 	}
 
 	pub fn push_killer_move(&mut self, data: MoveData, ply: usize) {
@@ -59,17 +59,26 @@ impl MoveSorter {
 			if m == hash_move {
 				score = i32::MAX;
 			} else {
-				if m.capture != NO_PIECE as u8 {
-					score += MVV_LVA[get_piece_type(m.piece as usize) * 6 + get_piece_type(m.capture as usize)] + 8000;
-
-					// TODO: static exchange evaluation
-				} else {
+				if m.capture == NO_PIECE as u8 {
 					if ply < MAX_SORT_MOVE_PLY
 					&& self.killer_moves[ply].is_killer(m) {
 						score += 5000;
 					}
 
-					score += self.history[m.piece as usize][m.to as usize];
+					// if self.countermoves[m.piece as usize][m.to as usize] == m {
+					// 	score += 3000;
+					// }
+
+					score += self.history[board.white_to_move as usize][m.from as usize][m.to as usize];
+
+					// TODO
+					// if squares_opponent_attacks & (1 << m.to) != 0 {
+					// 	score -= 2 * BASE_WORTHS_OF_PIECE_TYPE[get_piece_type(m.piece as usize)];
+					// }
+				} else {
+					score += 8000 + MVV_LVA[get_piece_type(m.piece as usize) * 6 + get_piece_type(m.capture as usize)];
+
+					// TODO: static exchange evaluation
 				}
 
 				// This made it worse

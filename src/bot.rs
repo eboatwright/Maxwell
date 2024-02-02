@@ -275,10 +275,11 @@ impl Bot {
 		&& !board.king_in_check(board.white_to_move) {
 			let static_eval = board.evaluate();
 
-			// TODO: work on this next
+			// TODO
 			// Reverse Futility Pruning
 			if depth < 8
 			&& static_eval - 60 * (depth as i32) >= beta {
+				// TODO: maybe just reduce here instead of prune?
 				return static_eval;
 			}
 
@@ -319,7 +320,7 @@ impl Bot {
 			// Razoring
 			if depth < 4
 			&& static_eval + 300 * (depth as i32) < alpha { // TODO: tweak this
-				depth -= 1;
+				depth -= 1; // TODO: maybe reduce more?
 			}
 		}
 
@@ -417,7 +418,8 @@ impl Bot {
 
 				if m.capture == NO_PIECE as u8 {
 					self.move_sorter.push_killer_move(m, ply as usize);
-					self.move_sorter.history[m.piece as usize][m.to as usize] += (depth * depth) as i32;
+					// self.move_sorter.countermoves[m.piece as usize][m.to as usize] = m;
+					self.move_sorter.history[board.white_to_move as usize][m.from as usize][m.to as usize] += (depth * depth) as i32;
 				}
 
 				return beta;

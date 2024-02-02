@@ -96,5 +96,11 @@ NMP reduction (> 1, and 3 + (depth - 2) / 5) vs Re-write v12: 255 - 254 - 391
 Re-write v13 (NMP changes: > 1, and 3 + (depth - 2) / 3) vs Re-write v12: 171 - 122 - 207
 
 
+History indexed by [from][to] vs Re-write v13: 76 - 77 - 113
+
+
+Re-write v14 (History indexed by [side to move][from][to]) vs Re-write v13: 152 - 125 - 223
+
+
 Tests TODO:
 	TT enabled vs TT disabled

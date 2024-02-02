@@ -25,7 +25,6 @@ experiment with more than 2 killer moves per ply
 maybe remove the whole max search extension logic and just add to depth
 overhaul CLI / UCI interface with proper error handling
 look into using "buckets" for transposition table
-count white and black material separately
 calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
 check out pin detection to speed up check detection
 try writing a struct that sorts moves incrementally
