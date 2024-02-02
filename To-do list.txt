@@ -9,11 +9,6 @@ thoughts on NNUE:
 	I've wanted to learn how to write neural net for a long time, so I want to implement NNUE eventually.
 	But what I'm not going to do is just find a SF NNUE library and stick it in there because that's lame
 
-try changing history to use [from][to]
-countermoves
-	on > alpha, or beta cutoff?
-	index by [piece][to]
-
 figure out some sort of multithreading:
 	to implement pondering I think I'll have to add multithreading
 	maybe on thread that waits for UCI commands like "stop"
@@ -23,7 +18,6 @@ try giving a small boost in evaluation for the current side to move
 try lower pawn evaluation values
 experiment with more than 2 killer moves per ply
 maybe remove the whole max search extension logic and just add to depth
-overhaul CLI / UCI interface with proper error handling
 look into using "buckets" for transposition table
 calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
 check out pin detection to speed up check detection

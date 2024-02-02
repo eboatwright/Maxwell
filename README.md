@@ -38,7 +38,6 @@
  - 2 Killer Moves
  - History Heuristic
    - Indexed by side to move, move start square, move end square
- - Penalty for moving a piece to a square an opponent's piece attacks
 #### Search
  - Iterative Deepening
  - Negamax

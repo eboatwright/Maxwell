@@ -2,6 +2,7 @@ For X - Y - Z the order is: Wins, Losses, Draws
 Time controls I usually use: 30+0.5 or 10+0.2
 ================================================================
 
+
 Re-write v1 vs v3.0.8: 17 - 14 - 19
 
 
@@ -107,6 +108,9 @@ The move order penalty when the target square is attacked by the enemy
 Re-write v15 (Removed)       27      16     1000     539.0     320     438
 Re-write v14                -13      16     1000     481.0     259     444
 Re-write v15 (Quiets only)  -14      16     1000     480.0     262     436
+
+
+Countermoves vs Re-write v15: 122 - 177 - 201
 
 
 Tests TODO:

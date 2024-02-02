@@ -237,7 +237,7 @@ impl Board {
 			}
 		}
 
-		println!("Illegal move");
+		println!("Illegal move: {}", data.to_coordinates());
 		false
 	}
 

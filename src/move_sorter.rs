@@ -1,9 +1,9 @@
+// Countermoves (indexed by [piece][to]) made it worse, but I've left the code for future testing
+
 // use crate::pv_table::PVTable;
-use crate::move_data::EN_PASSANT_FLAG;
 use crate::killer_moves::KillerMoves;
 use crate::move_data::{MoveData, NULL_MOVE};
 use crate::pieces::*;
-use crate::piece_square_tables::BASE_WORTHS_OF_PIECE_TYPE;
 use crate::Board;
 
 pub const MAX_SORT_MOVE_PLY: usize = 32;
@@ -20,7 +20,7 @@ pub const MVV_LVA: [i32; 36] = [
 pub struct MoveSorter {
 	// pub pv_table: PVTable,
 	pub killer_moves: [KillerMoves; MAX_SORT_MOVE_PLY],
-	// pub countermoves: [[MoveData; 64]; PIECE_COUNT], // TODO
+	// pub countermoves: [[MoveData; 64]; PIECE_COUNT],
 	pub history: [[[i32; 64]; 64]; 2],
 }
 

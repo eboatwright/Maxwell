@@ -106,7 +106,7 @@ fn main() {
 				bot = Bot::new(bot_config.clone());
 			}
 
-			// TODO: re-write this command, and allow "position fen"
+			// TODO: add support for "position fen"
 			// Format: position startpos (moves e2e4 e7e5 ...)
 			"position" => {
 				// Reset the board to the initial position
@@ -118,10 +118,15 @@ fn main() {
 				moves.clear();
 				for coordinates in command_split.iter().skip(3) {
 					moves += &format!("{} ", coordinates);
+
+					if !move_str_is_valid(coordinates) {
+						println!("Illegal move: {}", coordinates);
+						break;
+					}
+
 					let data = MoveData::from_coordinates(coordinates.to_string());
 					if !board.play_move(data) {
-						let err = format!("{}: failed to play move: {}", "FATAL ERROR".white().on_red(), coordinates);
-						println!("{}", err);
+						break;
 						// log.write(err);
 					}
 				}
