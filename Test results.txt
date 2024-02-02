@@ -102,5 +102,12 @@ History indexed by [from][to] vs Re-write v13: 76 - 77 - 113
 Re-write v14 (History indexed by [side to move][from][to]) vs Re-write v13: 152 - 125 - 223
 
 
+The move order penalty when the target square is attacked by the enemy
+                             Elo     +/-    Games    Points    Wins   Draws
+Re-write v15 (Removed)       27      16     1000     539.0     320     438
+Re-write v14                -13      16     1000     481.0     259     444
+Re-write v15 (Quiets only)  -14      16     1000     480.0     262     436
+
+
 Tests TODO:
 	TT enabled vs TT disabled

@@ -51,7 +51,6 @@ impl MoveSorter {
 		}
 
 		let mut scores = vec![];
-		let squares_opponent_attacks = board.get_attacked_squares_for_color((!board.white_to_move) as usize);
 
 		for m in moves {
 			let mut score = 0;
@@ -70,29 +69,19 @@ impl MoveSorter {
 					// }
 
 					score += self.history[board.white_to_move as usize][m.from as usize][m.to as usize];
-
-					// TODO
-					// if squares_opponent_attacks & (1 << m.to) != 0 {
-					// 	score -= 2 * BASE_WORTHS_OF_PIECE_TYPE[get_piece_type(m.piece as usize)];
-					// }
 				} else {
 					score += 8000 + MVV_LVA[get_piece_type(m.piece as usize) * 6 + get_piece_type(m.capture as usize)];
 
 					// TODO: static exchange evaluation
 				}
 
-				// This made it worse
+				// TODO: re-test this
 				// if m.flag == SHORT_CASTLE_FLAG
 				// || m.flag == LONG_CASTLE_FLAG {
 				// 	score += 2000;
 				// } else if PROMOTABLE.contains(&m.flag) {
 				// 	score += BASE_WORTHS_OF_PIECE_TYPE[m.flag as usize] + 12000;
 				// }
-
-				// TODO: should this be on quiet moves only?
-				if squares_opponent_attacks & (1 << m.to) != 0 {
-					score -= 2 * BASE_WORTHS_OF_PIECE_TYPE[get_piece_type(m.piece as usize)];
-				}
 			}
 
 			scores.push((score, m));
