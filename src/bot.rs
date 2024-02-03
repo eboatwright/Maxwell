@@ -417,7 +417,7 @@ impl Bot {
 				self.transposition_table.store(board.zobrist.key.current, depth, ply, beta, m, EvalBound::LowerBound);
 
 				if m.capture == NO_PIECE as u8 {
-					self.move_sorter.push_killer_move(m, ply as usize);
+					self.move_sorter.add_killer_move(m, ply as usize);
 					// self.move_sorter.countermoves[m.piece as usize][m.to as usize] = m;
 					self.move_sorter.history[board.white_to_move as usize][m.from as usize][m.to as usize] += (depth * depth) as i32;
 				}

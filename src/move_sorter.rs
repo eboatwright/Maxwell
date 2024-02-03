@@ -1,4 +1,4 @@
-// Countermoves (indexed by [piece][to]) made it worse, but I've left the code for future testing
+// Countermoves (indexed by [piece][to]) made it weaker, but I've left the code for future testing
 
 // use crate::pv_table::PVTable;
 use crate::killer_moves::KillerMoves;
@@ -39,9 +39,9 @@ impl MoveSorter {
 		self.history = [[[0; 64]; 64]; 2];
 	}
 
-	pub fn push_killer_move(&mut self, data: MoveData, ply: usize) {
+	pub fn add_killer_move(&mut self, data: MoveData, ply: usize) {
 		if ply < MAX_SORT_MOVE_PLY {
-			self.killer_moves[ply].push(data);
+			self.killer_moves[ply].add_killer_move(data);
 		}
 	}
 

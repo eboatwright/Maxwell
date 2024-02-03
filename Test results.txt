@@ -1,5 +1,5 @@
 For X - Y - Z the order is: Wins, Losses, Draws
-Time controls I usually use: 30+0.5 or 10+0.2
+Time controls I usually use: 30+0.5, 10+0.2, or 8+0.1
 ================================================================
 
 
@@ -111,6 +111,12 @@ Re-write v15 (Quiets only)  -14      16     1000     480.0     262     436
 
 
 Countermoves vs Re-write v15: 122 - 177 - 201
+
+
+v16 changed TT to use a Vec instead of a HashMap, so there should be no strength difference
+
+
+Re-write v17 (Re-wrote killer moves) vs Re-write v16: 173 - 122 - 205
 
 
 Tests TODO:

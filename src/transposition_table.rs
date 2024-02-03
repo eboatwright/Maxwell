@@ -25,7 +25,6 @@ pub struct TranspositionData {
 	pub evaluation: i32,
 	pub best_move: u16,
 	pub eval_bound: EvalBound,
-	// pub age: u8,
 }
 
 pub struct TranspositionTable {
@@ -68,6 +67,10 @@ impl TranspositionTable {
 		let index = self.get_index(key);
 
 		if let Some(data) = self.table[index] {
+			// if (data.age - self.halfmove_clock).abs() > 10 {
+			// 	return;
+			// }
+
 			// If we already have a deeper depth, then we don't care about the shallower
 			// data so just return
 			if data.depth > depth {
@@ -99,7 +102,6 @@ impl TranspositionTable {
 		if let Some(data) = self.table[self.get_index(key)] {
 			if data.key == key {
 				self.hits += 1;
-				// data.age = 0;
 
 				let mut return_evaluation = None;
 

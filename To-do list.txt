@@ -14,11 +14,14 @@ figure out some sort of multithreading:
 	maybe on thread that waits for UCI commands like "stop"
 	and a bunch of other threads to search
 
+transposition table:
+	buckets
+	aging
+
 try giving a small boost in evaluation for the current side to move
 try lower pawn evaluation values
 experiment with more than 2 killer moves per ply
 maybe remove the whole max search extension logic and just add to depth
-look into using "buckets" for transposition table
 calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
 check out pin detection to speed up check detection
 try writing a struct that sorts moves incrementally
