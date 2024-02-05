@@ -45,12 +45,12 @@ impl MoveSorter {
 		}
 	}
 
-	pub fn sort_moves(&mut self, board: &mut Board, moves: Vec<MoveData>, hash_move: MoveData, ply: usize) -> Vec<(i32, MoveData)> {
+	pub fn sort_moves(&mut self, white_to_move: bool, moves: Vec<MoveData>, hash_move: MoveData, ply: usize) -> Vec<(i32, MoveData)> {
 		if moves.is_empty() {
 			return vec![];
 		}
 
-		let mut scores = vec![];
+		let mut pairs = vec![];
 
 		for m in moves {
 			let mut score = 0;
@@ -68,7 +68,7 @@ impl MoveSorter {
 					// 	score += 3000;
 					// }
 
-					score += self.history[board.white_to_move as usize][m.from as usize][m.to as usize];
+					score += self.history[white_to_move as usize][m.from as usize][m.to as usize];
 				} else {
 					score += 8000 + MVV_LVA[get_piece_type(m.piece as usize) * 6 + get_piece_type(m.capture as usize)];
 
@@ -84,10 +84,10 @@ impl MoveSorter {
 				// }
 			}
 
-			scores.push((score, m));
+			pairs.push((score, m));
 		}
 
-		scores.sort_by(|a, b| b.0.cmp(&a.0));
-		scores
+		pairs.sort_by(|a, b| b.0.cmp(&a.0));
+		pairs
 	}
 }

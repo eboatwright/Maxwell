@@ -131,5 +131,8 @@ Re-write v18 (Add null moves to repetition lookback) vs Re-write v17: 350 - 327 
 Re-write v19 (FINALLY FIXED REPETITION DETECTION) vs Re-write v18: 509 - 429 - 662
 
 
+Incremental move sorter like Rustic vs Re-write v19: 153 - 171 - 176
+
+
 Tests TODO:
 	TT enabled vs TT disabled

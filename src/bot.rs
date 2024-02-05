@@ -122,7 +122,7 @@ impl Bot {
 					0.07
 				};
 
-				(my_time * time_percentage).clamp(0.05, 20.0)
+				(my_time * time_percentage).clamp(0.05, 30.0)
 			} else {
 				my_time
 			};
@@ -194,7 +194,7 @@ impl Bot {
 			let legal_moves = board.get_pseudo_legal_moves_for_color(board.white_to_move, false);
 			for m in legal_moves {
 				if board.make_move(m) {
-					board.undo_last_move(); // Technically not necessary, but makes me happy :>
+					board.undo_last_move(); // Technically not necessary, because all moves get undone upon receiving the "position" command, but makes me happy :>
 					self.best_move = m;
 					break;
 				}
@@ -326,8 +326,8 @@ impl Bot {
 
 		if depth == 0 {
 			// The current position will now be searched as a quiescence position, so we
-			// put positions searched back to where it was to avoid double counting nodes
-			// (This was in Tcheran's changelog, and I realized I have the exact same problem)
+			// put positions_searched back to where it was to avoid double counting nodes
+			// (This was in Tcheran's changelog, and I realized I had the exact same problem)
 			self.positions_searched -= 1;
 			return self.quiescence_search(board, alpha, beta);
 		}
@@ -335,11 +335,9 @@ impl Bot {
 		let mut best_move_this_search = NULL_MOVE;
 		let mut eval_bound = EvalBound::UpperBound;
 
-		let moves = board.get_pseudo_legal_moves_for_color(board.white_to_move, false);
-
 		let sorted_moves = self.move_sorter.sort_moves(
-			board,
-			moves,
+			board.white_to_move,
+			board.get_pseudo_legal_moves_for_color(board.white_to_move, false),
 			/*
 			The best move is _not_ the same as the hash move, because we could have
 			found a new best move right before exiting the search, before tt.store gets called
@@ -356,11 +354,12 @@ impl Bot {
 		let mut found_pv = false;
 
 		let mut legal_moves_found = 0;
-		for (_, m) in sorted_moves {
+		for (_score, m) in sorted_moves {
 			if !board.make_move(m) {
 				continue;
 			}
 
+			// TODO: try removing this logic and just add directly to depth
 			let mut extension = 0;
 			if total_extensions < MAX_SEARCH_EXTENSIONS {
 				if board.king_in_check(board.white_to_move) {
@@ -399,6 +398,8 @@ impl Bot {
 			if needs_fuller_search
 			&& found_pv {
 				// Adding the extension to this search actually made it worse?
+				// TODO: try adding extension again
+				// evaluation = -self.alpha_beta_search(board, depth + extension - 1, ply + 1, -alpha - 1, -alpha, total_extensions + extension);
 				evaluation = -self.alpha_beta_search(board, depth - 1, ply + 1, -alpha - 1, -alpha, total_extensions);
 				needs_fuller_search = evaluation > alpha; // && evaluation < beta?
 			}
@@ -452,6 +453,7 @@ impl Bot {
 
 		// I've seen a small improvement if I don't store EvalBound::UpperBound
 		// but idk I'll come back to this later
+		// TODO: try storing alpha bounds again
 		if best_move_this_search != NULL_MOVE {
 			self.transposition_table.store(board.zobrist.key.current, depth, ply, alpha, best_move_this_search, eval_bound);
 		}
@@ -477,14 +479,15 @@ impl Bot {
 			alpha = evaluation;
 		}
 
+		// TODO: try to TT hit here
+
 		let moves = board.get_pseudo_legal_moves_for_color(board.white_to_move, true);
 		if moves.is_empty() {
 			return evaluation;
 		}
 
-		let sorted_moves = self.move_sorter.sort_moves(board, moves, NULL_MOVE, usize::MAX);
-
-		for (_, m) in sorted_moves {
+		let sorted_moves = self.move_sorter.sort_moves(board.white_to_move, moves, NULL_MOVE, usize::MAX);
+		for (_score, m) in sorted_moves {
 			// Delta Pruning
 			if !board.king_in_check(board.white_to_move) {
 				let threshold = QUEEN_WORTH +

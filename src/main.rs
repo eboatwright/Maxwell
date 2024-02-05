@@ -21,7 +21,7 @@ mod perft;
 mod bot;
 mod pv_table;
 mod move_sorter;
-mod move_list;
+mod scored_move_list;
 
 use crate::utils::move_str_is_valid;
 use crate::castling_rights::print_castling_rights;
