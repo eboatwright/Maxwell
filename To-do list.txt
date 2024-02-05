@@ -11,8 +11,9 @@ thoughts on NNUE:
 
 figure out some sort of multithreading:
 	to implement pondering I think I'll have to add multithreading
-	maybe on thread that waits for UCI commands like "stop"
-	and a bunch of other threads to search
+
+	maybe one thread that waits for UCI commands like "stop"
+	and all the rest of the threads search
 
 transposition table:
 	buckets

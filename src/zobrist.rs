@@ -77,16 +77,6 @@ impl Zobrist {
 		zobrist
 	}
 
-	pub fn is_repetition(&self, fifty_move_counter: usize) -> bool {
-		// let mut count = 0;
-		for i in ((self.key.index - fifty_move_counter)..self.key.index).step_by(2) {
-			if self.key.history[i] == self.key.current {
-				return true;
-			}
-		}
-		false
-	}
-
 	// There's probably still bugs here; I'm very tired :`D
 	pub fn make_move(
 		&mut self,

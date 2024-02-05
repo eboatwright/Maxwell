@@ -219,6 +219,7 @@ fn main() {
 			"castlingrights" => print_castling_rights(board.castling_rights.current),
 			"zobrist" => println!("{}", board.zobrist.key.current),
 			"eval" => println!("{}", board.evaluate() * board.perspective()),
+			"fiftymoves" => println!("{}", board.fifty_move_counter.current),
 
 			"ttsize" => bot.transposition_table.print_size(),
 			"cleartt" => {

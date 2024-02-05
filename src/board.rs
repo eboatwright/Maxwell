@@ -8,7 +8,6 @@ use crate::pieces::*;
 use crate::castling_rights::*;
 use colored::Colorize;
 
-pub const BITBOARD_COUNT: usize = PIECE_COUNT;
 pub const MAX_ENDGAME_MATERIAL: f32 = (ROOK_WORTH * 2 + BISHOP_WORTH * 2) as f32;
 
 pub const DOUBLED_PAWN_PENALTY: i32 = 35; // TODO
@@ -18,7 +17,7 @@ pub const PASSED_PAWN_BOOST: [i32; 8] = [0, 15, 15, 30, 50, 90, 150, 0]; // TODO
 pub struct Board {
 	pub precalculated_move_data: PrecalculatedMoveData,
 
-	pub piece_bitboards: [u64; BITBOARD_COUNT],
+	pub piece_bitboards: [u64; PIECE_COUNT],
 	pub color_bitboards: [u64; 2],
 
 	pub castling_rights: ValueHolder<u8>,
@@ -53,7 +52,7 @@ impl Board {
 		let mut board = Self {
 			precalculated_move_data: PrecalculatedMoveData::calculate(),
 
-			piece_bitboards: [0; BITBOARD_COUNT],
+			piece_bitboards: [0; PIECE_COUNT],
 			color_bitboards: [0; 2],
 
 			castling_rights: ValueHolder::new(castling_rights),
@@ -174,7 +173,7 @@ impl Board {
 	}
 
 	pub fn print_bitboards(&mut self) {
-		for piece in 0..BITBOARD_COUNT {
+		for piece in 0..PIECE_COUNT {
 			let c = piece_to_char(piece);
 			print_bitboard(
 				&format!("{}", c),
@@ -338,11 +337,11 @@ impl Board {
 			self.castling_rights.current &= !WHITE_CASTLE_SHORT;
 		}
 
-		if data.capture == NO_PIECE as u8
-		&& get_piece_type(data.piece as usize) != PAWN {
-			self.fifty_move_counter.current += 1;
-		} else {
+		if data.capture != NO_PIECE as u8
+		|| get_piece_type(data.piece as usize) == PAWN {
 			self.fifty_move_counter.current = 0;
+		} else {
+			self.fifty_move_counter.current += 1;
 		}
 
 		self.fifty_move_counter.push();
@@ -359,6 +358,11 @@ impl Board {
 
 		self.moves.push(data);
 		self.white_to_move = !self.white_to_move;
+
+		// if !self.plies_since_null_moves.is_empty() {
+		// 	let len = self.plies_since_null_moves.len();
+		// 	self.plies_since_null_moves[len - 1] += 1;
+		// }
 
 		if self.king_in_check(!self.white_to_move) {
 			self.undo_last_move();
@@ -446,6 +450,11 @@ impl Board {
 		self.attacked_squares_cache = [None; 2];
 
 		self.white_to_move = !self.white_to_move;
+
+		// if !self.plies_since_null_moves.is_empty() {
+		// 	let len = self.plies_since_null_moves.len();
+		// 	self.plies_since_null_moves[len - 1] -= 1;
+		// }
 
 		true
 	}
@@ -1017,6 +1026,9 @@ impl Board {
 		self.zobrist.make_null_move();
 		self.moves.push(NULL_MOVE);
 
+		self.fifty_move_counter.current = 0;
+		self.fifty_move_counter.push();
+
 		true
 	}
 
@@ -1024,11 +1036,39 @@ impl Board {
 		self.white_to_move = !self.white_to_move;
 		self.zobrist.key.pop();
 		self.moves.pop();
+
+		self.fifty_move_counter.pop();
+	}
+
+	// Counting only one repetition as a draw seems to perform better than detecting a threefold repetition
+	pub fn is_repetition(&self) -> bool {
+		// Before the third move, it's impossible to have a repetition
+		if self.zobrist.key.index < 2 {
+			return false;
+		}
+
+		let lookback = self.zobrist.key.index - self.fifty_move_counter.current as usize;
+		let mut i = self.zobrist.key.index - 2;
+
+		// for i in (()..lookback).rev().step_by(2) {
+		while i >= lookback {
+			if self.zobrist.key.history[i] == self.zobrist.key.current {
+				return true;
+			}
+
+			if i < 2 {
+				break;
+			}
+
+			i -= 2;
+		}
+
+		false
 	}
 
 	pub fn is_draw(&self) -> bool {
 		   self.fifty_move_counter.current >= 100
 		|| self.insufficient_checkmating_material()
-		|| self.zobrist.is_repetition(self.fifty_move_counter.current as usize) // TODO: should I take into account null moves?
+		|| self.is_repetition()
 	}
 }
