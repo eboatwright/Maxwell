@@ -1,5 +1,3 @@
-// Countermoves (indexed by [piece][to]) made it weaker, but I've left the code for future testing
-
 // use crate::pv_table::PVTable;
 use crate::killer_moves::KillerMoves;
 use crate::move_data::{MoveData, NULL_MOVE};
@@ -20,7 +18,6 @@ pub const MVV_LVA: [i32; 36] = [
 pub struct MoveSorter {
 	// pub pv_table: PVTable,
 	pub killer_moves: [KillerMoves; MAX_SORT_MOVE_PLY],
-	// pub countermoves: [[MoveData; 64]; PIECE_COUNT],
 	pub history: [[[i32; 64]; 64]; 2],
 }
 
@@ -28,14 +25,12 @@ impl MoveSorter {
 	pub fn new() -> Self {
 		Self {
 			killer_moves: [KillerMoves::new(); MAX_SORT_MOVE_PLY],
-			// countermoves: [[NULL_MOVE; 64]; PIECE_COUNT],
 			history: [[[0; 64]; 64]; 2],
 		}
 	}
 
 	pub fn clear(&mut self) {
 		self.killer_moves = [KillerMoves::new(); MAX_SORT_MOVE_PLY];
-		// self.countermoves = [[NULL_MOVE; 64]; PIECE_COUNT];
 		self.history = [[[0; 64]; 64]; 2];
 	}
 
@@ -63,10 +58,6 @@ impl MoveSorter {
 					&& self.killer_moves[ply].is_killer(m) {
 						score += 5000;
 					}
-
-					// if self.countermoves[m.piece as usize][m.to as usize] == m {
-					// 	score += 3000;
-					// }
 
 					score += self.history[white_to_move as usize][m.from as usize][m.to as usize];
 				} else {

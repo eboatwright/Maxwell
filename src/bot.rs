@@ -9,7 +9,7 @@ use crate::move_data::{MoveData, NULL_MOVE};
 use crate::opening_book::OpeningBook;
 use crate::Board;
 
-pub const MAX_SEARCH_EXTENSIONS: u8 = 16; // TODO
+pub const MAX_SEARCH_EXTENSIONS: u8 = 20; // TODO
 
 #[derive(Clone, Debug)]
 pub struct BotConfig {
@@ -266,13 +266,15 @@ impl Bot {
 		// This will also never be true if ply == 0 because the bounds will never be zero at ply 0
 		let not_pv = alpha == beta - 1;
 
+		let in_check = board.king_in_check(board.white_to_move);
+
 		// TODO: Maybe allow these pruning techniques during PV nodes?
 		// Or maybe just make them more aggressive to allow for more search
 		// time on PV lines?
 		if not_pv
 		&& depth > 0
 		&& !evaluation_is_mate(beta)
-		&& !board.king_in_check(board.white_to_move) {
+		&& !in_check {
 			let static_eval = board.evaluate();
 
 			// TODO
@@ -359,18 +361,19 @@ impl Bot {
 				continue;
 			}
 
-			// TODO: try removing this logic and just add directly to depth
 			let mut extension = 0;
-			if total_extensions < MAX_SEARCH_EXTENSIONS {
-				if board.king_in_check(board.white_to_move) {
-					extension = 1;
-				} else if m.piece == PAWN as u8 {
-					let rank = m.to / 8;
-					if rank == 1 || rank == 6 {
-						extension = 1;
-					}
+			if board.king_in_check(board.white_to_move) {
+				extension += 1;
+			}
+
+			if m.piece == PAWN as u8 {
+				let rank = m.to / 8;
+				if rank == 1 || rank == 6 {
+					extension += 1;
 				}
 			}
+
+			extension = u8::min(extension, MAX_SEARCH_EXTENSIONS - total_extensions);
 
 			let mut evaluation = 0;
 			let mut needs_fuller_search = true;
@@ -397,15 +400,12 @@ impl Bot {
 			// Principal Variation Search
 			if needs_fuller_search
 			&& found_pv {
-				// Adding the extension to this search actually made it worse?
-				// TODO: try adding extension again
-				// evaluation = -self.alpha_beta_search(board, depth + extension - 1, ply + 1, -alpha - 1, -alpha, total_extensions + extension);
-				evaluation = -self.alpha_beta_search(board, depth - 1, ply + 1, -alpha - 1, -alpha, total_extensions);
+				evaluation = -self.alpha_beta_search(board, depth + extension - 1, ply + 1, -alpha - 1, -alpha, total_extensions + extension);
 				needs_fuller_search = evaluation > alpha; // && evaluation < beta?
 			}
 
 			if needs_fuller_search {
-				evaluation = -self.alpha_beta_search(board, depth - 1 + extension, ply + 1, -beta, -alpha, total_extensions + extension);
+				evaluation = -self.alpha_beta_search(board, depth + extension - 1, ply + 1, -beta, -alpha, total_extensions + extension);
 			}
 
 			board.undo_last_move();
@@ -419,7 +419,6 @@ impl Bot {
 
 				if m.capture == NO_PIECE as u8 {
 					self.move_sorter.add_killer_move(m, ply as usize);
-					// self.move_sorter.countermoves[m.piece as usize][m.to as usize] = m;
 					self.move_sorter.history[board.white_to_move as usize][m.from as usize][m.to as usize] += (depth * depth) as i32;
 				}
 
@@ -444,7 +443,7 @@ impl Bot {
 		}
 
 		if legal_moves_found == 0 {
-			if board.king_in_check(board.white_to_move) {
+			if in_check {
 				let mate_score = CHECKMATE_EVAL - ply as i32;
 				return -mate_score;
 			}

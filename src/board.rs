@@ -241,20 +241,16 @@ impl Board {
 	}
 
 	pub fn make_move(&mut self, data: MoveData) -> bool {
-		let piece_color = is_piece_white(data.piece as usize) as usize;
-		let other_color = !is_piece_white(data.piece as usize) as usize;
-
-		// if data.piece >= NO_PIECE as u8 {
-		// 	println!("Illegal piece! Move: {:#?}", data);
-		// 	return;
-		// }
+		let piece_is_white = is_piece_white(data.piece as usize);
+		let piece_color = piece_is_white as usize;
+		let other_color = (!piece_is_white) as usize;
 
 		self.piece_bitboards[data.piece as usize] ^= 1 << data.from;
 
 		if !PROMOTABLE.contains(&data.flag) {
 			self.piece_bitboards[data.piece as usize] ^= 1 << data.to;
 		} else {
-			self.piece_bitboards[build_piece(piece_color == 1, data.flag as usize)] ^= 1 << data.to;
+			self.piece_bitboards[build_piece(piece_is_white, data.flag as usize)] ^= 1 << data.to;
 			self.total_material_without_pawns[piece_color] += BASE_WORTHS_OF_PIECE_TYPE[data.flag as usize];
 		}
 
@@ -317,6 +313,7 @@ impl Board {
 			}
 		}
 
+		// This is so ugly :`(
 		if data.from == 0 {
 			self.castling_rights.current &= !BLACK_CASTLE_LONG;
 		} else if data.from == 7 {
@@ -359,11 +356,6 @@ impl Board {
 		self.moves.push(data);
 		self.white_to_move = !self.white_to_move;
 
-		// if !self.plies_since_null_moves.is_empty() {
-		// 	let len = self.plies_since_null_moves.len();
-		// 	self.plies_since_null_moves[len - 1] += 1;
-		// }
-
 		if self.king_in_check(!self.white_to_move) {
 			self.undo_last_move();
 			return false;
@@ -378,15 +370,16 @@ impl Board {
 		}
 		let last_move = self.moves.pop().unwrap();
 
-		let piece_color = is_piece_white(last_move.piece as usize) as usize;
-		let other_color = !is_piece_white(last_move.piece as usize) as usize;
+		let piece_is_white = is_piece_white(last_move.piece as usize);
+		let piece_color = piece_is_white as usize;
+		let other_color = (!piece_is_white) as usize;
 
 		self.piece_bitboards[last_move.piece as usize] ^= 1 << last_move.from;
 
 		if !PROMOTABLE.contains(&last_move.flag) {
 			self.piece_bitboards[last_move.piece as usize] ^= 1 << last_move.to;
 		} else {
-			self.piece_bitboards[build_piece(piece_color == 1, last_move.flag as usize)] ^= 1 << last_move.to;
+			self.piece_bitboards[build_piece(piece_is_white, last_move.flag as usize)] ^= 1 << last_move.to;
 			self.total_material_without_pawns[piece_color] -= BASE_WORTHS_OF_PIECE_TYPE[last_move.flag as usize];
 		}
 
@@ -450,11 +443,6 @@ impl Board {
 		self.attacked_squares_cache = [None; 2];
 
 		self.white_to_move = !self.white_to_move;
-
-		// if !self.plies_since_null_moves.is_empty() {
-		// 	let len = self.plies_since_null_moves.len();
-		// 	self.plies_since_null_moves[len - 1] -= 1;
-		// }
 
 		true
 	}
@@ -1050,7 +1038,6 @@ impl Board {
 		let lookback = self.zobrist.key.index - self.fifty_move_counter.current as usize;
 		let mut i = self.zobrist.key.index - 2;
 
-		// for i in (()..lookback).rev().step_by(2) {
 		while i >= lookback {
 			if self.zobrist.key.history[i] == self.zobrist.key.current {
 				return true;
@@ -1070,5 +1057,40 @@ impl Board {
 		   self.fifty_move_counter.current >= 100
 		|| self.insufficient_checkmating_material()
 		|| self.is_repetition()
+	}
+
+	// This isn't used anywhere and I haven't tested it, so it might be bugged
+	pub fn square_is_attacked_by_color(&self, square_bitboard: u64, white_pieces: bool) -> bool {
+		let color = white_pieces as usize;
+
+		let pieces =
+			if white_pieces {
+				WHITE_PAWN..=WHITE_KING
+			} else {
+				BLACK_PAWN..=BLACK_KING
+			};
+
+		for piece in pieces {
+			let piece_type = get_piece_type(piece);
+			let mut bitboard = self.piece_bitboards[piece];
+
+			while bitboard != 0 {
+				let piece_index = pop_lsb(&mut bitboard) as usize;
+
+				if (match piece_type {
+					PAWN   => self.precalculated_move_data.pawn_attacks[color][piece_index],
+					KNIGHT => self.precalculated_move_data.knight_attacks[piece_index],
+					BISHOP => self.calculate_bishop_attack_bitboard(piece_index),
+					ROOK   => self.calculate_rook_attack_bitboard(piece_index),
+					QUEEN  => self.calculate_queen_attack_bitboard(piece_index),
+					KING   => self.precalculated_move_data.king_attacks[piece_index],
+					_ => 0,
+				}) & square_bitboard != 0 {
+					return true;
+				}
+			}
+		}
+
+		false
 	}
 }

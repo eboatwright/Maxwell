@@ -134,5 +134,14 @@ Re-write v19 (FINALLY FIXED REPETITION DETECTION) vs Re-write v18: 509 - 429 - 6
 Incremental move sorter like Rustic vs Re-write v19: 153 - 171 - 176
 
 
+Extensions outside the move loop vs Re-write v19: 576 - 581 - 593
+
+
+Only check extension, outside the move loop vs Re-write v19: 272 - 276 - 252
+
+
+Re-write v20 vs Rewrote extension code vs Re-write v19: 171 - 163 - 166
+
+
 Tests TODO:
 	TT enabled vs TT disabled
