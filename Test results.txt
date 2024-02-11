@@ -140,7 +140,42 @@ Extensions outside the move loop vs Re-write v19: 576 - 581 - 593
 Only check extension, outside the move loop vs Re-write v19: 272 - 276 - 252
 
 
-Re-write v20 vs Rewrote extension code vs Re-write v19: 171 - 163 - 166
+Re-write v20 (Rewrote extension code) vs Re-write v19: 171 - 163 - 166
+
+
+(Re-write v20's RFP Threshold is 60 centipawns per ply)
+RFP = 80 vs Re-write v20:  165 - 172 - 173
+RFP = 90 vs Re-write v20:  168 - 181 - 151
+RFP = 100 vs Re-write v20: 423 - 519 - 508
+
+At this point I changed RFP to return beta (because of fail hard)
+
+RFP = 16 * (depth - 1).pow(2) + 50 vs Re-write v20: 196 - 217 - 191
+RFP = 30 * (depth - 1).pow(2) + 60 vs Re-write v20: 133 - 150 - 176
+RFP = 20 * (depth - 1).pow(2) + 65 vs Re-write v20: 140 - 163 - 147
+RFP = 40 * (depth - 1).pow(2) + 70 vs Re-write v20: 486 - 498 - 516
+
+FINALLY
+Re-write v21 (RFP = 50 * (depth - 1).pow(2) + 55) vs Re-write v20: 276 - 252 - 272
+
+
+Hmm
+Store Alpha bound TT entries vs Re-write v21: 283 - 308 - 311
+
+
+No TT Cutoff on PV-nodes vs Re-write v21: 514 - 521 - 573
+
+
+Internal Iterative Reductions
+	Only on PV, Depth > 2, Depth -= 1 vs Re-write v21: 254 - 255 - 253
+	Re-write v22 (All nodes, Depth > 1, Depth -= 1) vs Re-write v21: 285 - 234 - 247
+	All nodes, Depth > 2, Depth -= 2 vs Re-write v22: It lost horribly :P
+
+
+Only return TT eval if not PV, or depth == 0 vs Re-write v22: 498 - 554 - 618
+
+
+RFP = 55 * (depth - 1).pow(2) + 60 vs Re-write v22: 142 - 145 - 153
 
 
 Tests TODO:

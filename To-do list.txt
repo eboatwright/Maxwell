@@ -1,8 +1,3 @@
-big idea:
-	remove all constant variables, and put them into the BotConfig struct,
-	then write my own tuning / matchmaking program that will tweak the values
-	and play matches until it finds better values...
-
 thoughts on NNUE:
 	I've wanted to learn how to write neural net for a long time, so I want to implement NNUE eventually.
 	But what I'm not going to do is just find a SF NNUE library and stick it in there because that's lame
@@ -17,11 +12,15 @@ figure out some sort of multithreading:
 	maybe one thread that waits for UCI commands like "stop"
 	and all the rest of the threads search
 
+	https://www.chessprogramming.org/Lazy_SMP
+
 transposition table:
 	buckets
 	aging
+	make it multithreading safe
+	prefetching
 
-remove all the attacked squares bitboards stuff, and just make a function that detects whether one square is attacked?
+try removing all the attacked squares bitboards stuff, and just make a function that detects whether one square is attacked?
 try giving a small boost in evaluation for the current side to move
 try lower pawn evaluation values
 experiment with more than 2 killer moves per ply
@@ -29,18 +28,16 @@ calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
 check out pin detection to speed up check detection
 try writing a struct that sorts moves incrementally
 	I tried this a couple times, but haven't got it faster than my current solution
+re-implement PV table with a different approach; I don't like the 2d array
 
 History reductions / pruning
-https://www.chessprogramming.org/Lazy_SMP
 https://www.chessprogramming.org/Internal_Iterative_Deepening
 https://www.chessprogramming.org/Static_Exchange_Evaluation
-https://www.chessprogramming.org/History_Leaf_Pruning
 https://www.chessprogramming.org/Futility_Pruning#MoveCountBasedPruning (Late move pruning)
-https://www.chessprogramming.org/Countermove_Heuristic
+https://www.chessprogramming.org/History_Leaf_Pruning
 https://www.chessprogramming.org/ProbCut
 https://www.chessprogramming.org/Razoring#Strelka
 https://www.chessprogramming.org/Texel's_Tuning_Method
-https://www.chessprogramming.org/Enhanced_Transposition_Cutoff
 
 Some random resources I found: (Not using them right now but they could be useful)
 https://analog-hors.github.io/site/magic-bitboards/

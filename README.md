@@ -39,6 +39,7 @@
  - History Heuristic
    - Indexed by side to move, move start square, move end square
 #### Search
+ - Single Threaded ~ For now ;)
  - Iterative Deepening
  - Negamax
  - Principal Variation Search
@@ -47,7 +48,10 @@
  - Reverse Futility Pruning
  - Null Move Pruning
  - Razoring
- - Quiescence Search with Delta Pruning (No TT hits)
+ - Internal Iterative Reductions
+ - Quiescence Search
+   - Delta Pruning
+   - No Transposition Table
  - Transposition Table
    - UCI "Hash" option to change max size, default is 256 MB
    - Replacement scheme prefers higher depth and exact evaluation bound
@@ -56,14 +60,13 @@
    - Pawn moves to the 2nd or 7th rank
  - Time management
    - If less than 7 moves have been played, it uses 2.5% of it's remaining time, otherwise 7%
-   - This value is then also clamped between 0.05 and 20.0 seconds
+   - This value is then also clamped between 0.05 and 30.0 seconds
 
 ## Helpful Sources & References
  #### Thanks to Sebastian Lague for making his YouTube series, which inspired me to make my own engine!
  - [Sebastian Lague's Chess Programming series](https://www.youtube.com/playlist?list=PLFt_AvWsXl0cvHyu32ajwh2qU1i6hl77c)
 
  #### When I'm not sure what to do next, I like to read through other engine's code for ideas. <br> I try not to copy line for line, but in any case here are the engine's I've referenced:
-
  - [Boychesser](https://github.com/analog-hors/Boychesser/)
  - [Weiawaga](https://github.com/Heiaha/Weiawaga/)
  - [Rustic (Engine and Book)](https://github.com/mvanthoor/rustic)
@@ -71,9 +74,10 @@
  - [Fruit 2.1](https://github.com/Warpten/Fruit-2.1/)
  - [Tcheran](https://github.com/jgilchrist/tcheran/)
  - [MadChess](https://github.com/ekmadsen/MadChess/)
+ - [Black Marlin](https://github.com/jnlt3/blackmarlin/)
+ - [Ethereal](https://github.com/AndyGrant/Ethereal/)
 
  #### And some other helpful resources
-
  - [The Chess Programming Wiki](https://www.chessprogramming.org/Main_Page)
  - [BBC Engine Development](https://www.youtube.com/playlist?list=PLmN0neTso3Jxh8ZIylk74JpwfiWNI76Cs)
  - [Perfect 2021 Opening Book](https://sites.google.com/site/computerschess/perfect-2021-books)
@@ -83,3 +87,4 @@
  - [Mediocre Chess](https://mediocrechess.blogspot.com/)
  - [Chess Programming Reddit](https://www.reddit.com/r/chessprogramming/)
  - [TalkChess Forum](https://talkchess.com/forum3/index.php)
+ - [Stockfish Features List](https://www.chessprogramming.org/Stockfish#Search)

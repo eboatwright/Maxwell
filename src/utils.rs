@@ -28,11 +28,8 @@ pub fn move_str_is_valid(move_str: &str) -> bool {
 
 	let move_str = move_str.to_lowercase();
 
-	if !SQUARE_COORDINATES.contains(&&move_str[0..2]) {
-		return false;
-	}
-
-	if !SQUARE_COORDINATES.contains(&&move_str[2..4]) {
+	if !SQUARE_COORDINATES.contains(&&move_str[0..2])
+	|| !SQUARE_COORDINATES.contains(&&move_str[2..4]) {
 		return false;
 	}
 

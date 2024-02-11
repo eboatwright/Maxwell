@@ -9,7 +9,7 @@ use crate::move_data::{MoveData, NULL_MOVE};
 use crate::opening_book::OpeningBook;
 use crate::Board;
 
-pub const MAX_SEARCH_EXTENSIONS: u8 = 20; // TODO
+pub const MAX_SEARCH_EXTENSIONS: u8 = 20;
 
 #[derive(Clone, Debug)]
 pub struct BotConfig {
@@ -255,34 +255,29 @@ impl Bot {
 			}
 
 			// Internal Iterative Reductions
-			// if not_pv
-			// && depth > 2
-			// && hash_move.is_none() {
-			// 	depth -= 1;
-			// }
+			if depth > 1
+			&& hash_move.is_none() {
+				depth -= 1;
+			}
 		}
 
 		// This detects a null / zero window search, which is used in non PV nodes
 		// This will also never be true if ply == 0 because the bounds will never be zero at ply 0
 		let not_pv = alpha == beta - 1;
-
 		let in_check = board.king_in_check(board.white_to_move);
 
-		// TODO: Maybe allow these pruning techniques during PV nodes?
-		// Or maybe just make them more aggressive to allow for more search
-		// time on PV lines?
 		if not_pv
 		&& depth > 0
-		&& !evaluation_is_mate(beta)
-		&& !in_check {
+		&& !in_check
+		&& !evaluation_is_mate(alpha)
+		&& !evaluation_is_mate(beta) {
 			let static_eval = board.evaluate();
 
 			// TODO
 			// Reverse Futility Pruning
 			if depth < 8
-			&& static_eval - 60 * (depth as i32) >= beta {
-				// TODO: maybe just reduce here instead of prune?
-				return static_eval;
+			&& static_eval - (50 * (depth as i32 - 1).pow(2)) + 55 >= beta {
+				return beta;
 			}
 
 			// Strelka Razoring (Slightly modified)
@@ -305,6 +300,7 @@ impl Bot {
 			// Null Move Pruning
 			if depth > 1
 			&& static_eval >= beta // Fruit used || depth > X here, but I haven't found great results with that
+			// && hash_move.is_none() // TODO: fully test this, I briefly tested it and it kept equal
 			&& board.total_material_without_pawns[board.white_to_move as usize] > 0
 			&& board.get_last_move().capture == NO_PIECE as u8 // Moving the check from the above check to only NMP was a decent improvement
 			&& board.try_null_move() {
@@ -318,7 +314,7 @@ impl Bot {
 				}
 			}
 
-			// TODO: definitely work on this, maybe allow it outside pv nodes?
+			// TODO: definitely work on this
 			// Razoring
 			if depth < 4
 			&& static_eval + 300 * (depth as i32) < alpha { // TODO: tweak this
@@ -335,7 +331,7 @@ impl Bot {
 		}
 
 		let mut best_move_this_search = NULL_MOVE;
-		let mut eval_bound = EvalBound::UpperBound;
+		// let mut eval_bound = EvalBound::UpperBound;
 
 		let sorted_moves = self.move_sorter.sort_moves(
 			board.white_to_move,
@@ -429,7 +425,7 @@ impl Bot {
 				found_pv = true;
 
 				best_move_this_search = m;
-				eval_bound = EvalBound::Exact;
+				// eval_bound = EvalBound::Exact;
 				alpha = evaluation;
 
 				if ply == 0 {
@@ -450,11 +446,9 @@ impl Bot {
 			return 0;
 		}
 
-		// I've seen a small improvement if I don't store EvalBound::UpperBound
-		// but idk I'll come back to this later
-		// TODO: try storing alpha bounds again
+		// I've seen a small improvement if I don't store EvalBound::UpperBound, is this normal?
 		if best_move_this_search != NULL_MOVE {
-			self.transposition_table.store(board.zobrist.key.current, depth, ply, alpha, best_move_this_search, eval_bound);
+			self.transposition_table.store(board.zobrist.key.current, depth, ply, alpha, best_move_this_search, EvalBound::Exact);
 		}
 
 		alpha
@@ -467,8 +461,6 @@ impl Bot {
 
 		self.quiescence_searched += 1;
 
-		// I tried looking up the TT here, but somehow it increased node counts and search time
-
 		let evaluation = board.evaluate();
 		if evaluation >= beta {
 			return beta;
@@ -477,8 +469,6 @@ impl Bot {
 		if evaluation > alpha {
 			alpha = evaluation;
 		}
-
-		// TODO: try to TT hit here
 
 		let moves = board.get_pseudo_legal_moves_for_color(board.white_to_move, true);
 		if moves.is_empty() {
