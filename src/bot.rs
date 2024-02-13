@@ -17,7 +17,7 @@ pub struct BotConfig {
 	pub debug_output: bool,
 	pub opening_book: bool,
 	pub time_management: bool,
-	pub tt_size_in_mb: usize,
+	pub hash_size: usize,
 }
 
 impl BotConfig {
@@ -30,7 +30,7 @@ impl BotConfig {
 			debug_output: Self::get_arg_value(&args, "debug_output").unwrap_or(_true.clone()) == _true,
 			opening_book: Self::get_arg_value(&args, "opening_book").unwrap_or(_false.clone()) == _true,
 			time_management: Self::get_arg_value(&args, "time_management").unwrap_or(_true.clone()) == _true,
-			tt_size_in_mb: (Self::get_arg_value(&args, "tt_size").unwrap_or("256".to_string())).parse::<usize>().unwrap_or(256),
+			hash_size: (Self::get_arg_value(&args, "hash_size").unwrap_or("256".to_string())).parse::<usize>().unwrap_or(256),
 		}
 	}
 
@@ -83,7 +83,7 @@ impl Bot {
 			in_opening_book: config.opening_book,
 
 			move_sorter: MoveSorter::new(),
-			transposition_table: TranspositionTable::empty(config.tt_size_in_mb),
+			transposition_table: TranspositionTable::empty(config.hash_size),
 
 			best_move: NULL_MOVE,
 			best_move_this_iteration: NULL_MOVE,

@@ -20,7 +20,7 @@
  - debug=\<BOOLEAN>: Toggle debug output that gets outputed per ply (default=true)
  - opening_book=\<BOOLEAN>: Toggle built-in opening book (default=false)
  - time_management=\<BOOLEAN>: Toggle time management, if false the bot will use all the remaining time (default=true)
- - tt_size=\<INTEGER>: Sets the hash size in Megabytes, there's also a UCI option for this under the name "Hash" (default=256)
+ - hash_size=\<INTEGER>: Sets the hash size in Megabytes, there's also a UCI option for this under the name "Hash" (default=256)
 #### UCI Interface
  - uci, isready, ucinewgame, position, go, stop, and quit commands
  - "position" is only implemented for "position startpos", "position fen" is not yet implemented
@@ -48,11 +48,11 @@
    - Indexed by side to move, move start square, move end square
 #### Search
  - Single Threaded ~ For now ;)
- - Iterative Deepening
  - Negamax
- - Principal Variation Search
+ - Iterative Deepening
  - Alpha-Beta Pruning
  - Late Move Reductions
+ - Principal Variation Search
  - Reverse Futility Pruning (Static Null Move Pruning)
  - Null Move Pruning
  - Razoring

@@ -89,7 +89,7 @@ fn main() {
 					if let Some(value) = command_split.get(4) {
 						match *option_name {
 							"Hash" => {
-								bot_config.tt_size_in_mb = value.parse::<usize>().unwrap_or(256);
+								bot_config.hash_size = value.parse::<usize>().unwrap_or(256);
 							}
 
 							_ => {}
