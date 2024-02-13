@@ -1,23 +1,15 @@
 use crate::STARTING_FEN;
 use crate::piece_square_tables::{PAWN_WORTH, QUEEN_WORTH};
 use crate::pieces::{PAWN, PROMOTABLE, NO_PIECE};
-use crate::utils::{CHECKMATE_EVAL, evaluation_is_mate, moves_ply_from_mate};
+use crate::utils::{CHECKMATE_EVAL, evaluation_is_mate, ply_from_mate};
 use std::time::Instant;
 use crate::move_sorter::MoveSorter;
-use crate::transposition_table::{TranspositionTable, NodeType};
+use crate::transposition_table::{TranspositionTable, EvalBound};
 use crate::move_data::{MoveData, NULL_MOVE};
 use crate::opening_book::OpeningBook;
 use crate::Board;
 
-pub const MAX_SEARCH_EXTENSIONS: u8 = 16;
-pub const FUTILITY_PRUNING_THESHOLD_PER_PLY: i32 = 60;
-pub const RAZORING_THRESHOLD_PER_PLY: i32 = 300;
-
-pub const PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES: f32 = 0.025; // 2.5%
-pub const PERCENT_OF_TIME_TO_USE_AFTER_6_FULL_MOVES: f32 = 0.07; // 7%
-
-pub const MIN_TIME_PER_MOVE: f32 = 0.25; // seconds
-pub const MAX_TIME_PER_MOVE: f32 = 20.0;
+pub const MAX_SEARCH_EXTENSIONS: u8 = 20;
 
 #[derive(Clone, Debug)]
 pub struct BotConfig {
@@ -25,16 +17,20 @@ pub struct BotConfig {
 	pub debug_output: bool,
 	pub opening_book: bool,
 	pub time_management: bool,
+	pub hash_size: usize,
 }
 
 impl BotConfig {
 	pub fn from_args(args: Vec<String>) -> Self {
 		let _true = "true".to_string();
+		let _false = "false".to_string();
+
 		Self { // This is so ugly lol
 			fen: Self::get_arg_value(&args, "fen").unwrap_or(STARTING_FEN.to_string()),
 			debug_output: Self::get_arg_value(&args, "debug_output").unwrap_or(_true.clone()) == _true,
-			opening_book: Self::get_arg_value(&args, "opening_book").unwrap_or(_true.clone()) == _true,
+			opening_book: Self::get_arg_value(&args, "opening_book").unwrap_or(_false.clone()) == _true,
 			time_management: Self::get_arg_value(&args, "time_management").unwrap_or(_true.clone()) == _true,
+			hash_size: (Self::get_arg_value(&args, "hash_size").unwrap_or("256".to_string())).parse::<usize>().unwrap_or(256),
 		}
 	}
 
@@ -65,22 +61,18 @@ pub struct Bot {
 
 	pub best_move: MoveData,
 	best_move_this_iteration: MoveData,
-	best_move_depth_searched_at: u8,
 
 	evaluation: i32,
 	evaluation_this_iteration: i32,
 
 	positions_searched: u128,
 	quiescence_searched: u128,
-	transposition_hits: u128,
 }
 
 impl Bot {
 	pub fn new(config: BotConfig) -> Self {
-		let in_opening_book = config.opening_book;
-
 		Self {
-			config,
+			config: config.clone(),
 
 			time_to_think: 0.0,
 			think_timer: Instant::now(),
@@ -88,21 +80,19 @@ impl Bot {
 			searched_one_move: false,
 
 			opening_book: OpeningBook::create(),
-			in_opening_book,
+			in_opening_book: config.opening_book,
 
 			move_sorter: MoveSorter::new(),
-			transposition_table: TranspositionTable::empty(),
+			transposition_table: TranspositionTable::empty(config.hash_size),
 
 			best_move: NULL_MOVE,
 			best_move_this_iteration: NULL_MOVE,
-			best_move_depth_searched_at: 0,
 
 			evaluation: 0,
 			evaluation_this_iteration: 0,
 
 			positions_searched: 0,
 			quiescence_searched: 0,
-			transposition_hits: 0,
 		}
 	}
 
@@ -112,7 +102,7 @@ impl Bot {
 		}
 	}
 
-	pub fn start(&mut self, board: &mut Board, moves: String, my_time: f32, depth_to_search: u8) {
+	pub fn start(&mut self, board: &mut Board, moves: String, my_time: f32, depth: u8) {
 		if self.in_opening_book {
 			let opening_move = self.opening_book.get_opening_move(moves);
 			if opening_move == NULL_MOVE {
@@ -124,54 +114,50 @@ impl Bot {
 		}
 
 		self.time_to_think =
-			if my_time == 0.0 { // This means we're in a "go depth X" command
-				0.0
-			} else if self.config.time_management {
+			if self.config.time_management
+			&& my_time > 0.0 {
 				let time_percentage = if board.moves.len() / 2 <= 6 {
-					PERCENT_OF_TIME_TO_USE_BEFORE_6_FULL_MOVES
+					0.025
 				} else {
-					PERCENT_OF_TIME_TO_USE_AFTER_6_FULL_MOVES
+					0.07
 				};
 
-				(my_time * time_percentage).clamp(MIN_TIME_PER_MOVE, MAX_TIME_PER_MOVE)
+				(my_time * time_percentage).clamp(0.05, 30.0)
 			} else {
 				my_time
 			};
 
 		self.search_cancelled = false;
 
-		let last_evaluation = self.evaluation;
-
 		self.best_move = NULL_MOVE;
-		self.evaluation = 0;
 
 		self.positions_searched = 0;
 		self.quiescence_searched = 0;
-		self.transposition_hits = 0;
+		self.transposition_table.hits = 0;
 
 		self.move_sorter.clear();
 
+		// TODO: tweak this
 		let mut window = 40;
 
 		self.think_timer = Instant::now();
-		for depth in 1..=depth_to_search {
+		for current_depth in 1..=depth {
 			self.searched_one_move = false;
 			self.best_move_this_iteration = NULL_MOVE;
 			self.evaluation_this_iteration = 0;
 
-
 			loop {
-				let (alpha, beta) = (last_evaluation - window, last_evaluation + window);
+				let (alpha, beta) = (self.evaluation - window, self.evaluation + window);
 
-				let evaluation = self.alpha_beta_search(board, 0, depth, alpha, beta, 0);
+				let evaluation = self.alpha_beta_search(board, current_depth, 0, alpha, beta, 0);
 
-				if alpha < evaluation && evaluation < beta {
+				if evaluation > alpha
+				&& evaluation < beta {
 					break;
 				}
 
 				window *= 4;
 			}
-
 
 			if !self.search_cancelled
 			|| self.searched_one_move {
@@ -180,19 +166,19 @@ impl Bot {
 			}
 
 			self.println(format!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {} + Quiescence positions searched: {} = {}, Transposition Hits: {}",
-				depth,
+				current_depth,
 				window,
 				self.evaluation * board.perspective(),
 				self.best_move.to_coordinates(),
 				self.positions_searched,
 				self.quiescence_searched,
 				self.positions_searched + self.quiescence_searched,
-				self.transposition_hits,
+				self.transposition_table.hits,
 			));
 
 			if evaluation_is_mate(self.evaluation) {
-				let moves_until_mate = moves_ply_from_mate(self.evaluation);
-				if moves_until_mate <= depth {
+				let moves_until_mate = ply_from_mate(self.evaluation);
+				if moves_until_mate <= current_depth {
 					self.println(format!("Mate found in {}", (moves_until_mate as f32 * 0.5).ceil()));
 					break;
 				}
@@ -204,9 +190,20 @@ impl Bot {
 			}
 		}
 
+		if self.best_move == NULL_MOVE {
+			let legal_moves = board.get_pseudo_legal_moves_for_color(board.white_to_move, false);
+			for m in legal_moves {
+				if board.make_move(m) {
+					board.undo_last_move(); // Technically not necessary, because all moves get undone upon receiving the "position" command, but makes me happy :>
+					self.best_move = m;
+					break;
+				}
+			}
+			self.println("Failed to find a move in time, defaulting to first legal move :(".to_string());
+		}
+
 		self.println(format!("{} seconds", self.think_timer.elapsed().as_secs_f32()));
 
-		self.transposition_table.update();
 		if self.config.debug_output {
 			self.transposition_table.print_size();
 		}
@@ -220,52 +217,94 @@ impl Bot {
 	fn alpha_beta_search(
 		&mut self,
 		board: &mut Board,
-		depth: u8,
-		mut depth_left: u8,
+		mut depth: u8,
+		ply: u8,
 		mut alpha: i32,
 		beta: i32,
-		number_of_extensions: u8,
+		total_extensions: u8,
 	) -> i32 {
+		// TODO: try moving this into the move loop and break instead of return 0?
 		if self.should_cancel_search() {
 			return 0;
 		}
 
-		self.positions_searched += 1;
+		if ply > 0 {
+			self.positions_searched += 1;
 
-		if depth > 0
-		&& (board.fifty_move_draw.current >= 50
-		|| board.insufficient_checkmating_material()
-		|| board.zobrist.is_threefold_repetition()) {
-			// Should I use this to discourage making a draw in a winning position?
-			// return -self.quiescence_search(board, alpha, beta);
-			return 0;
-		}
-
-		if let Some(data) = self.transposition_table.lookup(board.zobrist.key, depth_left, depth, alpha, beta) {
-			self.positions_searched -= 1;
-			self.transposition_hits += 1;
-
-			if depth == 0 {
-				self.best_move_this_iteration = data.best_move;
-				self.best_move_depth_searched_at = data.depth_left;
-				self.evaluation_this_iteration = data.evaluation;
+			if board.is_draw() {
+				// Should I use this to discourage making a draw in a winning position?
+				// return -self.quiescence_search(board, alpha, beta);
+				return 0;
 			}
 
-			return data.evaluation;
+			// Mate Distance Pruning
+			let mate_value = CHECKMATE_EVAL - ply as i32;
+			let alpha = i32::max(alpha, -mate_value);
+			let beta = i32::min(beta, mate_value - 1);
+			if alpha >= beta {
+				return alpha;
+			}
 		}
 
-		let is_pv = alpha != beta - 1;
+		let (tt_eval, hash_move) = self.transposition_table.lookup(board.zobrist.key.current, ply, depth, alpha, beta);
 
-		if !is_pv
+		// We don't really want to return from the root node, because if a hash collision occurs (although very rare)
+		// It will return an illegal move
+		if ply > 0 {
+			if let Some(tt_eval) = tt_eval {
+				return tt_eval;
+			}
+
+			// Internal Iterative Reductions
+			if depth > 1
+			&& hash_move.is_none() {
+				depth -= 1;
+			}
+		}
+
+		// This detects a null / zero window search, which is used in non PV nodes
+		// This will also never be true if ply == 0 because the bounds will never be zero at ply 0
+		let not_pv = alpha == beta - 1;
+		let in_check = board.king_in_check(board.white_to_move);
+
+		if not_pv
 		&& depth > 0
-		&& depth_left > 0
-		&& board.get_last_move().capture == NO_PIECE as u8
-		&& !board.king_in_check(board.white_to_move) {
+		&& !in_check
+		&& !evaluation_is_mate(alpha)
+		&& !evaluation_is_mate(beta) {
+			let static_eval = board.evaluate();
+
+			// Reverse Futility Pruning
+			if depth < 8 // TODO: mess around with this
+			&& static_eval - (55 + 50 * (depth as i32 - 1).pow(2)) >= beta { // TODO: continue tweaking this
+				return beta;
+			}
+
+			// Strelka Razoring (Slightly modified)
+			// if depth < 4 {
+			// 	let razoring_threshold = static_eval +
+			// 		if depth == 1 {
+			// 			150
+			// 		} else {
+			// 			350
+			// 		};
+
+			// 	if razoring_threshold < beta {
+			// 		let evaluation = self.quiescence_search(board, alpha, beta);
+			// 		if evaluation < beta {
+			// 			return i32::max(evaluation, razoring_threshold);
+			// 		}
+			// 	}
+			// }
+
 			// Null Move Pruning
-			if depth_left >= 3
+			if depth > 1
+			&& static_eval >= beta // Fruit used || depth > X here, but I haven't found great results with that
+			&& board.total_material_without_pawns[board.white_to_move as usize] > 0
+			&& board.get_last_move().capture == NO_PIECE as u8 // Moving the check from the above check to only NMP was a decent improvement
 			&& board.try_null_move() {
-				// let reduction = 3 - (depth_left - 3) / 2; // This didn't work at all lol
-				let evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 3, -beta, -beta + 1, number_of_extensions);
+				let reduction = 3 + (depth - 2) / 3;
+				let evaluation = -self.alpha_beta_search(board, depth.saturating_sub(reduction), ply + 1, -beta, -beta + 1, total_extensions);
 
 				board.undo_null_move();
 
@@ -274,85 +313,90 @@ impl Bot {
 				}
 			}
 
-			let static_eval = board.evaluate();
-
-			// Reverse Futility Pruning
-			if depth_left <= 4
-			&& static_eval - FUTILITY_PRUNING_THESHOLD_PER_PLY * (depth_left as i32) >= beta {
-				return static_eval;
-			}
-
 			// Razoring
-			if depth_left <= 3
-			&& static_eval + RAZORING_THRESHOLD_PER_PLY * (depth_left as i32) < alpha {
-				depth_left -= 1;
+			if depth < 4 // TODO: try different values for this
+			&& static_eval + (300 + 150 * (depth as i32 - 1)) < alpha { // TODO: tweak this some more
+				depth -= 1;
 			}
 		}
 
-		if depth_left == 0 {
-			return self.quiescence_search(board, alpha, beta);
+		if depth == 0 {
+			return self.quiescence_search(board, alpha, beta, true);
 		}
 
 		let mut best_move_this_search = NULL_MOVE;
-		let mut node_type = NodeType::UpperBound;
+		// let mut eval_bound = EvalBound::UpperBound;
 
-		let legal_moves = board.get_legal_moves_for_color(board.white_to_move, false);
-		if legal_moves.is_empty() {
-			if board.king_in_check(board.white_to_move) {
-				let mate_score = CHECKMATE_EVAL - depth as i32;
-				return -mate_score;
-			}
-			return 0;
-		}
-
-		let hash_move =
-			if depth == 0 {
+		let sorted_moves = self.move_sorter.sort_moves(
+			board.white_to_move,
+			board.get_pseudo_legal_moves_for_color(board.white_to_move, false),
+			/*
+			The best move is _not_ the same as the hash move, because we could have
+			found a new best move right before exiting the search, before tt.store gets called
+			*/
+			if ply == 0
+			&& self.best_move != NULL_MOVE {
 				self.best_move
-			} else if let Some(data) = self.transposition_table.table.get(&board.zobrist.key) {
-				data.best_move
 			} else {
-				NULL_MOVE
-			};
+				hash_move.unwrap_or(NULL_MOVE)
+			},
+			ply as usize,
+		);
 
-		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, hash_move, depth);
+		let mut found_pv = false;
 
-		for i in 0..sorted_moves.len() {
-			let m = sorted_moves[i];
-			board.make_move(m);
+		let mut legal_moves_found = 0;
+		for (_score, m) in sorted_moves {
+			if !board.make_move(m) {
+				continue;
+			}
 
-			let mut search_extension = 0;
-			if number_of_extensions < MAX_SEARCH_EXTENSIONS as u8 {
-				if board.king_in_check(board.white_to_move) {
-					search_extension = 1;
-				} else {
-					if m.piece == PAWN as u8 {
-						let rank = m.to / 8;
-						if rank == 1 || rank == 6 {
-							search_extension = 1;
-						}
-					}
+			let mut extension = 0;
+			if board.king_in_check(board.white_to_move) {
+				extension += 1;
+			}
+
+			if m.piece == PAWN as u8 {
+				let rank = m.to / 8;
+				if rank == 1 || rank == 6 {
+					extension += 1;
 				}
 			}
 
+			extension = u8::min(extension, MAX_SEARCH_EXTENSIONS - total_extensions);
 
-
-			// Late Move Reduction / (Kind of) Principal Variation Search
 			let mut evaluation = 0;
-			let mut needs_full_search = true;
+			let mut needs_fuller_search = true;
 
-			if search_extension == 0
-			&& i >= 3
-			&& depth_left >= 3
+			// Late Move Reductions
+			if legal_moves_found > 3
+			&& depth > 1
+			&& extension == 0
 			&& m.capture == NO_PIECE as u8 {
-				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1 - 1, -alpha - 1, -alpha, number_of_extensions);
-				needs_full_search = evaluation > alpha;
+				let mut reduction = 2;
+
+				if found_pv {
+					reduction += 1;
+				}
+
+				if not_pv {
+					reduction += 1; // TODO: + depth / 6
+				}
+
+				evaluation = -self.alpha_beta_search(board, depth.saturating_sub(reduction), ply + 1, -alpha - 1, -alpha, total_extensions);
+				needs_fuller_search = evaluation > alpha; // && evaluation < beta?
 			}
 
-			if needs_full_search {
-				evaluation = -self.alpha_beta_search(board, depth + 1, depth_left - 1 + search_extension, -beta, -alpha, number_of_extensions + search_extension);
+			// Principal Variation Search
+			if needs_fuller_search
+			&& found_pv {
+				evaluation = -self.alpha_beta_search(board, depth + extension - 1, ply + 1, -alpha - 1, -alpha, total_extensions + extension);
+				needs_fuller_search = evaluation > alpha; // && evaluation < beta?
 			}
 
-
+			if needs_fuller_search {
+				evaluation = -self.alpha_beta_search(board, depth + extension - 1, ply + 1, -beta, -alpha, total_extensions + extension);
+			}
 
 			board.undo_last_move();
 
@@ -361,40 +405,56 @@ impl Bot {
 			}
 
 			if evaluation >= beta {
-				self.transposition_table.store(board.zobrist.key, depth_left, depth, beta, m, NodeType::LowerBound);
+				self.transposition_table.store(board.zobrist.key.current, depth, ply, beta, m, EvalBound::LowerBound);
 
 				if m.capture == NO_PIECE as u8 {
-					self.move_sorter.push_killer_move(m, depth);
-					self.move_sorter.history[m.piece as usize][m.to as usize] += (depth_left * depth_left) as i32;
+					self.move_sorter.add_killer_move(m, ply as usize);
+					self.move_sorter.history[board.white_to_move as usize][m.from as usize][m.to as usize] += (depth * depth) as i32;
 				}
 
 				return beta;
 			}
 
 			if evaluation > alpha {
+				found_pv = true;
+
 				best_move_this_search = m;
-				node_type = NodeType::Exact;
+				// eval_bound = EvalBound::Exact;
 				alpha = evaluation;
 
-				if depth == 0 {
+				if ply == 0 {
 					self.searched_one_move = true;
 					self.best_move_this_iteration = best_move_this_search;
-					self.best_move_depth_searched_at = depth_left;
 					self.evaluation_this_iteration = evaluation;
 				}
 			}
+
+			legal_moves_found += 1;
 		}
 
+		if legal_moves_found == 0 {
+			if in_check {
+				let mate_score = CHECKMATE_EVAL - ply as i32;
+				return -mate_score;
+			}
+			return 0;
+		}
+
+		// I've seen a small improvement if I don't store EvalBound::UpperBound, is this normal?
 		if best_move_this_search != NULL_MOVE {
-			self.transposition_table.store(board.zobrist.key, depth_left, depth, alpha, best_move_this_search, node_type);
+			self.transposition_table.store(board.zobrist.key.current, depth, ply, alpha, best_move_this_search, EvalBound::Exact);
 		}
 
 		alpha
 	}
 
-	fn quiescence_search(&mut self, board: &mut Board, mut alpha: i32, beta: i32) -> i32 {
+	fn quiescence_search(&mut self, board: &mut Board, mut alpha: i32, beta: i32, is_root: bool) -> i32 {
 		if self.should_cancel_search() {
 			return 0;
+		}
+
+		if is_root {
+			self.positions_searched -= 1;
 		}
 
 		self.quiescence_searched += 1;
@@ -408,29 +468,32 @@ impl Bot {
 			alpha = evaluation;
 		}
 
-		let legal_moves = board.get_legal_moves_for_color(board.white_to_move, true);
-		if legal_moves.is_empty() {
+		let moves = board.get_pseudo_legal_moves_for_color(board.white_to_move, true);
+		if moves.is_empty() {
 			return evaluation;
 		}
 
-		// Depth is set to u8::MAX because it's only used for killer moves, and we don't need that here
-		let sorted_moves = self.move_sorter.sort_moves(board, legal_moves, NULL_MOVE, u8::MAX);
-
-		for m in sorted_moves {
+		let sorted_moves = self.move_sorter.sort_moves(board.white_to_move, moves, NULL_MOVE, usize::MAX);
+		for (_score, m) in sorted_moves {
 			// Delta Pruning
 			if !board.king_in_check(board.white_to_move) {
-				let mut threshold = QUEEN_WORTH;
-				if PROMOTABLE.contains(&m.flag) {
-					threshold += QUEEN_WORTH - PAWN_WORTH;
-				}
+				let threshold = QUEEN_WORTH +
+					if PROMOTABLE.contains(&m.flag) {
+						QUEEN_WORTH - PAWN_WORTH
+					} else {
+						0
+					};
 
 				if evaluation < alpha - threshold {
 					continue;
 				}
 			}
 
-			board.make_move(m);
-			let evaluation = -self.quiescence_search(board, -beta, -alpha);
+			if !board.make_move(m) {
+				continue;
+			}
+
+			let evaluation = -self.quiescence_search(board, -beta, -alpha, false);
 			board.undo_last_move();
 
 			if evaluation >= beta {

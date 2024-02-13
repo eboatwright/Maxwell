@@ -1,3 +1,4 @@
+use crate::value_holder::ValueHolder;
 use crate::pieces::*;
 use crate::Board;
 use crate::move_data::*;
@@ -8,9 +9,7 @@ use rand_pcg::Pcg64;
 const SEED: u64 = 19274892; // old seed: 3141592653589793238
 
 pub struct Zobrist {
-	pub key: u64,
-	pub history: Vec<u64>,
-	key_index: usize,
+	pub key: ValueHolder<u64>,
 
 	pieces: [[u64; 64]; PIECE_COUNT],
 	castling_rights: [u64; 16],
@@ -22,9 +21,7 @@ pub struct Zobrist {
 impl Default for Zobrist {
 	fn default() -> Self {
 		Self {
-			history: vec![],
-			key: 0,
-			key_index: 0,
+			key: ValueHolder::new(0),
 
 			pieces: [[0; 64]; PIECE_COUNT],
 			castling_rights: [0; 16],
@@ -36,7 +33,7 @@ impl Default for Zobrist {
 }
 
 impl Zobrist {
-	pub fn generate() -> Self {
+	pub fn generate(board: &mut Board) -> Self {
 		let mut zobrist = Self::default();
 		let mut rng = Pcg64::seed_from_u64(SEED);
 
@@ -56,60 +53,28 @@ impl Zobrist {
 
 		zobrist.side_to_move = rng.gen::<u64>();
 
-		zobrist
-	}
 
-	pub fn pop(&mut self) {
-		self.key_index -= 1;
-		self.key = self.history[self.key_index - 1];
-	}
+		let mut initial_key = 0;
 
-	pub fn generate_initial_key(&mut self, board: &mut Board) {
 		for i in 0..64 {
 			let piece = board.get_piece(i);
 			if piece != NO_PIECE {
-				self.key ^= self.pieces[piece][i as usize];
+				initial_key ^= zobrist.pieces[piece][i as usize];
 			}
 		}
 
-		self.key ^= self.castling_rights[board.castling_rights.current as usize];
+		initial_key ^= zobrist.castling_rights[board.board_state.current.castling_rights as usize];
 
-		self.key ^= self.en_passant[board.en_passant_file];
+		initial_key ^= zobrist.en_passant[board.en_passant_file];
 
 		if !board.white_to_move {
-			self.key ^= self.side_to_move;
+			initial_key ^= zobrist.side_to_move;
 		}
 
-		self.push();
-	}
+		zobrist.key = ValueHolder::new(initial_key);
 
-	pub fn push(&mut self) {
-		if self.key_index >= self.history.len() {
-			self.history.push(self.key);
-		} else {
-			self.history[self.key_index] = self.key;
-		}
-		self.key_index += 1;
-	}
 
-	pub fn clear(&mut self) {
-		self.key_index = 0;
-		self.key = self.history[0];
-		self.history.clear();
-		self.push();
-	}
-
-	pub fn is_threefold_repetition(&self) -> bool {
-		let mut count = 0;
-		for i in 0..self.key_index {
-			if self.history[i] == self.key {
-				count += 1;
-				if count >= 2 {
-					return true;
-				}
-			}
-		}
-		false
+		zobrist
 	}
 
 	// There's probably still bugs here; I'm very tired :`D
@@ -122,22 +87,22 @@ impl Zobrist {
 	) {
 		let to = data.to as usize;
 
-		self.key ^= self.pieces[data.piece as usize][data.from as usize];
+		self.key.current ^= self.pieces[data.piece as usize][data.from as usize];
 
 		if !PROMOTABLE.contains(&data.flag) {
-			self.key ^= self.pieces[data.piece as usize][to];
+			self.key.current ^= self.pieces[data.piece as usize][to];
 		} else {
-			self.key ^= self.pieces[build_piece(is_piece_white(data.piece as usize), data.flag as usize)][to];
+			self.key.current ^= self.pieces[build_piece(is_piece_white(data.piece as usize), data.flag as usize)][to];
 		}
 
 		if data.flag == SHORT_CASTLE_FLAG {
 			let rook = build_piece(is_piece_white(data.piece as usize), ROOK);
-			self.key ^= self.pieces[rook][to + 1];
-			self.key ^= self.pieces[rook][to - 1];
+			self.key.current ^= self.pieces[rook][to + 1];
+			self.key.current ^= self.pieces[rook][to - 1];
 		} else if data.flag == LONG_CASTLE_FLAG {
 			let rook = build_piece(is_piece_white(data.piece as usize), ROOK);
-			self.key ^= self.pieces[rook][to - 2];
-			self.key ^= self.pieces[rook][to + 1];
+			self.key.current ^= self.pieces[rook][to - 2];
+			self.key.current ^= self.pieces[rook][to + 1];
 		} else if data.capture != NO_PIECE as u8 {
 			if data.flag == EN_PASSANT_FLAG {
 				let pawn_to_en_passant = if is_piece_white(data.piece as usize) {
@@ -146,35 +111,35 @@ impl Zobrist {
 					to - 8
 				};
 
-				self.key ^= self.pieces[data.capture as usize][pawn_to_en_passant];
+				self.key.current ^= self.pieces[data.capture as usize][pawn_to_en_passant];
 			} else {
-				self.key ^= self.pieces[data.capture as usize][to];
+				self.key.current ^= self.pieces[data.capture as usize][to];
 			}
 		}
 
-		self.key ^= self.castling_rights[last_castling_rights as usize];
-		self.key ^= self.castling_rights[castling_rights as usize];
+		self.key.current ^= self.castling_rights[last_castling_rights as usize];
+		self.key.current ^= self.castling_rights[castling_rights as usize];
 
 		if last_move.flag == DOUBLE_PAWN_PUSH_FLAG {
 			let file = (last_move.to as usize % 8) + 1;
-			self.key ^= self.en_passant[file];
+			self.key.current ^= self.en_passant[file];
 		}
 
 		if data.flag == DOUBLE_PAWN_PUSH_FLAG {
 			let file = (to % 8) + 1;
-			self.key ^= self.en_passant[file];
+			self.key.current ^= self.en_passant[file];
 			self.en_passant_file = file;
 		}
 
-		self.key ^= self.side_to_move;
+		self.key.current ^= self.side_to_move;
 
-		self.push();
+		self.key.push();
 	}
 
 	pub fn make_null_move(&mut self) {
-		self.key ^= self.side_to_move;
-		self.key ^= self.en_passant[self.en_passant_file];
+		self.key.current ^= self.side_to_move;
+		self.key.current ^= self.en_passant[self.en_passant_file];
 
-		self.push();
+		self.key.push();
 	}
 }

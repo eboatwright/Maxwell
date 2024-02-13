@@ -1,26 +1,3 @@
-/* TODO
-calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
-check out pin detection to speed up check detection?
-try to write a neural network to evaluate positions? :o
-figure out how to implement "pondering" to think on opponent's time
-
-Ideas I've tried, but they didn't help, or made it play worse (Or I implemented them wrong :P)
-https://www.chessprogramming.org/Futility_Pruning
-https://www.chessprogramming.org/Principal_Variation_Search
-https://www.chessprogramming.org/Internal_Iterative_Deepening
-
-Random ideas to try (from other engines and chessprogramming.org)
-History reduction
-https://www.chessprogramming.org/History_Leaf_Pruning
-https://www.chessprogramming.org/Futility_Pruning#MoveCountBasedPruning
-https://www.chessprogramming.org/Triangular_PV-Table
-https://www.chessprogramming.org/Static_Exchange_Evaluation
-
-Some random resources I found: (Not using them right now but they could be useful)
-https://analog-hors.github.io/site/magic-bitboards/
-https://web.archive.org/web/20071030220825/http://www.brucemo.com/compchess/programming/pvs.htm
-*/
-
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unused_imports)]
@@ -42,8 +19,11 @@ mod board;
 mod zobrist;
 mod perft;
 mod bot;
+mod pv_table;
 mod move_sorter;
+mod scored_move_list;
 
+use crate::utils::move_str_is_valid;
 use crate::castling_rights::print_castling_rights;
 use crate::bot::{Bot, BotConfig, MAX_SEARCH_EXTENSIONS};
 use crate::perft::*;
@@ -55,17 +35,18 @@ use std::io;
 use colored::Colorize;
 use std::time::Instant;
 
-pub const STARTING_FEN:      &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-pub const KIWIPETE_FEN:      &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
-pub const TEST_POSITION_4:   &str = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
-pub const DRAWN_ENDGAME_FEN: &str = "8/8/8/3k4/R5p1/P5r1/4K3/8 w - - 0 1";
-pub const MATE_IN_5_FEN:     &str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
-pub const PAWN_ENDGAME_FEN:  &str = "8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1";
-pub const ENDGAME_POSITION:  &str = "8/pk4p1/2prp3/3p1p2/3P2p1/R2BP3/2P2KPP/8 w - - 8 35";
-pub const PAWN_EVAL_TESTING: &str = "4k3/p1pp4/8/4pp1P/2P4P/8/P5P1/4K3 w - - 0 1";
+pub const STARTING_FEN:         &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+pub const KIWIPETE_FEN:         &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
+pub const TEST_POSITION_4:      &str = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
+pub const DRAWN_ENDGAME_FEN:    &str = "8/8/8/3k4/R5p1/P5r1/4K3/8 w - - 0 1";
+pub const MATE_IN_5_FEN:        &str = "4r3/7q/nb2prRp/pk1p3P/3P4/P7/1P2N1P1/1K1B1N2 w - - 0 1";
+pub const PAWN_ENDGAME_FEN:     &str = "8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1";
+pub const ONE_PAWN_ENDGAME_FEN: &str = "8/8/1k6/8/8/1K6/1P6/8 w - - 0 1";
+pub const ENDGAME_POSITION:     &str = "8/pk4p1/2prp3/3p1p2/3P2p1/R2BP3/2P2KPP/8 w - - 8 35";
+pub const PAWN_EVAL_TESTING:    &str = "4k3/p1pp4/8/4pp1P/2P4P/8/P5P1/4K3 w - - 0 1";
 
 fn main() {
-	let bot_config = BotConfig::from_args(std::env::args().collect::<Vec<String>>());
+	let mut bot_config = BotConfig::from_args(std::env::args().collect::<Vec<String>>());
 
 	// let mut log = Log::none();
 
@@ -80,10 +61,11 @@ fn main() {
 
 		io::stdin()
 			.read_line(&mut command)
-			.expect("Failed to read command");
+			.expect("Failed to read terminal input");
 
 		// log.write(format!("Got command: {}\n", command));
 
+		// The length of this Vec will always be > 0
 		let command_split = command.trim()
 			.split(' ')
 			.collect::<Vec<&str>>();
@@ -92,10 +74,28 @@ fn main() {
 			// UCI protocol
 
 			"uci" => {
-				println!("id name Maxwell v3.0.8-2");
+				println!("id name Maxwell v3.1.0");
 				println!("id author eboatwright");
+				println!("option name Hash type spin default 256 min 0 max 4000");
 
 				println!("uciok");
+			}
+
+			"setoption" => {
+				// 0         1    2             3     4
+				// setoption name <Option name> value <Value>
+
+				if let Some(option_name) = command_split.get(2) {
+					if let Some(value) = command_split.get(4) {
+						match *option_name {
+							"Hash" => {
+								bot_config.hash_size = value.parse::<usize>().unwrap_or(256);
+							}
+
+							_ => {}
+						}
+					}
+				}
 			}
 
 			"isready" => println!("readyok"),
@@ -106,45 +106,69 @@ fn main() {
 				bot = Bot::new(bot_config.clone());
 			}
 
+			// TODO: add support for "position fen"
 			// Format: position startpos (moves e2e4 e7e5 ...)
 			"position" => {
+				// Reset the board to the initial position
 				for _ in 0..board.moves.len() {
 					board.undo_last_move();
 				}
 
+				// "moves" is for the opening book
 				moves.clear();
 				for coordinates in command_split.iter().skip(3) {
 					moves += &format!("{} ", coordinates);
+
+					if !move_str_is_valid(coordinates) {
+						println!("Illegal move: {}", coordinates);
+						break;
+					}
+
 					let data = MoveData::from_coordinates(coordinates.to_string());
 					if !board.play_move(data) {
-						let err = format!("{}: failed to play move: {}", "FATAL ERROR".white().on_red(), coordinates);
-						println!("{}", err);
+						break;
 						// log.write(err);
 					}
 				}
 				moves.pop();
 			}
 
-			// Format:
-			// go (movetime, wtime) X (btime Y)
-			// go depth X
 			"go" => {
-				let my_time_label = if board.white_to_move { "wtime" } else { "btime" };
 				let mut my_time = 0.0;
 				let mut depth_to_search = 255 - MAX_SEARCH_EXTENSIONS;
 
-				for i in [1, 3] {
-					if command_split[i] == my_time_label
-					|| command_split[i] == "movetime" {
-						if let Ok(time_in_millis) = command_split[i + 1].parse::<i32>() {
-							my_time = time_in_millis as f32 / 1000.0;
-							break;
+				// Anything below 3 words is treated is treated as "go infinite"
+				if command_split.len() > 2 {
+					let go_type = command_split[1];
+
+					// This is pretty dang ugly, but it works, and is safe :D
+					match go_type {
+						// go depth X
+						"depth" => {
+							if let Some(_depth_to_search) = command_split.get(2) {
+								if let Ok(_depth_to_search) = _depth_to_search.parse::<u8>() {
+									depth_to_search = _depth_to_search;
+								}
+							}
 						}
-					} else if command_split[i] == "depth" {
-						if let Ok(_depth_to_search) = command_split[i + 1].parse::<u8>() {
-							depth_to_search = _depth_to_search;
-							break;
+
+						// go movetime X
+						"movetime" => {
+							if let Some(time_in_millis) = command_split.get(2) {
+								// These are capped to one millisecond, because 0.0 time is treated as "go infinite"
+								my_time = f32::max(1.0, time_in_millis.parse::<f32>().unwrap_or(0.0)) / 1000.0;
+							}
 						}
+
+						// go wtime X btime Y
+						"wtime" => {
+							let time_index = if board.white_to_move { 2 } else { 4 };
+							if let Some(time_in_millis) = command_split.get(time_index) {
+								my_time = f32::max(1.0, time_in_millis.parse::<f32>().unwrap_or(0.0)) / 1000.0;
+							}
+						}
+
+						_ => {}
 					}
 				}
 
@@ -154,7 +178,7 @@ fn main() {
 				// log.write(format!("bestmove {}", bot.best_move.to_coordinates()));
 			}
 
-			"stop" => bot.search_cancelled = true,
+			"stop" => bot.search_cancelled = true, // Now that I think about it, this doesn't actually do anything LMAO
 			"quit" => break,
 
 			// My debug tools
@@ -162,9 +186,15 @@ fn main() {
 			// "play" => play(command_split[1] == "white"),
 
 			"move" => {
-				let data = MoveData::from_coordinates(command_split[1].to_string());
-				if board.play_move(data) {
-					board.print();
+				if let Some(move_coordinates) = command_split.get(1) {
+					if move_str_is_valid(move_coordinates) {
+						let data = MoveData::from_coordinates(move_coordinates.to_string());
+						if board.play_move(data) {
+							board.print();
+						}
+					} else {
+						println!("Invalid move");
+					}
 				}
 			}
 
@@ -186,9 +216,10 @@ fn main() {
 
 			"print" => board.print(),
 			"bitboards" => board.print_bitboards(),
-			"castlingrights" => print_castling_rights(board.castling_rights.current),
-			"zobrist" => println!("{}", board.zobrist.key),
+			"castlingrights" => print_castling_rights(board.board_state.current.castling_rights),
+			"zobrist" => println!("{}", board.zobrist.key.current),
 			"eval" => println!("{}", board.evaluate() * board.perspective()),
+			"fiftymoves" => println!("{}", board.board_state.current.fifty_move_counter),
 
 			"ttsize" => bot.transposition_table.print_size(),
 			"cleartt" => {
@@ -197,8 +228,10 @@ fn main() {
 			}
 
 			"perft" => {
-				let depth = command_split[1].parse::<usize>().expect("Invalid depth");
-				PerftResults::calculate(&mut board, depth);
+				if let Some(depth) = command_split.get(1) {
+					let depth = depth.parse::<u8>().unwrap_or(0);
+					PerftResults::calculate(&mut board, depth);
+				}
 			}
 
 			// "test" => {

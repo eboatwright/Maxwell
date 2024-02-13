@@ -29,6 +29,15 @@ pub const PROMOTABLE: [u8; 4] = [
 	QUEEN as u8,
 ];
 
+// pub fn flag_is_promotion(flag: u8) -> bool {
+// 	let flag = flag as usize;
+
+// 	   flag == KNIGHT
+// 	|| flag == BISHOP
+// 	|| flag == ROOK
+// 	|| flag == QUEEN
+// }
+
 pub fn is_piece_white(piece: usize) -> bool {
 	piece > BLACK_KING
 }

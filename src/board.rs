@@ -1,6 +1,6 @@
 use crate::value_holder::ValueHolder;
-use crate::utils::{pop_lsb, print_bitboard, coordinate_to_index};
-use crate::piece_square_tables::{get_base_worth_of_piece, get_full_worth_of_piece, ROOK_WORTH, BISHOP_WORTH};
+use crate::utils::{pop_lsb, get_lsb, print_bitboard, coordinate_to_index};
+use crate::piece_square_tables::{BASE_WORTHS_OF_PIECE_TYPE, get_full_worth_of_piece, ROOK_WORTH, BISHOP_WORTH};
 use crate::precalculated_move_data::*;
 use crate::move_data::*;
 use crate::zobrist::Zobrist;
@@ -8,34 +8,47 @@ use crate::pieces::*;
 use crate::castling_rights::*;
 use colored::Colorize;
 
-pub const BITBOARD_COUNT: usize = PIECE_COUNT;
 pub const MAX_ENDGAME_MATERIAL: f32 = (ROOK_WORTH * 2 + BISHOP_WORTH * 2) as f32;
 
-// TODO: still tweaking these :`D
-pub const DOUBLED_PAWN_PENALTY: i32 = 35;
-pub const ISOLATED_PAWN_PENALTY: i32 = 20;
-pub const PASSED_PAWN_BOOST: [i32; 8] = [0, 15, 15, 30, 50, 90, 150, 0];
+pub const DOUBLED_PAWN_PENALTY: i32 = 35; // TODO
+pub const ISOLATED_PAWN_PENALTY: i32 = 20; // TODO
+pub const PASSED_PAWN_BOOST: [i32; 8] = [0, 15, 15, 30, 50, 90, 150, 0]; // TODO
+
+#[derive(Copy, Clone)]
+pub struct BoardState {
+	pub castling_rights: u8,
+	pub fifty_move_counter: u8,
+	pub attacked_squares: [Option<u64>; 2],
+}
+
+impl BoardState {
+	pub fn new(castling_rights: u8, fifty_move_counter: u8) -> Self {
+		Self {
+			castling_rights,
+			fifty_move_counter,
+			attacked_squares: [None, None],
+		}
+	}
+}
 
 pub struct Board {
 	pub precalculated_move_data: PrecalculatedMoveData,
 
-	pub piece_bitboards: [u64; BITBOARD_COUNT],
+	pub piece_bitboards: [u64; PIECE_COUNT],
 	pub color_bitboards: [u64; 2],
-	pub attacked_squares_bitboards: [u64; 2],
-
-	pub castling_rights: ValueHolder<u8>,
-	pub fifty_move_draw: ValueHolder<u8>,
 
 	pub en_passant_file: usize,
 	pub white_to_move: bool,
 
-	pub total_material_without_pawns: i32,
+	pub total_material_without_pawns: [i32; 2],
 
 	pub zobrist: Zobrist,
 
 	pub moves: Vec<MoveData>,
 
-	attacked_squares_calculated: [bool; 2],
+	// TODO: smaller version of the transposition table for evaluation cache?
+
+	pub board_state: ValueHolder<BoardState>,
 }
 
 impl Board {
@@ -49,29 +62,25 @@ impl Board {
 		if fen[2].contains('q') { castling_rights ^= BLACK_CASTLE_LONG; }
 		if fen[2].contains('k') { castling_rights ^= BLACK_CASTLE_SHORT; }
 
-		let fifty_move_draw = fen[4].parse::<u8>().unwrap_or(0);
+		let fifty_move_counter = fen[4].parse::<u8>().unwrap_or(0);
 
 		let mut board = Self {
 			precalculated_move_data: PrecalculatedMoveData::calculate(),
 
-			piece_bitboards: [0; BITBOARD_COUNT],
+			piece_bitboards: [0; PIECE_COUNT],
 			color_bitboards: [0; 2],
-			attacked_squares_bitboards: [0; 2],
-
-			castling_rights: ValueHolder::new(castling_rights),
-			fifty_move_draw: ValueHolder::new(fifty_move_draw),
 
 			en_passant_file: 0, // This isn't implemented at all
 			// en_passant_file: if fen[3] == "-" { 0 } else { (coordinate_to_index(fen[3]) % 8) + 1 },
 			white_to_move: fen[1] == "w",
 
-			total_material_without_pawns: 0,
+			total_material_without_pawns: [0, 0],
 
 			zobrist: Zobrist::default(),
 
 			moves: vec![],
 
-			attacked_squares_calculated: [false; 2],
+			board_state: ValueHolder::new(BoardState::new(castling_rights, fifty_move_counter)),
 		};
 
 		let piece_rows = fen[0].split('/').collect::<Vec<&str>>();
@@ -88,22 +97,19 @@ impl Board {
 					board.color_bitboards[is_piece_white(piece) as usize] |= 1 << i;
 					i += 1;
 
+					let piece_is_white = is_piece_white(piece);
 					let piece_type = get_piece_type(piece);
 
 					if piece_type != PAWN
 					&& piece_type != KING {
-						let piece_worth = get_base_worth_of_piece(piece);
-						board.total_material_without_pawns += piece_worth;
+						let piece_worth = BASE_WORTHS_OF_PIECE_TYPE[piece_type];
+						board.total_material_without_pawns[piece_is_white as usize] += piece_worth;
 					}
 				}
 			}
 		}
 
-		// This has to be done after the board is setup (Duh)
-		let mut zobrist = Zobrist::generate();
-		zobrist.generate_initial_key(&mut board);
-		board.zobrist = zobrist;
-
+		board.zobrist = Zobrist::generate(&mut board);
 		board.calculate_attacked_squares();
 
 		board
@@ -114,9 +120,14 @@ impl Board {
 		self.calculate_attacked_squares_for_color(1);
 	}
 
+	pub fn get_attacked_squares_for_color(&mut self, color: usize) -> u64 {
+		self.calculate_attacked_squares_for_color(color);
+		self.board_state.current.attacked_squares[color].unwrap()
+	}
+
 	// This is SLOOOOOOOOOOOOOWWWWWWW :[
 	pub fn calculate_attacked_squares_for_color(&mut self, color: usize) {
-		if self.attacked_squares_calculated[color] {
+		if self.board_state.current.attacked_squares[color].is_some() {
 			return;
 		}
 
@@ -141,8 +152,7 @@ impl Board {
 			}
 		}
 
-		self.attacked_squares_bitboards[color] = attacked_squares;
-		self.attacked_squares_calculated[color] = true;
+		self.board_state.current.attacked_squares[color] = Some(attacked_squares);
 	}
 
 	pub fn print(&self) {
@@ -174,8 +184,8 @@ impl Board {
 		println!("{}", output);
 	}
 
-	pub fn print_bitboards(&self) {
-		for piece in 0..BITBOARD_COUNT {
+	pub fn print_bitboards(&mut self) {
+		for piece in 0..PIECE_COUNT {
 			let c = piece_to_char(piece);
 			print_bitboard(
 				&format!("{}", c),
@@ -190,8 +200,11 @@ impl Board {
 
 		print_bitboard("Black pieces", "1".bold().italic().white().on_black(), self.color_bitboards[0]);
 		print_bitboard("White pieces", "1".bold().italic().normal().on_white(), self.color_bitboards[1]);
-		print_bitboard("Black attacked squares", "1".bold().italic().white().on_black(), self.attacked_squares_bitboards[0]);
-		print_bitboard("White attacked squares", "1".bold().italic().normal().on_white(), self.attacked_squares_bitboards[1]);
+
+		let black_attacked_squares = self.get_attacked_squares_for_color(0);
+		let white_attacked_squares = self.get_attacked_squares_for_color(1);
+		print_bitboard("Black attacked squares", "1".bold().italic().white().on_black(), black_attacked_squares);
+		print_bitboard("White attacked squares", "1".bold().italic().normal().on_white(), white_attacked_squares);
 	}
 
 	pub fn get_last_move(&self) -> MoveData {
@@ -224,45 +237,42 @@ impl Board {
 	pub fn play_move(&mut self, data: MoveData) -> bool {
 		let promoting = PROMOTABLE.contains(&data.flag);
 		if self.white_to_move == is_piece_white(self.get_piece(data.from)) {
-			let legal_moves = self.get_legal_moves_for_piece(data.from, false);
-			for m in legal_moves {
+			let moves = self.get_moves_for_piece(data.from, false);
+			for m in moves {
 				if (!promoting || data.flag == m.flag)
 				&& m.from == data.from
-				&& m.to == data.to {
-					self.make_move(m);
+				&& m.to == data.to
+				&& self.make_move(m) {
 					return true;
 				}
 			}
 		}
 
-		println!("Illegal move");
+		println!("Illegal move: {}", data.to_coordinates());
 		false
 	}
 
-	pub fn make_move(&mut self, data: MoveData) {
-		let piece_color = is_piece_white(data.piece as usize) as usize;
-		let other_color = !is_piece_white(data.piece as usize) as usize;
-
-		// if data.piece >= NO_PIECE as u8 {
-		// 	println!("Illegal piece! Move: {:#?}", data);
-		// 	return;
-		// }
+	pub fn make_move(&mut self, data: MoveData) -> bool {
+		let piece_is_white = is_piece_white(data.piece as usize);
+		let piece_color = piece_is_white as usize;
+		let other_color = (!piece_is_white) as usize;
 
 		self.piece_bitboards[data.piece as usize] ^= 1 << data.from;
 
 		if !PROMOTABLE.contains(&data.flag) {
 			self.piece_bitboards[data.piece as usize] ^= 1 << data.to;
 		} else {
-			self.piece_bitboards[build_piece(piece_color == 1, data.flag as usize)] ^= 1 << data.to;
-			self.total_material_without_pawns += get_base_worth_of_piece(data.flag as usize);
+			self.piece_bitboards[build_piece(piece_is_white, data.flag as usize)] ^= 1 << data.to;
+			self.total_material_without_pawns[piece_color] += BASE_WORTHS_OF_PIECE_TYPE[data.flag as usize];
 		}
 
 		self.color_bitboards[piece_color] ^= 1 << data.from;
 		self.color_bitboards[piece_color] ^= 1 << data.to;
 
 		if data.capture != NO_PIECE as u8 {
-			if get_piece_type(data.capture as usize) != PAWN {
-				self.total_material_without_pawns -= get_base_worth_of_piece(data.capture as usize);
+			let capture_type = get_piece_type(data.capture as usize);
+			if capture_type != PAWN {
+				self.total_material_without_pawns[other_color] -= BASE_WORTHS_OF_PIECE_TYPE[capture_type];
 			}
 
 			if data.flag == EN_PASSANT_FLAG {
@@ -282,7 +292,7 @@ impl Board {
 
 		// I dunno if there's a better way to do this :/
 		if data.piece == WHITE_KING as u8 {
-			self.castling_rights.current &= !ALL_WHITE_CASTLING_RIGHTS;
+			self.board_state.current.castling_rights &= !ALL_WHITE_CASTLING_RIGHTS;
 
 			if data.flag == SHORT_CASTLE_FLAG {
 				self.piece_bitboards[WHITE_ROOK] ^= 1 << 63;
@@ -298,7 +308,7 @@ impl Board {
 				self.color_bitboards[1] ^= 1 << 59;
 			}
 		} else if data.piece == BLACK_KING as u8 {
-			self.castling_rights.current &= !ALL_BLACK_CASTLING_RIGHTS;
+			self.board_state.current.castling_rights &= !ALL_BLACK_CASTLING_RIGHTS;
 
 			if data.flag == SHORT_CASTLE_FLAG {
 				self.piece_bitboards[BLACK_ROOK] ^= 1 << 7;
@@ -315,47 +325,53 @@ impl Board {
 			}
 		}
 
+		// This is so ugly :`(
 		if data.from == 0 {
-			self.castling_rights.current &= !BLACK_CASTLE_LONG;
+			self.board_state.current.castling_rights &= !BLACK_CASTLE_LONG;
 		} else if data.from == 7 {
-			self.castling_rights.current &= !BLACK_CASTLE_SHORT;
+			self.board_state.current.castling_rights &= !BLACK_CASTLE_SHORT;
 		} else if data.from == 56 {
-			self.castling_rights.current &= !WHITE_CASTLE_LONG;
+			self.board_state.current.castling_rights &= !WHITE_CASTLE_LONG;
 		} else if data.from == 63 {
-			self.castling_rights.current &= !WHITE_CASTLE_SHORT;
+			self.board_state.current.castling_rights &= !WHITE_CASTLE_SHORT;
 		}
 
 		if data.to == 0 {
-			self.castling_rights.current &= !BLACK_CASTLE_LONG;
+			self.board_state.current.castling_rights &= !BLACK_CASTLE_LONG;
 		} else if data.to == 7 {
-			self.castling_rights.current &= !BLACK_CASTLE_SHORT;
+			self.board_state.current.castling_rights &= !BLACK_CASTLE_SHORT;
 		} else if data.to == 56 {
-			self.castling_rights.current &= !WHITE_CASTLE_LONG;
+			self.board_state.current.castling_rights &= !WHITE_CASTLE_LONG;
 		} else if data.to == 63 {
-			self.castling_rights.current &= !WHITE_CASTLE_SHORT;
+			self.board_state.current.castling_rights &= !WHITE_CASTLE_SHORT;
 		}
 
-		if data.capture == NO_PIECE as u8
-		&& get_piece_type(data.piece as usize) != PAWN {
-			self.fifty_move_draw.current += 1;
+		if data.capture != NO_PIECE as u8
+		|| get_piece_type(data.piece as usize) == PAWN {
+			self.board_state.current.fifty_move_counter = 0;
 		} else {
-			self.fifty_move_draw.current = 0;
+			self.board_state.current.fifty_move_counter += 1;
 		}
 
-		self.fifty_move_draw.push();
-		self.castling_rights.push();
+		self.board_state.current.attacked_squares = [None; 2];
+		self.board_state.push();
 
 		self.zobrist.make_move(
 			data,
 			self.get_last_move(),
-			self.castling_rights.current,
-			self.castling_rights.history[self.castling_rights.index - 1],
+			self.board_state.current.castling_rights,
+			self.board_state.history[self.board_state.index - 1].castling_rights,
 		);
-
-		self.attacked_squares_calculated = [false; 2];
 
 		self.moves.push(data);
 		self.white_to_move = !self.white_to_move;
+
+		if self.king_in_check(!self.white_to_move) {
+			self.undo_last_move();
+			return false;
+		}
+
+		true
 	}
 
 	pub fn undo_last_move(&mut self) -> bool {
@@ -364,24 +380,26 @@ impl Board {
 		}
 		let last_move = self.moves.pop().unwrap();
 
-		let piece_color = is_piece_white(last_move.piece as usize) as usize;
-		let other_color = !is_piece_white(last_move.piece as usize) as usize;
+		let piece_is_white = is_piece_white(last_move.piece as usize);
+		let piece_color = piece_is_white as usize;
+		let other_color = (!piece_is_white) as usize;
 
 		self.piece_bitboards[last_move.piece as usize] ^= 1 << last_move.from;
 
 		if !PROMOTABLE.contains(&last_move.flag) {
 			self.piece_bitboards[last_move.piece as usize] ^= 1 << last_move.to;
 		} else {
-			self.piece_bitboards[build_piece(piece_color == 1, last_move.flag as usize)] ^= 1 << last_move.to;
-			self.total_material_without_pawns -= get_base_worth_of_piece(last_move.flag as usize);
+			self.piece_bitboards[build_piece(piece_is_white, last_move.flag as usize)] ^= 1 << last_move.to;
+			self.total_material_without_pawns[piece_color] -= BASE_WORTHS_OF_PIECE_TYPE[last_move.flag as usize];
 		}
 
 		self.color_bitboards[piece_color] ^= 1 << last_move.from;
 		self.color_bitboards[piece_color] ^= 1 << last_move.to;
 
 		if last_move.capture != NO_PIECE as u8 {
-			if get_piece_type(last_move.capture as usize) != PAWN {
-				self.total_material_without_pawns += get_base_worth_of_piece(last_move.capture as usize);
+			let capture_type = get_piece_type(last_move.capture as usize);
+			if capture_type != PAWN {
+				self.total_material_without_pawns[other_color] += BASE_WORTHS_OF_PIECE_TYPE[capture_type];
 			}
 
 			if last_move.flag == EN_PASSANT_FLAG {
@@ -398,43 +416,38 @@ impl Board {
 				self.piece_bitboards[last_move.capture as usize] ^= 1 << last_move.to;
 				self.color_bitboards[other_color] ^= 1 << last_move.to;
 			}
-		} else {
-			if last_move.flag == SHORT_CASTLE_FLAG {
-				if piece_color == 1 {
-					self.piece_bitboards[WHITE_ROOK] ^= 1 << 63;
-					self.piece_bitboards[WHITE_ROOK] ^= 1 << 61;
+		} else if last_move.flag == SHORT_CASTLE_FLAG {
+			if piece_color == 1 {
+				self.piece_bitboards[WHITE_ROOK] ^= 1 << 63;
+				self.piece_bitboards[WHITE_ROOK] ^= 1 << 61;
 
-					self.color_bitboards[1] ^= 1 << 63;
-					self.color_bitboards[1] ^= 1 << 61;
-				} else {
-					self.piece_bitboards[BLACK_ROOK] ^= 1 << 7;
-					self.piece_bitboards[BLACK_ROOK] ^= 1 << 5;
+				self.color_bitboards[1] ^= 1 << 63;
+				self.color_bitboards[1] ^= 1 << 61;
+			} else {
+				self.piece_bitboards[BLACK_ROOK] ^= 1 << 7;
+				self.piece_bitboards[BLACK_ROOK] ^= 1 << 5;
 
-					self.color_bitboards[0] ^= 1 << 7;
-					self.color_bitboards[0] ^= 1 << 5;
-				}
-			} else if last_move.flag == LONG_CASTLE_FLAG {
-				if piece_color == 1 {
-					self.piece_bitboards[WHITE_ROOK] ^= 1 << 56;
-					self.piece_bitboards[WHITE_ROOK] ^= 1 << 59;
+				self.color_bitboards[0] ^= 1 << 7;
+				self.color_bitboards[0] ^= 1 << 5;
+			}
+		} else if last_move.flag == LONG_CASTLE_FLAG {
+			if piece_color == 1 {
+				self.piece_bitboards[WHITE_ROOK] ^= 1 << 56;
+				self.piece_bitboards[WHITE_ROOK] ^= 1 << 59;
 
-					self.color_bitboards[1] ^= 1 << 56;
-					self.color_bitboards[1] ^= 1 << 59;
-				} else {
-					self.piece_bitboards[BLACK_ROOK] ^= 1; // << 0
-					self.piece_bitboards[BLACK_ROOK] ^= 1 << 3;
+				self.color_bitboards[1] ^= 1 << 56;
+				self.color_bitboards[1] ^= 1 << 59;
+			} else {
+				self.piece_bitboards[BLACK_ROOK] ^= 1; // << 0
+				self.piece_bitboards[BLACK_ROOK] ^= 1 << 3;
 
-					self.color_bitboards[0] ^= 1;
-					self.color_bitboards[0] ^= 1 << 3;
-				}
+				self.color_bitboards[0] ^= 1;
+				self.color_bitboards[0] ^= 1 << 3;
 			}
 		}
 
-		self.fifty_move_draw.pop();
-		self.castling_rights.pop();
-		self.zobrist.pop();
-
-		self.attacked_squares_calculated = [false; 2];
+		self.board_state.pop();
+		self.zobrist.key.pop();
 
 		self.white_to_move = !self.white_to_move;
 
@@ -442,11 +455,11 @@ impl Board {
 	}
 
 	pub fn king_in_check(&mut self, king_is_white: bool) -> bool {
-		self.calculate_attacked_squares_for_color((!king_is_white) as usize);
-		self.piece_bitboards[build_piece(king_is_white, KING)] & self.attacked_squares_bitboards[(!king_is_white) as usize] != 0
+		let attacked_squares = self.get_attacked_squares_for_color((!king_is_white) as usize);
+		self.piece_bitboards[build_piece(king_is_white, KING)] & attacked_squares != 0
 	}
 
-	pub fn get_legal_moves_for_color(&mut self, white_pieces: bool, only_captures: bool) -> Vec<MoveData> {
+	pub fn get_pseudo_legal_moves_for_color(&mut self, white_pieces: bool, only_captures: bool) -> Vec<MoveData> {
 		let mut result = vec![];
 
 		let pieces = if white_pieces {
@@ -460,14 +473,24 @@ impl Board {
 
 			while bitboard != 0 {
 				let piece_index = pop_lsb(&mut bitboard);
-				result.extend(self.get_legal_moves_for_piece(piece_index, only_captures));
+				result.extend(self.get_moves_for_piece(piece_index, only_captures));
 			}
 		}
+
+		// for i in (0..result.len()).rev() {
+		// 	self.make_move(result[i]);
+
+		// 	if self.king_in_check(!self.white_to_move) {
+		// 		result.remove(i);
+		// 	}
+
+		// 	self.undo_last_move();
+		// }
 
 		result
 	}
 
-	pub fn get_legal_moves_for_piece(&mut self, piece_index: u8, only_captures: bool) -> Vec<MoveData> {
+	pub fn get_moves_for_piece(&mut self, piece_index: u8, only_captures: bool) -> Vec<MoveData> {
 		let mut result = vec![];
 
 		let piece = self.get_piece(piece_index);
@@ -842,22 +865,6 @@ impl Board {
 			_ => {}
 		}
 
-		for i in (0..result.len()).rev() {
-			let data = result[i];
-
-			// if data.piece == NO_PIECE as u8 {
-			// 	println!("Illegal move found! {:#?} on piece: {}, and index: {}, captures only: {}", data, piece_type, piece_index, only_captures);
-			// }
-
-			self.make_move(data);
-
-			if self.king_in_check(!self.white_to_move) {
-				result.remove(i);
-			}
-
-			self.undo_last_move();
-		}
-
 		result
 	}
 
@@ -885,7 +892,7 @@ impl Board {
 	// Returns a value between 0.0 and 1.0 to reflect whether you're in an endgame or not
 	// the closer to 1.0, the more of an endgame it is
 	pub fn endgame_multiplier(&self) -> f32 {
-		(1.5 - self.total_material_without_pawns as f32 * (0.9 / MAX_ENDGAME_MATERIAL as f32)).clamp(0.0, 1.0)
+		(1.5 - self.total_material_without_pawns.iter().sum::<i32>() as f32 * (0.9 / MAX_ENDGAME_MATERIAL)).clamp(0.0, 1.0)
 		// (1.0 - self.total_material_without_pawns as f32 * (1.0 / MAX_ENDGAME_MATERIAL)).clamp(0.0, 1.0)
 	}
 
@@ -922,7 +929,7 @@ impl Board {
 
 						if self.precalculated_move_data.squares_ahead_of_pawn[1][piece_index] & self.piece_bitboards[BLACK_PAWN] == 0
 						&& self.precalculated_move_data.file_in_front_of_pawn[1][piece_index] & self.piece_bitboards[WHITE_PAWN] == 0 { // Passed pawn
-							white_pawn_evaluation += PASSED_PAWN_BOOST[8 - piece_index / 8];
+							white_pawn_evaluation += PASSED_PAWN_BOOST[7 - piece_index / 8];
 						}
 					}
 				} else {
@@ -946,56 +953,67 @@ impl Board {
 			}
 		}
 
-		let pawn_evaluation_multiplier = (endgame + 0.3).clamp(0.3, 1.0);
+		let pawn_evaluation_multiplier = (endgame + 0.3).clamp(0.3, 1.0); // TODO
 		white_pawn_evaluation = (white_pawn_evaluation as f32 * pawn_evaluation_multiplier) as i32;
 		black_pawn_evaluation = (black_pawn_evaluation as f32 * pawn_evaluation_multiplier) as i32;
 
-		self.calculate_attacked_squares();
+		let white_attacks_bitboard = self.get_attacked_squares_for_color(1);
+		let black_attacks_bitboard = self.get_attacked_squares_for_color(0);
 
-		let white_attacked_squares = self.attacked_squares_bitboards[1].count_ones() as i32;
-		let black_attacked_squares = self.attacked_squares_bitboards[0].count_ones() as i32;
+		// Taking the sqrt of this made it worse
+		let white_attacks_score = white_attacks_bitboard.count_ones() as i32 * 10;
+		let black_attacks_score = black_attacks_bitboard.count_ones() as i32 * 10;
 
-		let white_king_index = pop_lsb(&mut (self.piece_bitboards[WHITE_KING].clone())) as usize;
-		let black_king_index = pop_lsb(&mut (self.piece_bitboards[BLACK_KING].clone())) as usize;
+		let white_king_index = get_lsb(self.piece_bitboards[WHITE_KING]) as usize;
+		let black_king_index = get_lsb(self.piece_bitboards[BLACK_KING]) as usize;
 
-		let weak_squares_around_white_king = ((
+		// TODO: weak squares, weak lines, or none?
+		// TODO: Or count how many friendly pieces are around the king?
+		let white_king_weakness_penalty = ((
 				  self.precalculated_move_data.king_attacks[white_king_index]
-				& self.attacked_squares_bitboards[0]
-			).count_ones() as f32 * (1.0 - endgame)) as i32;
+				& black_attacks_bitboard
+			).count_ones() as f32 * (1.0 - endgame)) as i32 * 20;
 
-		let weak_squares_around_black_king = ((
+		let black_king_weakness_penalty = ((
 				  self.precalculated_move_data.king_attacks[black_king_index]
-				& self.attacked_squares_bitboards[1]
-			).count_ones() as f32 * (1.0 - endgame)) as i32;
+				& white_attacks_bitboard
+			).count_ones() as f32 * (1.0 - endgame)) as i32 * 20;
 
-		 ((white_material + white_attacked_squares * 10 - weak_squares_around_white_king * 20 + white_pawn_evaluation)
-		- (black_material + black_attacked_squares * 10 - weak_squares_around_black_king * 20 + black_pawn_evaluation)) * self.perspective()
+		// let weak_lines_from_white_king = (self.calculate_queen_attack_bitboard(white_king_index).count_ones() as f32 * (1.0 - endgame)) as i32;
+		// let weak_lines_from_black_king = (self.calculate_queen_attack_bitboard(black_king_index).count_ones() as f32 * (1.0 - endgame)) as i32;
+
+		// TODO: a small boost for having the bishop pair?
+
+		// TODO: rooks on open lines
+
+		 ((white_material + white_attacks_score - white_king_weakness_penalty + white_pawn_evaluation)
+		- (black_material + black_attacks_score - black_king_weakness_penalty + black_pawn_evaluation)) * self.perspective()
 	}
 
 	pub fn can_short_castle(&mut self, white: bool) -> bool {
 		// self.king_in_check calculates attacked squares
 		   !self.king_in_check(white)
-		&&  self.castling_rights.current & SHORT_CASTLING_RIGHTS[white as usize] != 0
-		&& (self.occupied_bitboard() | self.attacked_squares_bitboards[(!white) as usize]) & SHORT_CASTLE_MASK[white as usize] == 0
+		&&  self.board_state.current.castling_rights & SHORT_CASTLING_RIGHTS[white as usize] != 0
+		&& (self.occupied_bitboard() | self.board_state.current.attacked_squares[(!white) as usize].unwrap()) & SHORT_CASTLE_MASK[white as usize] == 0
 	}
 
 	pub fn can_long_castle(&mut self, white: bool) -> bool {
 		let occupied = self.occupied_bitboard();
 		   !self.king_in_check(white)
-		&&  self.castling_rights.current & LONG_CASTLING_RIGHTS[white as usize] != 0
+		&&  self.board_state.current.castling_rights & LONG_CASTLING_RIGHTS[white as usize] != 0
 		&&  EXTRA_LONG_CASTLE_SQUARE_CHECK[white as usize] & occupied == 0
-		&& (occupied | self.attacked_squares_bitboards[(!white) as usize]) & LONG_CASTLE_MASK[white as usize] == 0
+		&& (occupied | self.board_state.current.attacked_squares[(!white) as usize].unwrap()) & LONG_CASTLE_MASK[white as usize] == 0
 	}
 
 	pub fn insufficient_checkmating_material(&self) -> bool {
-		   self.total_material_without_pawns < ROOK_WORTH
+		   self.total_material_without_pawns.iter().sum::<i32>() < ROOK_WORTH
 		&& self.piece_bitboards[WHITE_PAWN] == 0
 		&& self.piece_bitboards[BLACK_PAWN] == 0
 	}
 
+	// Must be called when not in check!
 	pub fn try_null_move(&mut self) -> bool {
-		if self.king_in_check(self.white_to_move)
-		|| self.king_in_check(!self.white_to_move) {
+		if self.get_last_move() == NULL_MOVE {
 			return false;
 		}
 
@@ -1003,12 +1021,83 @@ impl Board {
 		self.zobrist.make_null_move();
 		self.moves.push(NULL_MOVE);
 
+		self.board_state.current.fifty_move_counter = 0;
+		self.board_state.push();
+
 		true
 	}
 
 	pub fn undo_null_move(&mut self) {
 		self.white_to_move = !self.white_to_move;
-		self.zobrist.pop();
+		self.zobrist.key.pop();
 		self.moves.pop();
+
+		self.board_state.pop();
+	}
+
+	// Counting only one repetition as a draw seems to perform better than detecting a threefold repetition
+	pub fn is_repetition(&self) -> bool {
+		// Before the third move, it's impossible to have a repetition
+		if self.zobrist.key.index < 2 {
+			return false;
+		}
+
+		let lookback = self.zobrist.key.index - self.board_state.current.fifty_move_counter as usize;
+		let mut i = self.zobrist.key.index - 2;
+
+		while i >= lookback {
+			if self.zobrist.key.history[i] == self.zobrist.key.current {
+				return true;
+			}
+
+			if i < 2 {
+				break;
+			}
+
+			i -= 2;
+		}
+
+		false
+	}
+
+	pub fn is_draw(&self) -> bool {
+		   self.board_state.current.fifty_move_counter >= 100
+		|| self.insufficient_checkmating_material()
+		|| self.is_repetition()
+	}
+
+	// This isn't used anywhere and I haven't tested it, so it might be bugged
+	pub fn square_is_attacked_by_color(&self, square_bitboard: u64, white_pieces: bool) -> bool {
+		let color = white_pieces as usize;
+
+		let pieces =
+			if white_pieces {
+				WHITE_PAWN..=WHITE_KING
+			} else {
+				BLACK_PAWN..=BLACK_KING
+			};
+
+		for piece in pieces {
+			let piece_type = get_piece_type(piece);
+			let mut bitboard = self.piece_bitboards[piece];
+
+			while bitboard != 0 {
+				let piece_index = pop_lsb(&mut bitboard) as usize;
+
+				if (match piece_type {
+					PAWN   => self.precalculated_move_data.pawn_attacks[color][piece_index],
+					KNIGHT => self.precalculated_move_data.knight_attacks[piece_index],
+					BISHOP => self.calculate_bishop_attack_bitboard(piece_index),
+					ROOK   => self.calculate_rook_attack_bitboard(piece_index),
+					QUEEN  => self.calculate_queen_attack_bitboard(piece_index),
+					KING   => self.precalculated_move_data.king_attacks[piece_index],
+					_ => 0,
+				}) & square_bitboard != 0 {
+					return true;
+				}
+			}
+		}
+
+		false
 	}
 }

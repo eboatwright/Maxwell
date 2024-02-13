@@ -2,25 +2,26 @@ use crate::move_data::{MoveData, NULL_MOVE};
 
 #[derive(Copy, Clone)]
 pub struct KillerMoves {
-	pub a: MoveData,
-	pub b: MoveData,
+	pub moves: [MoveData; 2],
 }
 
 impl KillerMoves {
 	pub fn new() -> Self {
 		Self {
-			a: NULL_MOVE,
-			b: NULL_MOVE,
+			moves: [NULL_MOVE; 2],
 		}
 	}
 
-	pub fn push(&mut self, new_move: MoveData) {
-		self.b = self.a;
-		self.a = new_move;
+	pub fn add_killer_move(&mut self, new_move: MoveData) {
+		if self.moves[0] == new_move {
+			return;
+		}
+
+		self.moves.rotate_right(1);
+		self.moves[0] = new_move;
 	}
 
-	pub fn is_killer(&self, check: MoveData) -> bool {
-			check == self.a
-		 || check == self.b
+	pub fn is_killer(&self, data: MoveData) -> bool {
+		self.moves.contains(&data)
 	}
 }
