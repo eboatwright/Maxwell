@@ -216,10 +216,10 @@ fn main() {
 
 			"print" => board.print(),
 			"bitboards" => board.print_bitboards(),
-			"castlingrights" => print_castling_rights(board.castling_rights.current),
+			"castlingrights" => print_castling_rights(board.board_state.current.castling_rights),
 			"zobrist" => println!("{}", board.zobrist.key.current),
 			"eval" => println!("{}", board.evaluate() * board.perspective()),
-			"fiftymoves" => println!("{}", board.fifty_move_counter.current),
+			"fiftymoves" => println!("{}", board.board_state.current.fifty_move_counter),
 
 			"ttsize" => bot.transposition_table.print_size(),
 			"cleartt" => {

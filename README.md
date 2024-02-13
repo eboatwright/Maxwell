@@ -6,7 +6,15 @@
  Rating Lists featuring Maxwell: [CCRL Blitz](https://computerchess.org.uk/ccrl/404/) | [MCERL](https://www.chessengeria.eu/mcerl)<br>
  [Play against Maxwell on Lichess!](https://lichess.org/@/MaxwellOnLC) | [Some of Maxwell's Games](https://www.chess.com/library/collections/maxwells-games-my-chess-engine-2FFU82NM4)
 
-## Features - NOT UP TO DATE WITH DEV BRANCH
+## Rough Roadmap
+ - Tweak search values & thresholds
+ - Internal Iterative Deepening
+ - Static Exchange Evaluation
+ - Late Move Pruning
+ - Write an NNUE implementation! I've learned how Neural Networks work, so I'm really excited to get started on that
+ - Multithreading
+
+## Features
 #### Parameters
  - fen=\<FEN STRING>: Sets up the board by a fen string (Doesn't work for UCI games) (default=STARTING_FEN)
  - debug=\<BOOLEAN>: Toggle debug output that gets outputed per ply (default=true)
@@ -45,13 +53,13 @@
  - Principal Variation Search
  - Alpha-Beta Pruning
  - Late Move Reductions
- - Reverse Futility Pruning
+ - Reverse Futility Pruning (Static Null Move Pruning)
  - Null Move Pruning
  - Razoring
  - Internal Iterative Reductions
  - Quiescence Search
    - Delta Pruning
-   - No Transposition Table
+   - No TT Lookups
  - Transposition Table
    - UCI "Hash" option to change max size, default is 256 MB
    - Replacement scheme prefers higher depth and exact evaluation bound

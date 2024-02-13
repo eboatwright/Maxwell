@@ -63,7 +63,7 @@ impl Zobrist {
 			}
 		}
 
-		initial_key ^= zobrist.castling_rights[board.castling_rights.current as usize];
+		initial_key ^= zobrist.castling_rights[board.board_state.current.castling_rights as usize];
 
 		initial_key ^= zobrist.en_passant[board.en_passant_file];
 

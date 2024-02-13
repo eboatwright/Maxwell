@@ -199,6 +199,7 @@ impl Bot {
 					break;
 				}
 			}
+			self.println("Failed to find a move in time, defaulting to first legal move :(".to_string());
 		}
 
 		self.println(format!("{} seconds", self.think_timer.elapsed().as_secs_f32()));
@@ -273,10 +274,9 @@ impl Bot {
 		&& !evaluation_is_mate(beta) {
 			let static_eval = board.evaluate();
 
-			// TODO
 			// Reverse Futility Pruning
-			if depth < 8
-			&& static_eval - (50 * (depth as i32 - 1).pow(2)) + 55 >= beta {
+			if depth < 8 // TODO: mess around with this
+			&& static_eval - (55 + 50 * (depth as i32 - 1).pow(2)) >= beta { // TODO: continue tweaking this
 				return beta;
 			}
 
@@ -300,7 +300,6 @@ impl Bot {
 			// Null Move Pruning
 			if depth > 1
 			&& static_eval >= beta // Fruit used || depth > X here, but I haven't found great results with that
-			// && hash_move.is_none() // TODO: fully test this, I briefly tested it and it kept equal
 			&& board.total_material_without_pawns[board.white_to_move as usize] > 0
 			&& board.get_last_move().capture == NO_PIECE as u8 // Moving the check from the above check to only NMP was a decent improvement
 			&& board.try_null_move() {
@@ -314,20 +313,15 @@ impl Bot {
 				}
 			}
 
-			// TODO: definitely work on this
 			// Razoring
-			if depth < 4
-			&& static_eval + 300 * (depth as i32) < alpha { // TODO: tweak this
-				depth -= 1; // TODO: maybe reduce more?
+			if depth < 4 // TODO: try different values for this
+			&& static_eval + (300 + 150 * (depth as i32 - 1)) < alpha { // TODO: tweak this some more
+				depth -= 1;
 			}
 		}
 
 		if depth == 0 {
-			// The current position will now be searched as a quiescence position, so we
-			// put positions_searched back to where it was to avoid double counting nodes
-			// (This was in Tcheran's changelog, and I realized I had the exact same problem)
-			self.positions_searched -= 1;
-			return self.quiescence_search(board, alpha, beta);
+			return self.quiescence_search(board, alpha, beta, true);
 		}
 
 		let mut best_move_this_search = NULL_MOVE;
@@ -454,9 +448,13 @@ impl Bot {
 		alpha
 	}
 
-	fn quiescence_search(&mut self, board: &mut Board, mut alpha: i32, beta: i32) -> i32 {
+	fn quiescence_search(&mut self, board: &mut Board, mut alpha: i32, beta: i32, is_root: bool) -> i32 {
 		if self.should_cancel_search() {
 			return 0;
+		}
+
+		if is_root {
+			self.positions_searched -= 1;
 		}
 
 		self.quiescence_searched += 1;
@@ -495,7 +493,7 @@ impl Bot {
 				continue;
 			}
 
-			let evaluation = -self.quiescence_search(board, -beta, -alpha);
+			let evaluation = -self.quiescence_search(board, -beta, -alpha, false);
 			board.undo_last_move();
 
 			if evaluation >= beta {
