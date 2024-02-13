@@ -199,5 +199,9 @@ Hmm
 AW=30 vs Re-write v32: 147 - 148 - 145
 
 
+Maxwell v3.1 (Re-write v23) vs Maxwell v3.0.8 (Patch 2): 1533 - 155 - 312
+Elo difference: 293.9 +/- 17.6, LOS: 100.0 %
+
+
 Tests TODO:
 	TT enabled vs TT disabled
