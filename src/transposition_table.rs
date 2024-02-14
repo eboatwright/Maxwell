@@ -51,7 +51,7 @@ impl TranspositionTable {
 		}
 	}
 
-	pub fn get_index(&self, key: u64) -> usize { (key as usize) % self.length }
+	pub fn get_index(&self, key: u64) -> usize { (key as usize) % usize::max(1, self.length) }
 
 	pub fn store(&mut self, key: u64, depth: u8, ply: u8, evaluation: i32, best_move: MoveData, eval_bound: EvalBound) {
 		if self.length == 0 {
@@ -99,7 +99,7 @@ impl TranspositionTable {
 	}
 
 	pub fn lookup(&mut self, key: u64, ply: u8, depth: u8, alpha: i32, beta: i32) -> (Option<i32>, Option<MoveData>) {
-		if let Some(data) = self.table[self.get_index(key)] {
+		if let Some(Some(data)) = self.table.get(self.get_index(key)) {
 			if data.key == key {
 				self.hits += 1;
 
