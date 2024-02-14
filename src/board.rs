@@ -109,7 +109,7 @@ impl Board {
 			}
 		}
 
-		board.zobrist = Zobrist::generate(&mut board);
+		board.zobrist = Zobrist::generate(&board);
 		board.calculate_attacked_squares();
 
 		board
@@ -898,7 +898,7 @@ impl Board {
 
 	pub fn perspective(&self) -> i32 { if self.white_to_move { 1 } else { -1 } }
 
-	pub fn evaluate(&mut self) -> i32 {
+	pub fn hc_evaluate(&mut self) -> i32 {
 		let endgame = self.endgame_multiplier();
 
 		let mut white_material = 0;

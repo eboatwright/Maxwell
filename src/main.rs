@@ -74,7 +74,7 @@ fn main() {
 			// UCI protocol
 
 			"uci" => {
-				println!("id name Maxwell v3.1.0");
+				println!("id name Maxwell v3.1.1");
 				println!("id author eboatwright");
 				println!("option name Hash type spin default 256 min 0 max 4000");
 
@@ -218,7 +218,7 @@ fn main() {
 			"bitboards" => board.print_bitboards(),
 			"castlingrights" => print_castling_rights(board.board_state.current.castling_rights),
 			"zobrist" => println!("{}", board.zobrist.key.current),
-			"eval" => println!("{}", board.evaluate() * board.perspective()),
+			"hceval" => println!("{}", board.hc_evaluate() * board.perspective()),
 			"fiftymoves" => println!("{}", board.board_state.current.fifty_move_counter),
 
 			"ttsize" => bot.transposition_table.print_size(),

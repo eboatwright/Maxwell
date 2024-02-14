@@ -33,7 +33,7 @@ impl Default for Zobrist {
 }
 
 impl Zobrist {
-	pub fn generate(board: &mut Board) -> Self {
+	pub fn generate(board: &Board) -> Self {
 		let mut zobrist = Self::default();
 		let mut rng = Pcg64::seed_from_u64(SEED);
 

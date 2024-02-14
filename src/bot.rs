@@ -272,7 +272,7 @@ impl Bot {
 		&& !in_check
 		&& !evaluation_is_mate(alpha)
 		&& !evaluation_is_mate(beta) {
-			let static_eval = board.evaluate();
+			let static_eval = board.hc_evaluate();
 
 			// Reverse Futility Pruning
 			if depth < 8 // TODO: mess around with this
@@ -459,7 +459,7 @@ impl Bot {
 
 		self.quiescence_searched += 1;
 
-		let evaluation = board.evaluate();
+		let evaluation = board.hc_evaluate();
 		if evaluation >= beta {
 			return beta;
 		}
