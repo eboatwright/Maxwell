@@ -1,42 +1,33 @@
-// 768 inputs -> 196,608 weights -> 256 nodes -> 256 weights -> 1 output
+/*
+   768 inputs
+-> 196,608 weights
+-> 256 nodes (Clipped ReLU activation)
+-> 256 weights (weights are selected from 2048 total weights based on the bucket)
+-> 1 output (bias also selected based on the bucket)
+
+The input layer is effectively skipped, because the middle layer is incrementally updated,
+and the bucket is calculated based on how many pieces are left on the board
+*/
 
 use crate::move_data::{SHORT_CASTLE_FLAG, LONG_CASTLE_FLAG, EN_PASSANT_FLAG, MoveData};
 use crate::pieces::{WHITE_ROOK, BLACK_ROOK, NO_PIECE, PROMOTABLE, build_piece, is_piece_white, char_to_piece};
 use crate::Board;
 use rand::Rng;
 
-const LEARN_RATE: f32 = 0.008;
+pub const BUCKETS: usize = 8;
 
 pub fn generate_random_weights(length: usize) -> Vec<f32> {
 	let mut rng = rand::thread_rng();
 	let mut result = vec![];
 
 	for _ in 0..length {
-		result.push(rng.gen_range(-2.0..2.0));
+		result.push(rng.gen_range(-0.5..0.5));
 	}
 
 	result
 }
 
-#[derive(Clone)]
-pub struct DataPoint {
-	fen: String,
-	evaluation: i32,
-}
-
-impl DataPoint {
-	pub fn new(fen: String, evaluation: i32) -> Self {
-		Self {
-			fen,
-			evaluation,
-		}
-	}
-
-	pub fn evaluation_as_pawns(&self) -> f32 { self.evaluation as f32 * 0.01 }
-}
-
 pub struct NNUE {
-	// TODO: in the final version, these should be &'static [f32]
 	pub input_layer: Vec<f32>,
 
 	pub input_layer_weights: Vec<f32>,
@@ -222,11 +213,18 @@ impl NNUE {
 		}
 	}
 
-	pub fn evaluate(&self) -> f32 {
-		let mut output = self.hidden_layer_biases[0];
+	pub fn evaluate(&self, total_piece_count: usize) -> f32 {
+		// There are a maximum of 32 pieces on a Chess board,
+		// so our max index is: (32 - 1) / 4 = 7.75 which then gets rounded down because we're dividing integers, so 7 which is what we want
+		// And there are a minimum of 2 pieces on a Chess board (Both kings)
+		// so our min index is: (2 - 1) / 4 = 0.25 which gets rounded down to 0
+		let bucket = (total_piece_count - 1) / 4;
+		let mut output = self.hidden_layer_biases[bucket];
+
+		let bucket_offset = bucket * self.input_layer.len();
 
 		for i in 0..self.input_layer.len() {
-			output += Self::clipped_relu(self.input_layer[i]) * self.hidden_layer_weights[i];
+			output += Self::clipped_relu(self.input_layer[i]) * self.hidden_layer_weights[bucket_offset + i];
 		}
 
 		output
@@ -234,93 +232,5 @@ impl NNUE {
 
 	fn clipped_relu(x: f32) -> f32 {
 		x.clamp(0.0, 1.0)
-	}
-
-	fn clipped_relu_derivative(x: f32) -> f32 {
-		if 0.0 < x && x < 1.0 {
-			1.0
-		} else {
-			0.0
-		}
-	}
-
-	fn get_error_of_data_point(&mut self, data_point: &DataPoint) -> f32 {
-		self.setup_fen(&data_point.fen);
-		let output = self.evaluate();
-
-		(output - data_point.evaluation_as_pawns()).powf(2.0)
-	}
-
-	pub fn get_total_error_of_data_set(&mut self, training_data: &Vec<DataPoint>) -> f32 {
-		let mut total_error = 0.0;
-
-		for data_point in training_data.iter() {
-			total_error += self.get_error_of_data_point(data_point);
-		}
-
-		total_error / training_data.len() as f32
-	}
-
-	pub fn train_by_gradient_descent(&mut self, training_data: &Vec<DataPoint>) {
-		const H: f32 = 0.00001;
-		let original_error = self.get_total_error_of_data_set(training_data);
-
-
-
-		// Calculate input layer gradients
-
-		let mut input_layer_weight_error_gradient = vec![];
-		let mut input_layer_bias_error_gradient = vec![];
-
-		for i in 0..self.input_layer_weights.len() {
-			self.input_layer_weights[i] += H;
-			input_layer_weight_error_gradient.push((self.get_total_error_of_data_set(training_data) - original_error) / H);
-			self.input_layer_weights[i] -= H;
-		}
-
-		for i in 0..self.input_layer_biases.len() {
-			self.input_layer_biases[i] += H;
-			input_layer_bias_error_gradient.push((self.get_total_error_of_data_set(training_data) - original_error) / H);
-			self.input_layer_biases[i] -= H;
-		}
-
-
-
-		// Calculate hidden layer gradients
-
-		let mut hidden_layer_weight_error_gradient = vec![];
-		let mut hidden_layer_bias_error_gradient = vec![];
-
-		for i in 0..self.hidden_layer_weights.len() {
-			self.hidden_layer_weights[i] += H;
-			hidden_layer_weight_error_gradient.push((self.get_total_error_of_data_set(training_data) - original_error) / H);
-			self.hidden_layer_weights[i] -= H;
-		}
-
-		for i in 0..self.hidden_layer_biases.len() {
-			self.hidden_layer_biases[i] += H;
-			hidden_layer_bias_error_gradient.push((self.get_total_error_of_data_set(training_data) - original_error) / H);
-			self.hidden_layer_biases[i] -= H;
-		}
-
-
-
-		// Apply gradients
-
-		for i in 0..self.input_layer_weights.len() {
-			self.input_layer_weights[i] -= input_layer_weight_error_gradient[i] * LEARN_RATE;
-		}
-
-		for i in 0..self.input_layer_biases.len() {
-			self.input_layer_biases[i] -= input_layer_bias_error_gradient[i] * LEARN_RATE;
-		}
-
-		for i in 0..self.hidden_layer_weights.len() {
-			self.hidden_layer_weights[i] -= hidden_layer_weight_error_gradient[i] * LEARN_RATE;
-		}
-
-		for i in 0..self.hidden_layer_biases.len() {
-			self.hidden_layer_biases[i] -= hidden_layer_bias_error_gradient[i] * LEARN_RATE;
-		}
 	}
 }

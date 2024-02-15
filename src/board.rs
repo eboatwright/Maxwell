@@ -1,5 +1,4 @@
-use crate::nnue_weights::*;
-use crate::nnue::{NNUE, generate_random_weights};
+use crate::nnue::{self, NNUE, generate_random_weights};
 use crate::value_holder::ValueHolder;
 use crate::utils::{pop_lsb, get_lsb, print_bitboard, coordinate_to_index};
 use crate::piece_square_tables::{BASE_WORTHS_OF_PIECE_TYPE, get_full_worth_of_piece, ROOK_WORTH, BISHOP_WORTH};
@@ -126,6 +125,12 @@ impl Board {
 
 		// 	HIDDEN_LAYER_WEIGHTS.to_vec(),
 		// 	HIDDEN_LAYER_BIASES.to_vec(),
+
+		// 	// generate_random_weights(196608),
+		// 	// generate_random_weights(256),
+
+		// 	// generate_random_weights(256 * nnue::BUCKETS),
+		// 	// generate_random_weights(1 * nnue::BUCKETS),
 		// );
 
 		board
@@ -1012,7 +1017,7 @@ impl Board {
 	}
 
 	// pub fn nnue_evaluate(&self) -> i32 {
-	// 	(self.nnue.evaluate() * 100.0) as i32 * self.perspective()
+	// 	(self.nnue.evaluate(self.occupied_bitboard().count_ones() as usize) * 100.0) as i32 * self.perspective()
 	// }
 
 	pub fn can_short_castle(&mut self, white: bool) -> bool {
