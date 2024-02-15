@@ -2,9 +2,27 @@ thoughts on NNUE:
 	I've wanted to learn how to write neural net for a long time, so I want to implement NNUE eventually.
 	But what I'm not going to do is just find a SF NNUE library and stick it in there because that's lame
 
-	Update:
+	Update 1:
 	I've learned how to write neural networks, and trained one to evaluate Tic-Tac-Toe positions!
 	So for either v3.2 or v3.3 I'm gonna work on writing my own version of NNUE from scratch
+
+	Update 2:
+	I've gotten a simple NNUE architecture in place: 768 -> 256 -> 1
+	And it's pretty fast! Weiawaga was a big reference, but I ultimately ended up re-writing it multiple times
+
+	Update 3:
+	I found evaluation data to train the network!
+	I'm not sure how to have the NNUE self-train, so I'll start with this
+	https://database.lichess.org/#evals
+
+	Update 4:
+	I've got all the data I need parsed from the Lichess DB, and some basic training code
+	But it's atrociously slow, as I don't have back-propagation
+
+	Also thanks to the dev of Leorik for explaining how self-play works!
+
+	I'm gonna start with the Lichess data just as a test run,
+	then once I fix it up I'll train a fully self-play network :^D
 
 figure out some sort of multithreading:
 	to implement pondering I think I'll have to add multithreading

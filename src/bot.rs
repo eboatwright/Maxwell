@@ -9,6 +9,7 @@ use crate::move_data::{MoveData, NULL_MOVE};
 use crate::opening_book::OpeningBook;
 use crate::Board;
 
+pub const MAX_DEPTH: u8 = 255 - MAX_SEARCH_EXTENSIONS;
 pub const MAX_SEARCH_EXTENSIONS: u8 = 20;
 
 #[derive(Clone, Debug)]

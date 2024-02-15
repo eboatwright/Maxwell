@@ -22,18 +22,25 @@ mod bot;
 mod pv_table;
 mod move_sorter;
 mod scored_move_list;
+mod nnue;
+mod nnue_weights;
 
+use std::fs::File;
+use std::io::Read;
+use std::io::Write;
+use rand::prelude::SliceRandom;
+use crate::nnue::{NNUE, generate_random_weights};
 use crate::utils::move_str_is_valid;
 use crate::castling_rights::print_castling_rights;
-use crate::bot::{Bot, BotConfig, MAX_SEARCH_EXTENSIONS};
+use crate::bot::{Bot, BotConfig, MAX_DEPTH};
 use crate::perft::*;
-use crate::move_data::MoveData;
+use crate::move_data::{MoveData};
 use crate::pieces::*;
-use crate::log::Log;
 use crate::board::Board;
 use std::io;
-use colored::Colorize;
 use std::time::Instant;
+// use colored::Colorize;
+// use crate::log::Log;
 
 pub const STARTING_FEN:         &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const KIWIPETE_FEN:         &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
@@ -135,7 +142,7 @@ fn main() {
 
 			"go" => {
 				let mut my_time = 0.0;
-				let mut depth_to_search = 255 - MAX_SEARCH_EXTENSIONS;
+				let mut depth_to_search = MAX_DEPTH;
 
 				// Anything below 3 words is treated is treated as "go infinite"
 				if command_split.len() > 2 {
@@ -218,8 +225,9 @@ fn main() {
 			"bitboards" => board.print_bitboards(),
 			"castlingrights" => print_castling_rights(board.board_state.current.castling_rights),
 			"zobrist" => println!("{}", board.zobrist.key.current),
-			"hceval" => println!("{}", board.hc_evaluate() * board.perspective()),
 			"fiftymoves" => println!("{}", board.board_state.current.fifty_move_counter),
+
+			"hceval" => println!("{}", board.hc_evaluate() * board.perspective()),
 
 			"ttsize" => bot.transposition_table.print_size(),
 			"cleartt" => {
@@ -234,50 +242,178 @@ fn main() {
 				}
 			}
 
-			// "test" => {
-			// 	let mut old_best_time  =  f32::MAX;
-			// 	let mut old_worst_time = -f32::MAX;
-
-			// 	let mut new_best_time  =  f32::MAX;
-			// 	let mut new_worst_time = -f32::MAX;
-
-			// 	let piece = BLACK_ROOK as u8;
-			// 	let capture = WHITE_KNIGHT as u8;
-
-			// 	for _ in 0..5 {
-			// 		let timer = Instant::now();
-			// 		for _ in 0..1_000_000_000 {
-			// 			let score = MVV_LVA[get_piece_type(piece as usize) * 6 + get_piece_type(capture as usize)];
-			// 		}
-			// 		let old_time = timer.elapsed().as_secs_f32();
-
-			// 		let timer = Instant::now();
-			// 		for _ in 0..1_000_000_000 {
-			// 			let score = (5 - get_piece_type(piece as usize)) + (get_piece_type(capture as usize) + 1) * 10;
-			// 		}
-			// 		let new_time = timer.elapsed().as_secs_f32();
+			// "nnueeval" => println!("{}", board.nnue_evaluate() * board.perspective()),
+			// "nnueinputs" => println!("{:?}", board.nnue.input_layer),
 
 
-			// 		if old_time < old_best_time {
-			// 			old_best_time = old_time;
-			// 		}
 
-			// 		if old_time > old_worst_time {
-			// 			old_worst_time = old_time;
-			// 		}
 
-			// 		if new_time < new_best_time {
-			// 			new_best_time = new_time;
-			// 		}
 
-			// 		if new_time > new_worst_time {
-			// 			new_worst_time = new_time;
-			// 		}
+
+			// "nnuetrain" => {
+			// 	println!("Loading data...");
+
+			// 	let mut training_data_file = File::open("./lichess_db_eval/testingdata").expect("Failed to open training data");
+			// 	let mut training_data_full = String::new();
+			// 	training_data_file.read_to_string(&mut training_data_full).expect("Failed to read training data");
+
+			// 	let training_data_split = training_data_full.split('\n').collect::<Vec<&str>>();
+
+			// 	let mut final_training_data = vec![];
+
+			// 	for point in training_data_split {
+			// 		let split = point.split(',').collect::<Vec<&str>>();
+			// 		final_training_data.push(
+			// 			nnue::DataPoint::new(
+			// 				split[0].to_string(), // fen
+			// 				split[1].parse::<i32>().expect(&format!("Failed to parse evaluation: {}", split[1])), // evaluation
+			// 			),
+			// 		);
 			// 	}
 
-			// 	println!("Old: worst: {}, best: {}", old_worst_time, old_best_time);
-			// 	println!("New: worst: {}, best: {}", new_worst_time, new_best_time);
+			// 	println!("{} data points loaded.\n", final_training_data.len());
+
+
+			// 	println!("Initializing network...");
+
+			// 	board.nnue = NNUE::initialize(
+			// 		&board,
+
+			// 		generate_random_weights(196608),
+			// 		generate_random_weights(256),
+
+			// 		generate_random_weights(256),
+			// 		generate_random_weights(1),
+			// 	);
+
+			// 	println!("Network initialized.\n");
+
+
+			// 	println!("Starting training...");
+
+
+			// 	let full_train_timer = Instant::now();
+
+			// 	const EPOCHS: usize = 1;
+			// 	const TRAINING_DATA_COUNT: usize = 300;
+			// 	const DATA_POINTS_PER_ITERATION: usize = 100;
+
+			// 	for epoch in 1..=EPOCHS {
+			// 		println!("Starting epoch {}...", epoch);
+			// 		let epoch_timer = Instant::now();
+
+			// 		for i in (0..TRAINING_DATA_COUNT).step_by(DATA_POINTS_PER_ITERATION) {
+			// 			let data_index_to = i + DATA_POINTS_PER_ITERATION;
+
+			// 			let mut data = final_training_data[i..data_index_to].to_vec();
+			// 			data.shuffle(&mut rand::thread_rng());
+
+			// 			println!("Training on datapoints {}-{}...", i, data_index_to);
+
+			// 			let single_train_timer = Instant::now();
+
+			// 			board.nnue.train_by_gradient_descent(&data);
+
+			// 			println!("Done.");
+			// 			println!("Time this iteration: {} seconds", single_train_timer.elapsed().as_secs_f32());
+			// 			println!("Total error on training data: {}\n", board.nnue.get_total_error_of_data_set(&data));
+			// 		}
+
+			// 		println!("Epoch time: {} seconds\n", epoch_timer.elapsed().as_secs_f32());
+			// 	}
+
+
+			// 	println!("Training done!");
+			// 	println!("Total time to train: {} seconds\n", full_train_timer.elapsed().as_secs_f32());
+
+
+			// 	println!("Calculating total error on training data...");
+
+
+			// 	println!("Total error on all training data: {}\n", board.nnue.get_total_error_of_data_set(&final_training_data));
+
+
+			// 	println!("Writing weights to files...");
+
+
+			// 	let mut input_layer_weights_file = File::create("input_layer_weights").expect("Failed to create file");
+			// 	write!(input_layer_weights_file, "{:?}", board.nnue.input_layer_weights).expect("Failed to write to file");
+
+			// 	let mut input_layer_biases_file = File::create("input_layer_biases").expect("Failed to create file");
+			// 	write!(input_layer_biases_file, "{:?}", board.nnue.input_layer_biases).expect("Failed to write to file");
+
+			// 	let mut hidden_layer_weights_file = File::create("hidden_layer_weights").expect("Failed to create file");
+			// 	write!(hidden_layer_weights_file, "{:?}", board.nnue.hidden_layer_weights).expect("Failed to write to file");
+
+			// 	let mut hidden_layer_biases_file = File::create("hidden_layer_biases").expect("Failed to create file");
+			// 	write!(hidden_layer_biases_file, "{:?}", board.nnue.hidden_layer_biases).expect("Failed to write to file");
+
+
+			// 	println!("Done!");
+
+
+
+			// 	// Self play
+			// 	// let mut bot_config = bot_config.clone();
+			// 	// bot_config.time_management = false;
+
+			// 	// let mut board_a = Board::from_fen(&bot_config.fen);
+			// 	// let mut bot_a = Bot::new(bot_config.clone());
+
+			// 	// board_a.nnue = NNUE::initialize(
+			// 	// 	&board_a,
+
+			// 	// 	generate_random_weights(196608),
+			// 	// 	generate_random_weights(256),
+
+			// 	// 	generate_random_weights(256),
+			// 	// 	generate_random_weights(1),
+			// 	// );
+
+			// 	// let mut board_b = Board::from_fen(&bot_config.fen);
+			// 	// let mut bot_b = Bot::new(bot_config.clone());
+
+			// 	// board_b.nnue = NNUE::initialize(
+			// 	// 	&board_b,
+
+			// 	// 	generate_random_weights(196608),
+			// 	// 	generate_random_weights(256),
+
+			// 	// 	generate_random_weights(256),
+			// 	// 	generate_random_weights(1),
+			// 	// );
+
+			// 	// const TIME_PER_MOVE: f32 = 1.0;
+
+			// 	// loop {
+			// 	// 	bot_a.start(&mut board_a, "".to_string(), TIME_PER_MOVE, MAX_DEPTH);
+
+			// 	// 	if bot_a.best_move == NULL_MOVE {
+			// 	// 		break;
+			// 	// 	}
+
+			// 	// 	board_a.make_move(bot_a.best_move);
+			// 	// 	board_b.make_move(bot_a.best_move);
+
+			// 	// 	board_a.print();
+
+			// 	// 	bot_b.start(&mut board_b, "".to_string(), TIME_PER_MOVE, MAX_DEPTH);
+
+			// 	// 	if bot_b.best_move == NULL_MOVE {
+			// 	// 		break;
+			// 	// 	}
+
+			// 	// 	board_a.make_move(bot_b.best_move);
+			// 	// 	board_b.make_move(bot_b.best_move);
+
+			// 	// 	board_a.print();
+			// 	// }
 			// }
+
+
+
+
+
 
 			// _ => log.write(format!("Unknown command: {}", command)),
 			_ => {}

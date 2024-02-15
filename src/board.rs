@@ -1,3 +1,5 @@
+use crate::nnue_weights::*;
+use crate::nnue::{NNUE, generate_random_weights};
 use crate::value_holder::ValueHolder;
 use crate::utils::{pop_lsb, get_lsb, print_bitboard, coordinate_to_index};
 use crate::piece_square_tables::{BASE_WORTHS_OF_PIECE_TYPE, get_full_worth_of_piece, ROOK_WORTH, BISHOP_WORTH};
@@ -49,6 +51,8 @@ pub struct Board {
 	// TODO: smaller version of the transposition table for evaluation cache?
 
 	pub board_state: ValueHolder<BoardState>,
+
+	// pub nnue: NNUE,
 }
 
 impl Board {
@@ -81,6 +85,8 @@ impl Board {
 			moves: vec![],
 
 			board_state: ValueHolder::new(BoardState::new(castling_rights, fifty_move_counter)),
+
+			// nnue: NNUE::from(vec![], vec![], vec![], vec![]),
 		};
 
 		let piece_rows = fen[0].split('/').collect::<Vec<&str>>();
@@ -111,6 +117,16 @@ impl Board {
 
 		board.zobrist = Zobrist::generate(&board);
 		board.calculate_attacked_squares();
+
+		// board.nnue = NNUE::initialize(
+		// 	&board,
+
+		// 	INPUT_LAYER_WEIGHTS.to_vec(),
+		// 	INPUT_LAYER_BIASES.to_vec(),
+
+		// 	HIDDEN_LAYER_WEIGHTS.to_vec(),
+		// 	HIDDEN_LAYER_BIASES.to_vec(),
+		// );
 
 		board
 	}
@@ -276,14 +292,15 @@ impl Board {
 			}
 
 			if data.flag == EN_PASSANT_FLAG {
-				let pawn_to_en_passant = if is_piece_white(data.piece as usize) {
-					data.to + 8
-				} else {
-					data.to - 8
-				};
+				let en_passant_square =
+					if is_piece_white(data.piece as usize) {
+						data.to + 8
+					} else {
+						data.to - 8
+					};
 
-				self.piece_bitboards[data.capture as usize] ^= 1 << pawn_to_en_passant;
-				self.color_bitboards[other_color] ^= 1 << pawn_to_en_passant;
+				self.piece_bitboards[data.capture as usize] ^= 1 << en_passant_square;
+				self.color_bitboards[other_color] ^= 1 << en_passant_square;
 			} else {
 				self.piece_bitboards[data.capture as usize] ^= 1 << data.to;
 				self.color_bitboards[other_color] ^= 1 << data.to;
@@ -363,6 +380,8 @@ impl Board {
 			self.board_state.history[self.board_state.index - 1].castling_rights,
 		);
 
+		// self.nnue.make_move(&data);
+
 		self.moves.push(data);
 		self.white_to_move = !self.white_to_move;
 
@@ -403,15 +422,15 @@ impl Board {
 			}
 
 			if last_move.flag == EN_PASSANT_FLAG {
-				let pawn_to_en_passant = if is_piece_white(last_move.piece as usize) {
-					last_move.to + 8
-				} else {
-					last_move.to - 8
-				};
+				let en_passant_square =
+					if is_piece_white(last_move.piece as usize) {
+						last_move.to + 8
+					} else {
+						last_move.to - 8
+					};
 
-				self.piece_bitboards[last_move.capture as usize] ^= 1 << pawn_to_en_passant;
-
-				self.color_bitboards[other_color] ^= 1 << pawn_to_en_passant;
+				self.piece_bitboards[last_move.capture as usize] ^= 1 << en_passant_square;
+				self.color_bitboards[other_color] ^= 1 << en_passant_square;
 			} else {
 				self.piece_bitboards[last_move.capture as usize] ^= 1 << last_move.to;
 				self.color_bitboards[other_color] ^= 1 << last_move.to;
@@ -448,6 +467,8 @@ impl Board {
 
 		self.board_state.pop();
 		self.zobrist.key.pop();
+
+		// self.nnue.undo_move(&last_move);
 
 		self.white_to_move = !self.white_to_move;
 
@@ -989,6 +1010,10 @@ impl Board {
 		 ((white_material + white_attacks_score - white_king_weakness_penalty + white_pawn_evaluation)
 		- (black_material + black_attacks_score - black_king_weakness_penalty + black_pawn_evaluation)) * self.perspective()
 	}
+
+	// pub fn nnue_evaluate(&self) -> i32 {
+	// 	(self.nnue.evaluate() * 100.0) as i32 * self.perspective()
+	// }
 
 	pub fn can_short_castle(&mut self, white: bool) -> bool {
 		// self.king_in_check calculates attacked squares
