@@ -1,4 +1,4 @@
-use crate::nnue::{self, NNUE, generate_random_weights};
+use crate::nnue::{self, NNUE};
 use crate::value_holder::ValueHolder;
 use crate::utils::{pop_lsb, get_lsb, print_bitboard, coordinate_to_index};
 use crate::piece_square_tables::{BASE_WORTHS_OF_PIECE_TYPE, get_full_worth_of_piece, ROOK_WORTH, BISHOP_WORTH};
@@ -51,7 +51,7 @@ pub struct Board {
 
 	pub board_state: ValueHolder<BoardState>,
 
-	// pub nnue: NNUE,
+	pub nnue: NNUE,
 }
 
 impl Board {
@@ -85,7 +85,7 @@ impl Board {
 
 			board_state: ValueHolder::new(BoardState::new(castling_rights, fifty_move_counter)),
 
-			// nnue: NNUE::from(vec![], vec![], vec![], vec![]),
+			nnue: NNUE::new(),
 		};
 
 		let piece_rows = fen[0].split('/').collect::<Vec<&str>>();
@@ -117,21 +117,7 @@ impl Board {
 		board.zobrist = Zobrist::generate(&board);
 		board.calculate_attacked_squares();
 
-		// board.nnue = NNUE::initialize(
-		// 	&board,
-
-		// 	INPUT_LAYER_WEIGHTS.to_vec(),
-		// 	INPUT_LAYER_BIASES.to_vec(),
-
-		// 	HIDDEN_LAYER_WEIGHTS.to_vec(),
-		// 	HIDDEN_LAYER_BIASES.to_vec(),
-
-		// 	// generate_random_weights(196608),
-		// 	// generate_random_weights(256),
-
-		// 	// generate_random_weights(256 * nnue::BUCKETS),
-		// 	// generate_random_weights(1 * nnue::BUCKETS),
-		// );
+		board.nnue = NNUE::initialize(&board);
 
 		board
 	}
@@ -1016,9 +1002,13 @@ impl Board {
 		- (black_material + black_attacks_score - black_king_weakness_penalty + black_pawn_evaluation)) * self.perspective()
 	}
 
-	// pub fn nnue_evaluate(&self) -> i32 {
-	// 	(self.nnue.evaluate(self.occupied_bitboard().count_ones() as usize) * 100.0) as i32 * self.perspective()
-	// }
+	pub fn raw_nnue_evaluate(&self) -> f32 {
+		self.nnue.evaluate(self.occupied_bitboard().count_ones() as usize)
+	}
+
+	pub fn nnue_evaluate(&self) -> i32 {
+		(self.nnue.evaluate(self.occupied_bitboard().count_ones() as usize) * 100.0) as i32 * self.perspective()
+	}
 
 	pub fn can_short_castle(&mut self, white: bool) -> bool {
 		// self.king_in_check calculates attacked squares

@@ -9,6 +9,7 @@ The input layer is effectively skipped, because the middle layer is incrementall
 and the bucket is calculated based on how many pieces are left on the board
 */
 
+use crate::nnue_weights::*;
 use crate::move_data::{SHORT_CASTLE_FLAG, LONG_CASTLE_FLAG, EN_PASSANT_FLAG, MoveData};
 use crate::pieces::{WHITE_ROOK, BLACK_ROOK, NO_PIECE, PROMOTABLE, build_piece, is_piece_white, char_to_piece};
 use crate::Board;
@@ -16,62 +17,32 @@ use rand::Rng;
 
 pub const BUCKETS: usize = 8;
 
-pub fn generate_random_weights(length: usize) -> Vec<f32> {
-	let mut rng = rand::thread_rng();
-	let mut result = vec![];
+// pub fn generate_random_weights(length: usize) -> Vec<f32> {
+// 	let mut rng = rand::thread_rng();
+// 	let mut result = vec![];
 
-	for _ in 0..length {
-		result.push(rng.gen_range(-0.5..0.5));
-	}
+// 	for _ in 0..length {
+// 		result.push(rng.gen_range(-0.5..0.5));
+// 	}
 
-	result
-}
+// 	result
+// }
 
 pub struct NNUE {
 	pub input_layer: Vec<f32>,
-
-	pub input_layer_weights: Vec<f32>,
-	pub input_layer_biases: Vec<f32>,
-
-	pub hidden_layer_weights: Vec<f32>,
-	pub hidden_layer_biases: Vec<f32>,
 }
 
 impl NNUE {
-	pub fn from(
-		input_layer_weights: Vec<f32>,
-		input_layer_biases: Vec<f32>,
-
-		hidden_layer_weights: Vec<f32>,
-		hidden_layer_biases: Vec<f32>,
-	) -> Self {
+	pub fn new() -> Self {
 		Self {
-			input_layer: input_layer_biases.clone(),
-
-			input_layer_weights,
-			input_layer_biases,
-
-			hidden_layer_weights,
-			hidden_layer_biases,
+			input_layer: INPUT_LAYER_BIASES.to_vec(),
 		}
 	}
 
 	pub fn initialize(
 		board: &Board,
-
-		input_layer_weights: Vec<f32>,
-		input_layer_biases: Vec<f32>,
-
-		hidden_layer_weights: Vec<f32>,
-		hidden_layer_biases: Vec<f32>,
 	) -> Self {
-		let mut nnue = NNUE::from(
-			input_layer_weights,
-			input_layer_biases,
-
-			hidden_layer_weights,
-			hidden_layer_biases,
-		);
+		let mut nnue = NNUE::new();
 
 		for i in 0..64 {
 			let piece = board.get_piece(i);
@@ -84,7 +55,7 @@ impl NNUE {
 	}
 
 	pub fn setup_fen(&mut self, fen: &String) {
-		self.input_layer = self.input_layer_biases.clone();
+		self.input_layer = INPUT_LAYER_BIASES.to_vec();
 
 		let fen_split = fen.split(' ').collect::<Vec<&str>>();
 
@@ -98,13 +69,14 @@ impl NNUE {
 				} else {
 					let piece = char_to_piece(piece);
 					self.activate(i as u8, piece as u8);
+					i += 1;
 				}
 			}
 		}
 	}
 
-	fn get_index(square: u8, piece: u8) -> usize {
-		(square * 12 + piece) as usize
+	pub fn get_index(square: u8, piece: u8) -> usize {
+		square as usize * 12 + piece as usize
 	}
 
 	pub fn activate(&mut self, square: u8, piece: u8) {
@@ -112,7 +84,7 @@ impl NNUE {
 		let index = Self::get_index(square, piece);
 
 		for i in 0..length {
-			self.input_layer[i] += self.input_layer_weights[index * length + i];
+			self.input_layer[i] += INPUT_LAYER_WEIGHTS[index * length + i];
 		}
 	}
 
@@ -121,7 +93,7 @@ impl NNUE {
 		let index = Self::get_index(square, piece);
 
 		for i in 0..length {
-			self.input_layer[i] -= self.input_layer_weights[index * length + i];
+			self.input_layer[i] -= INPUT_LAYER_WEIGHTS[index * length + i];
 		}
 	}
 
@@ -219,12 +191,12 @@ impl NNUE {
 		// And there are a minimum of 2 pieces on a Chess board (Both kings)
 		// so our min index is: (2 - 1) / 4 = 0.25 which gets rounded down to 0
 		let bucket = (total_piece_count - 1) / 4;
-		let mut output = self.hidden_layer_biases[bucket];
+		let mut output = HIDDEN_LAYER_BIASES[bucket];
 
 		let bucket_offset = bucket * self.input_layer.len();
 
 		for i in 0..self.input_layer.len() {
-			output += Self::clipped_relu(self.input_layer[i]) * self.hidden_layer_weights[bucket_offset + i];
+			output += Self::clipped_relu(self.input_layer[i]) * HIDDEN_LAYER_WEIGHTS[bucket_offset + i];
 		}
 
 		output

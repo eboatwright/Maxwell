@@ -29,7 +29,7 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 use rand::prelude::SliceRandom;
-use crate::nnue::{NNUE, generate_random_weights};
+use crate::nnue::NNUE;
 use crate::utils::move_str_is_valid;
 use crate::castling_rights::print_castling_rights;
 use crate::bot::{Bot, BotConfig, MAX_DEPTH};
@@ -81,7 +81,7 @@ fn main() {
 			// UCI protocol
 
 			"uci" => {
-				println!("id name Maxwell v3.1.1");
+				println!("id name Maxwell v3.2.0");
 				println!("id author eboatwright");
 				println!("option name Hash type spin default 256 min 0 max 4000");
 
@@ -228,7 +228,9 @@ fn main() {
 			"fiftymoves" => println!("{}", board.board_state.current.fifty_move_counter),
 
 			"hceval" => println!("{}", board.hc_evaluate() * board.perspective()),
-			// "nnueeval" => println!("{}", board.nnue_evaluate() * board.perspective()),
+
+			"rawnnueeval" => println!("{}", board.raw_nnue_evaluate()),
+			"nnueeval" => println!("{}", board.nnue_evaluate() * board.perspective()),
 
 			"ttsize" => bot.transposition_table.print_size(),
 			"cleartt" => {
