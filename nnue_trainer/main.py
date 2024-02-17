@@ -46,10 +46,10 @@ import chess
 import chess.engine
 
 
-GAMES_PER_MATCH = 250
-EPOCHS_PER_TRAIN = 2 # ?
-MINIBATCH_SIZE = 200
-LEARNING_RATE = 0.05
+GAMES_PER_MATCH = 256
+EPOCHS_PER_TRAIN = 3 # ?
+MINIBATCH_SIZE = 256
+LEARNING_RATE = 0.08
 
 DEPTH_PER_MOVE = 10
 PERC_CHANCE_FOR_RANDOM_MOVE = 5
@@ -311,7 +311,10 @@ class NeuralNetwork:
 		return total_error / len(data_batch)
 
 	def back_prop(self, data_batch):
-		output_layer_error = Matrix.from_2d_list([[self.get_total_error(data_batch)]])
+		total_error = self.get_total_error(data_batch)
+		print(f"Total error: {total_error}")
+
+		output_layer_error = Matrix.from_2d_list([[total_error]])
 
 		output_layer_gradients = Matrix.map(self.output_layer.outputs, sigmoid_derivative)
 		output_layer_gradients = Matrix.multiply(output_layer_gradients, output_layer_error)
@@ -413,9 +416,9 @@ if __name__ == "__main__":
 				data_point_index = next_index
 
 		print("Done training!")
-		print("Calculating total error...")
-		print(f"Total error: {nn.get_total_error(data_points)}")
-		print("Done!\n")
+		# print("Calculating total error...")
+		# print(f"Total error on data set: {nn.get_total_error(data_points)}")
+		# print("Done!\n")
 
 		training_cycle += 1
 
