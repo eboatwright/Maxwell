@@ -46,7 +46,7 @@ import chess
 import chess.engine
 
 
-GAMES_PER_MATCH = 250 # 640?
+GAMES_PER_MATCH = 250
 EPOCHS_PER_TRAIN = 2 # ?
 MINIBATCH_SIZE = 200
 LEARNING_RATE = 0.05
@@ -174,6 +174,24 @@ class Matrix:
 
 		return result
 
+	def divide(a, b):
+		result = Matrix(a.rows, a.cols)
+
+		for row in range(a.rows):
+			for col in range(a.cols):
+				result.data[row][col] = a.data[row][col] / b.data[row][col]
+
+		return result
+
+	def divide_by_num(mat, num):
+		result = Matrix(mat.rows, mat.cols)
+
+		for row in range(mat.rows):
+			for col in range(mat.cols):
+				result.data[row][col] = mat.data[row][col] / num
+
+		return result
+
 	def dot(a, b):
 		result = Matrix(a.rows, b.cols)
 
@@ -287,16 +305,13 @@ class NeuralNetwork:
 
 		for data_point in data_batch:
 			self.setup(data_point.fen)
-			total_error += (self.forward_pass().data[0][0] - data_point.outcome) ** 2.0
+			output = self.forward_pass().data[0][0]
+			total_error += (output - data_point.outcome) ** 2.0
 
 		return total_error / len(data_batch)
 
-	def back_prop(self, data_point):
-		self.setup(data_point.fen)
-		self.forward_pass()
-
-
-		output_layer_error = error(self.output_layer.outputs, Matrix.from_2d_list([[data_point.outcome]]))
+	def back_prop(self, data_batch):
+		output_layer_error = Matrix.from_2d_list([[self.get_total_error(data_batch)]])
 
 		output_layer_gradients = Matrix.map(self.output_layer.outputs, sigmoid_derivative)
 		output_layer_gradients = Matrix.multiply(output_layer_gradients, output_layer_error)
@@ -371,6 +386,8 @@ if __name__ == "__main__":
 	while True:
 		data_points = []
 
+		print(f"Training cycle {training_cycle + 1}:")
+
 		print(f"Starting {GAMES_PER_MATCH} self-play games...")
 
 		play_games()
@@ -386,18 +403,14 @@ if __name__ == "__main__":
 
 			random.shuffle(data_points)
 
-			for data_point in data_points:
-				nn.back_prop(data_point)
+			data_point_index = 0
+			while data_point_index < len(data_points):
+				next_index = min(data_point_index + MINIBATCH_SIZE, len(data_points))
+				minibatch = data_points[data_point_index:next_index]
 
-			# TODO: minibatching
-			# data_point_index = 0
-			# while data_point_index < len(data_points):
-			# 	next_index = min(data_point_index + MINIBATCH_SIZE, len(data_points))
-			# 	minibatch = data_points[data_point_index:next_index]
+				nn.back_prop(minibatch)
 
-			# 	nn.back_prop(minibatch)
-
-			# 	data_point_index = next_index
+				data_point_index = next_index
 
 		print("Done training!")
 		print("Calculating total error...")
@@ -406,7 +419,7 @@ if __name__ == "__main__":
 
 		training_cycle += 1
 
-		if training_cycle % 10 == 0:
+		if training_cycle % 5 == 0:
 			print("Saving weights...")
 
 			weight_output_file = open("../src/nnue_weights.rs", "w")
