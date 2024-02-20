@@ -7,6 +7,8 @@
 
 The input layer is effectively skipped, because the middle layer is incrementally updated,
 and the bucket is calculated based on how many pieces are left on the board
+
+(Buckets are disabled for now)
 */
 
 use crate::nnue_weights::*;
@@ -15,18 +17,8 @@ use crate::pieces::{WHITE_ROOK, BLACK_ROOK, NO_PIECE, PROMOTABLE, build_piece, i
 use crate::Board;
 use rand::Rng;
 
+pub const NNUE_EVAL_SCALE: f32 = 1.0; // TODO: I have no idea what this should be
 pub const BUCKETS: usize = 8;
-
-// pub fn generate_random_weights(length: usize) -> Vec<f32> {
-// 	let mut rng = rand::thread_rng();
-// 	let mut result = vec![];
-
-// 	for _ in 0..length {
-// 		result.push(rng.gen_range(-0.5..0.5));
-// 	}
-
-// 	result
-// }
 
 pub struct NNUE {
 	pub input_layer: Vec<f32>,
@@ -190,13 +182,13 @@ impl NNUE {
 		// so our max index is: (32 - 1) / 4 = 7.75 which then gets rounded down because we're dividing integers, so 7 which is what we want
 		// And there are a minimum of 2 pieces on a Chess board (Both kings)
 		// so our min index is: (2 - 1) / 4 = 0.25 which gets rounded down to 0
-		let bucket = (total_piece_count - 1) / 4;
-		let mut output = HIDDEN_LAYER_BIASES[bucket];
+		// let bucket = (total_piece_count - 1) / 4;
+		let mut output = HIDDEN_LAYER_BIASES[0];
 
-		let bucket_offset = bucket * self.input_layer.len();
+		// let bucket_offset = bucket * self.input_layer.len();
 
 		for i in 0..self.input_layer.len() {
-			output += Self::clipped_relu(self.input_layer[i]) * HIDDEN_LAYER_WEIGHTS[bucket_offset + i];
+			output += Self::clipped_relu(self.input_layer[i]) * HIDDEN_LAYER_WEIGHTS[i];
 		}
 
 		output

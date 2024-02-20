@@ -14,3 +14,4 @@ Cargo.lock
 *.pdb
 
 lichess_db_eval
+nnue_trainer/__pycache__

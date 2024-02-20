@@ -1,4 +1,4 @@
-use crate::nnue::{self, NNUE};
+use crate::nnue::{self, NNUE, NNUE_EVAL_SCALE};
 use crate::value_holder::ValueHolder;
 use crate::utils::{pop_lsb, get_lsb, print_bitboard, coordinate_to_index};
 use crate::piece_square_tables::{BASE_WORTHS_OF_PIECE_TYPE, get_full_worth_of_piece, ROOK_WORTH, BISHOP_WORTH};
@@ -371,7 +371,7 @@ impl Board {
 			self.board_state.history[self.board_state.index - 1].castling_rights,
 		);
 
-		// self.nnue.make_move(&data);
+		self.nnue.make_move(&data);
 
 		self.moves.push(data);
 		self.white_to_move = !self.white_to_move;
@@ -459,7 +459,7 @@ impl Board {
 		self.board_state.pop();
 		self.zobrist.key.pop();
 
-		// self.nnue.undo_move(&last_move);
+		self.nnue.undo_move(&last_move);
 
 		self.white_to_move = !self.white_to_move;
 
@@ -1007,7 +1007,7 @@ impl Board {
 	}
 
 	pub fn nnue_evaluate(&self) -> i32 {
-		(self.nnue.evaluate(self.occupied_bitboard().count_ones() as usize) * 100.0) as i32 * self.perspective()
+		(self.nnue.evaluate(self.occupied_bitboard().count_ones() as usize) * NNUE_EVAL_SCALE) as i32 * self.perspective()
 	}
 
 	pub fn can_short_castle(&mut self, white: bool) -> bool {
