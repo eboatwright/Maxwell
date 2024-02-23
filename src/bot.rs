@@ -111,7 +111,7 @@ impl Bot {
 		let total_nodes = self.positions_searched + self.quiescence_searched;
 		let time_elapsed = self.think_timer.elapsed();
 
-		println!("info depth {depth} seldepth {seldepth} score {score_type} {score} currmove {currmove} pv {pv}nodes {nodes} time {time} nps {nps}",
+		println!("info depth {depth} seldepth {seldepth} score {score_type} {score} currmove {currmove} pv {pv}currline {pv}nodes {nodes} time {time} nps {nps}",
 			depth = current_depth,
 			seldepth = self.sel_depth,
 			score_type = score_type,
