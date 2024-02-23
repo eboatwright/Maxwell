@@ -89,7 +89,7 @@ if __name__ == "__main__":
 	print("### MAXWELL NNUE TRAINER ###\n")
 
 	training_cycle = 0
-	nn.save_weights() # Save the initial randomized weights so that the program has the same weights as the trainer
+	# nn.save_weights() # Save the initial randomized weights so that the program has the same weights as the trainer
 
 	while True:
 		data_points = []

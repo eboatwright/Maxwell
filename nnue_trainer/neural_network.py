@@ -24,12 +24,6 @@ def sigmoid(value):
 def sigmoid_derivative(value):
 	return (2 * math.exp(-value)) / ((math.exp(-value) + 1) ** 2.0)
 
-def error(output, target):
-	return Matrix.pow(Matrix.subtract(output, target), 2.0)
-
-def error_derivative(output, target):
-	return 2.0 * (output - target)
-
 
 class Layer:
 	def __init__(self, weights, biases, activation):
@@ -111,33 +105,45 @@ class NeuralNetwork:
 		return total_error / len(data_batch)
 
 	def back_prop(self, batch_index_from, batch_index_to, data_batch):
-		total_error = self.get_total_error(data_batch)
-		print(f"Batch {batch_index_from}~{batch_index_to} error: {total_error}")
+		# total_error = self.get_total_error(data_batch)
+		# print(f"Batch {batch_index_from}~{batch_index_to} error: {total_error}")
 
-		output_layer_error = Matrix.from_2d_list([[total_error]])
+		errors = []
+		for data_point in data_batch:
+			self.setup(data_point.fen)
+			output = self.forward_pass().data[0][0]
+			errors.append(data_point.outcome - output)
 
-		output_layer_gradients = Matrix.map(self.output_layer.outputs, sigmoid_derivative)
-		output_layer_gradients = Matrix.multiply(output_layer_gradients, output_layer_error)
-		output_layer_gradients = Matrix.scale(output_layer_gradients, config.LEARNING_RATE)
+		total_errors = 0.0
+		for error in errors:
+			total_errors += abs(error)
 
-		self.output_layer.biases[self.bucket] = Matrix.add(self.output_layer.biases[self.bucket], output_layer_gradients)
+			output_layer_error = Matrix.from_2d_list([[error]])
 
-		output_layer_delta = Matrix.dot(Matrix.transpose(self.hidden_layer.outputs), output_layer_gradients)
+			output_layer_gradients = Matrix.map(self.output_layer.outputs, sigmoid_derivative)
+			output_layer_gradients = Matrix.multiply(output_layer_gradients, output_layer_error)
+			output_layer_gradients = Matrix.scale(output_layer_gradients, config.LEARNING_RATE)
 
-		self.output_layer.weights[self.bucket] = Matrix.add(self.output_layer.weights[self.bucket], output_layer_delta)
+			self.output_layer.biases[self.bucket] = Matrix.add(self.output_layer.biases[self.bucket], output_layer_gradients)
+
+			output_layer_delta = Matrix.dot(Matrix.transpose(self.hidden_layer.outputs), output_layer_gradients)
+
+			self.output_layer.weights[self.bucket] = Matrix.add(self.output_layer.weights[self.bucket], output_layer_delta)
 
 
-		hidden_layer_error = Matrix.dot(output_layer_error, Matrix.transpose(self.output_layer.weights[self.bucket]))
+			hidden_layer_error = Matrix.dot(output_layer_error, Matrix.transpose(self.output_layer.weights[self.bucket]))
 
-		hidden_layer_gradients = Matrix.map(self.hidden_layer.outputs, clipped_relu_derivative)
-		hidden_layer_gradients = Matrix.multiply(hidden_layer_gradients, hidden_layer_error)
-		hidden_layer_gradients = Matrix.scale(hidden_layer_gradients, config.LEARNING_RATE)
+			hidden_layer_gradients = Matrix.map(self.hidden_layer.outputs, clipped_relu_derivative)
+			hidden_layer_gradients = Matrix.multiply(hidden_layer_gradients, hidden_layer_error)
+			hidden_layer_gradients = Matrix.scale(hidden_layer_gradients, config.LEARNING_RATE)
 
-		self.hidden_layer.biases[0] = Matrix.add(self.hidden_layer.biases[0], hidden_layer_gradients)
+			self.hidden_layer.biases[0] = Matrix.add(self.hidden_layer.biases[0], hidden_layer_gradients)
 
-		hidden_layer_delta = Matrix.dot(Matrix.transpose(self.inputs), hidden_layer_gradients)
+			hidden_layer_delta = Matrix.dot(Matrix.transpose(self.inputs), hidden_layer_gradients)
 
-		self.hidden_layer.weights[0] = Matrix.add(self.hidden_layer.weights[0], hidden_layer_delta)
+			self.hidden_layer.weights[0] = Matrix.add(self.hidden_layer.weights[0], hidden_layer_delta)
+
+		print(f"Batch {batch_index_from}~{batch_index_to} error: {total_errors / len(errors)}")
 
 	def save_weights(self):
 		print("Saving weights...")
