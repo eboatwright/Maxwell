@@ -97,7 +97,7 @@ impl Bot {
 		}
 	}
 
-	pub fn println(&self, output: String) {
+	pub fn debugln(&self, output: String) {
 		if self.config.debug_output {
 			println!("{}", output);
 		}
@@ -166,27 +166,28 @@ impl Bot {
 				self.evaluation = self.evaluation_this_iteration;
 			}
 
-			self.println(format!("Depth: {}, Window: {}, Evaluation: {}, Best move: {}, Positions searched: {} + Quiescence positions searched: {} = {}, Transposition Hits: {}",
-				current_depth,
-				window,
-				self.evaluation * board.perspective(),
-				self.best_move.to_coordinates(),
-				self.positions_searched,
-				self.quiescence_searched,
-				self.positions_searched + self.quiescence_searched,
-				self.transposition_table.hits,
-			));
-
 			if evaluation_is_mate(self.evaluation) {
 				let moves_until_mate = ply_from_mate(self.evaluation);
 				if moves_until_mate <= current_depth {
-					self.println(format!("Mate found in {}", (moves_until_mate as f32 * 0.5).ceil()));
+					println!("info depth {} score mate {} currmove {} nodes {}",
+						current_depth,
+						(moves_until_mate as f32 * 0.5).ceil() as i32 * (if self.evaluation > 0 { 1 } else { -1 }),
+						self.best_move.to_coordinates(),
+						self.positions_searched + self.quiescence_searched,
+					);
+
 					break;
 				}
 			}
 
+			println!("info depth {} score cp {} currmove {} nodes {}",
+				current_depth,
+				self.evaluation,
+				self.best_move.to_coordinates(),
+				self.positions_searched + self.quiescence_searched,
+			);
+
 			if self.search_cancelled {
-				self.println("Search cancelled".to_string());
 				break;
 			}
 		}
@@ -200,10 +201,10 @@ impl Bot {
 					break;
 				}
 			}
-			self.println("Failed to find a move in time, defaulting to first legal move :(".to_string());
+			self.debugln("Failed to find a move in time, defaulting to first legal move :(".to_string());
 		}
 
-		self.println(format!("{} seconds", self.think_timer.elapsed().as_secs_f32()));
+		self.debugln(format!("{} seconds", self.think_timer.elapsed().as_secs_f32()));
 
 		if self.config.debug_output {
 			self.transposition_table.print_size();
