@@ -1,4 +1,3 @@
-// use crate::pv_table::PVTable;
 use crate::killer_moves::KillerMoves;
 use crate::move_data::{MoveData, NULL_MOVE};
 use crate::pieces::*;
@@ -16,7 +15,6 @@ pub const MVV_LVA: [i32; 36] = [
 ];
 
 pub struct MoveSorter {
-	// pub pv_table: PVTable,
 	pub killer_moves: [KillerMoves; MAX_SORT_MOVE_PLY],
 	pub history: [[[i32; 64]; 64]; 2],
 }

@@ -51,7 +51,7 @@ pub struct Board {
 
 	pub board_state: ValueHolder<BoardState>,
 
-	pub nnue: NNUE,
+	// pub nnue: NNUE,
 }
 
 impl Board {
@@ -85,7 +85,7 @@ impl Board {
 
 			board_state: ValueHolder::new(BoardState::new(castling_rights, fifty_move_counter)),
 
-			nnue: NNUE::new(),
+			// nnue: NNUE::new(),
 		};
 
 		let piece_rows = fen[0].split('/').collect::<Vec<&str>>();
@@ -117,7 +117,7 @@ impl Board {
 		board.zobrist = Zobrist::generate(&board);
 		board.calculate_attacked_squares();
 
-		board.nnue = NNUE::initialize(&board);
+		// board.nnue = NNUE::initialize(&board);
 
 		board
 	}
@@ -371,7 +371,7 @@ impl Board {
 			self.board_state.history[self.board_state.index - 1].castling_rights,
 		);
 
-		self.nnue.make_move(&data);
+		// self.nnue.make_move(&data);
 
 		self.moves.push(data);
 		self.white_to_move = !self.white_to_move;
@@ -459,7 +459,7 @@ impl Board {
 		self.board_state.pop();
 		self.zobrist.key.pop();
 
-		self.nnue.undo_move(&last_move);
+		// self.nnue.undo_move(&last_move);
 
 		self.white_to_move = !self.white_to_move;
 
@@ -1002,13 +1002,13 @@ impl Board {
 		- (black_material + black_attacks_score - black_king_weakness_penalty + black_pawn_evaluation)) * self.perspective()
 	}
 
-	pub fn raw_nnue_evaluate(&self) -> f32 {
-		self.nnue.evaluate(self.occupied_bitboard().count_ones() as usize)
-	}
+	// pub fn raw_nnue_evaluate(&self) -> f32 {
+	// 	self.nnue.evaluate(self.occupied_bitboard().count_ones() as usize)
+	// }
 
-	pub fn nnue_evaluate(&self) -> i32 {
-		(self.nnue.evaluate(self.occupied_bitboard().count_ones() as usize) * NNUE_EVAL_SCALE) as i32 * self.perspective()
-	}
+	// pub fn nnue_evaluate(&self) -> i32 {
+	// 	(self.nnue.evaluate(self.occupied_bitboard().count_ones() as usize) * NNUE_EVAL_SCALE) as i32 * self.perspective()
+	// }
 
 	pub fn can_short_castle(&mut self, white: bool) -> bool {
 		// self.king_in_check calculates attacked squares

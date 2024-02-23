@@ -9,7 +9,7 @@ use crate::move_data::{MoveData, NULL_MOVE};
 use crate::opening_book::OpeningBook;
 use crate::Board;
 
-pub const MAX_DEPTH: u8 = 255 - MAX_SEARCH_EXTENSIONS;
+pub const MAX_DEPTH: u8 = 128;
 pub const MAX_SEARCH_EXTENSIONS: u8 = 20;
 
 #[derive(Clone, Debug)]
@@ -66,6 +66,8 @@ pub struct Bot {
 	evaluation: i32,
 	evaluation_this_iteration: i32,
 
+	sel_depth: u8,
+
 	positions_searched: u128,
 	quiescence_searched: u128,
 }
@@ -92,6 +94,8 @@ impl Bot {
 			evaluation: 0,
 			evaluation_this_iteration: 0,
 
+			sel_depth: 0,
+
 			positions_searched: 0,
 			quiescence_searched: 0,
 		}
@@ -101,6 +105,23 @@ impl Bot {
 		if self.config.debug_output {
 			println!("{}", output);
 		}
+	}
+
+	pub fn print_uci_info(&self, current_depth: u8, score_type: &'static str, score: i32, pv: String) {
+		let total_nodes = self.positions_searched + self.quiescence_searched;
+		let time_elapsed = self.think_timer.elapsed();
+
+		println!("info depth {depth} seldepth {seldepth} score {score_type} {score} currmove {currmove} pv {pv}nodes {nodes} time {time} nps {nps}",
+			depth = current_depth,
+			seldepth = self.sel_depth,
+			score_type = score_type,
+			score = score,
+			currmove = self.best_move.to_coordinates(),
+			pv = pv,
+			nodes = total_nodes,
+			time = time_elapsed.as_millis(),
+			nps = total_nodes as f32 / time_elapsed.as_secs_f32(),
+		);
 	}
 
 	pub fn start(&mut self, board: &mut Board, moves: String, my_time: f32, depth: u8) {
@@ -146,6 +167,8 @@ impl Bot {
 			self.searched_one_move = false;
 			self.best_move_this_iteration = NULL_MOVE;
 			self.evaluation_this_iteration = 0;
+			// self.move_sorter.new_pv.clear();
+			self.sel_depth = 0;
 
 			loop {
 				let (alpha, beta) = (self.evaluation - window, self.evaluation + window);
@@ -166,25 +189,29 @@ impl Bot {
 				self.evaluation = self.evaluation_this_iteration;
 			}
 
+			let pv = self.find_pv(board, current_depth);
+
 			if evaluation_is_mate(self.evaluation) {
 				let moves_until_mate = ply_from_mate(self.evaluation);
 				if moves_until_mate <= current_depth {
-					println!("info depth {} score mate {} currmove {} nodes {}",
+					let mate_evaluation = (moves_until_mate as f32 * 0.5).ceil() as i32 * (if self.evaluation > 0 { 1 } else { -1 });
+
+					self.print_uci_info(
 						current_depth,
-						(moves_until_mate as f32 * 0.5).ceil() as i32 * (if self.evaluation > 0 { 1 } else { -1 }),
-						self.best_move.to_coordinates(),
-						self.positions_searched + self.quiescence_searched,
+						"mate",
+						mate_evaluation,
+						pv,
 					);
 
 					break;
 				}
 			}
 
-			println!("info depth {} score cp {} currmove {} nodes {}",
+			self.print_uci_info(
 				current_depth,
+				"cp",
 				self.evaluation,
-				self.best_move.to_coordinates(),
-				self.positions_searched + self.quiescence_searched,
+				pv,
 			);
 
 			if self.search_cancelled {
@@ -216,6 +243,28 @@ impl Bot {
 		self.search_cancelled
 	}
 
+	fn find_pv(&mut self, board: &mut Board, depth: u8) -> String {
+		if depth == 0 {
+			return String::new();
+		}
+
+		if let Some(data) = self.transposition_table.get(board.zobrist.key.current) {
+			let hash_move = MoveData::from_binary(data.best_move);
+
+			if !board.play_move(hash_move) {
+				return String::new();
+			}
+
+			let pv = format!("{} {}", hash_move.to_coordinates(), self.find_pv(board, depth - 1));
+
+			board.undo_last_move();
+
+			return pv;
+		}
+
+		String::new()
+	}
+
 	fn alpha_beta_search(
 		&mut self,
 		board: &mut Board,
@@ -231,6 +280,7 @@ impl Bot {
 		}
 
 		if ply > 0 {
+			self.sel_depth = u8::max(self.sel_depth, ply);
 			self.positions_searched += 1;
 
 			if board.is_draw() {
@@ -274,7 +324,7 @@ impl Bot {
 		&& !in_check
 		&& !evaluation_is_mate(alpha)
 		&& !evaluation_is_mate(beta) {
-			let static_eval = board.nnue_evaluate();
+			let static_eval = board.hc_evaluate();
 
 			// Reverse Futility Pruning
 			if depth < 8 // TODO: mess around with this
@@ -461,7 +511,7 @@ impl Bot {
 
 		self.quiescence_searched += 1;
 
-		let evaluation = board.nnue_evaluate();
+		let evaluation = board.hc_evaluate();
 		if evaluation >= beta {
 			return beta;
 		}

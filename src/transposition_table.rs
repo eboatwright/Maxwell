@@ -98,29 +98,37 @@ impl TranspositionTable {
 			});
 	}
 
-	pub fn lookup(&mut self, key: u64, ply: u8, depth: u8, alpha: i32, beta: i32) -> (Option<i32>, Option<MoveData>) {
+	pub fn get(&self, key: u64) -> Option<TranspositionData> {
 		if let Some(Some(data)) = self.table.get(self.get_index(key)) {
 			if data.key == key {
-				self.hits += 1;
+				return Some(*data);
+			}
+		}
 
-				let mut return_evaluation = None;
+		None
+	}
 
-				if data.depth >= depth {
-					let mut fixed_mate_evaluation = data.evaluation;
-					if evaluation_is_mate(data.evaluation) {
-						let sign = if data.evaluation > 0 { 1 } else { -1 };
-						fixed_mate_evaluation = (data.evaluation * sign - ply as i32) * sign;
-					}
+	pub fn lookup(&mut self, key: u64, ply: u8, depth: u8, alpha: i32, beta: i32) -> (Option<i32>, Option<MoveData>) {
+		if let Some(data) = self.get(key) {
+			self.hits += 1;
 
-					match data.eval_bound {
-						EvalBound::LowerBound => if fixed_mate_evaluation >= beta { return_evaluation = Some(beta); },
-						EvalBound::UpperBound => if fixed_mate_evaluation <= alpha { return_evaluation = Some(alpha); },
-						EvalBound::Exact => return_evaluation = Some(fixed_mate_evaluation),
-					}
+			let mut return_evaluation = None;
+
+			if data.depth >= depth {
+				let mut fixed_mate_evaluation = data.evaluation;
+				if evaluation_is_mate(data.evaluation) {
+					let sign = if data.evaluation > 0 { 1 } else { -1 };
+					fixed_mate_evaluation = (data.evaluation * sign - ply as i32) * sign;
 				}
 
-				return (return_evaluation, Some(MoveData::from_binary(data.best_move)));
+				match data.eval_bound {
+					EvalBound::LowerBound => if fixed_mate_evaluation >= beta { return_evaluation = Some(beta); },
+					EvalBound::UpperBound => if fixed_mate_evaluation <= alpha { return_evaluation = Some(alpha); },
+					EvalBound::Exact => return_evaluation = Some(fixed_mate_evaluation),
+				}
 			}
+
+			return (return_evaluation, Some(MoveData::from_binary(data.best_move)));
 		}
 
 		(None, None)

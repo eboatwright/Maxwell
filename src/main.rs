@@ -19,7 +19,6 @@ mod board;
 mod zobrist;
 mod perft;
 mod bot;
-mod pv_table;
 mod move_sorter;
 mod scored_move_list;
 mod nnue;
@@ -229,8 +228,8 @@ fn main() {
 
 			"hceval" => println!("{}", board.hc_evaluate() * board.perspective()),
 
-			"rawnnueeval" => println!("{}", board.raw_nnue_evaluate()),
-			"nnueeval" => println!("{}", board.nnue_evaluate() * board.perspective()),
+			// "rawnnueeval" => println!("{}", board.raw_nnue_evaluate()),
+			// "nnueeval" => println!("{}", board.nnue_evaluate() * board.perspective()),
 
 			"ttsize" => bot.transposition_table.print_size(),
 			"cleartt" => {
