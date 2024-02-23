@@ -17,7 +17,7 @@
 ## Features
 #### Parameters
  - fen=\<FEN STRING>: Sets up the board by a fen string (Doesn't work for UCI games) (default=STARTING_FEN)
- - debug=\<BOOLEAN>: Toggle debug output that gets outputed per ply (default=true)
+ - debug_output=\<BOOLEAN>: Toggle debug output that gets outputed per ply (default=true)
  - opening_book=\<BOOLEAN>: Toggle built-in opening book (default=false)
  - time_management=\<BOOLEAN>: Toggle time management, if false the bot will use all the remaining time (default=true)
  - hash_size=\<INTEGER>: Sets the hash size in Megabytes, there's also a UCI option for this under the name "Hash" (default=256)

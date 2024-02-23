@@ -1,10 +1,4 @@
-thoughts on NNUE:
-	I've wanted to learn how to write neural net for a long time, so I want to implement NNUE eventually.
-	But what I'm not going to do is just find a SF NNUE library and stick it in there because that's lame
-
-	Update:
-	I've learned how to write neural networks, and trained one to evaluate Tic-Tac-Toe positions!
-	So for either v3.2 or v3.3 I'm gonna work on writing my own version of NNUE from scratch
+NNUE training is currently underway!
 
 figure out some sort of multithreading:
 	to implement pondering I think I'll have to add multithreading
@@ -28,7 +22,6 @@ calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
 check out pin detection to speed up check detection
 try writing a struct that sorts moves incrementally
 	I tried this a couple times, but haven't got it faster than my current solution
-re-implement PV table with a different approach; I don't like the 2d array
 
 History reductions / pruning
 https://www.chessprogramming.org/Internal_Iterative_Deepening

@@ -19,21 +19,27 @@ mod board;
 mod zobrist;
 mod perft;
 mod bot;
-mod pv_table;
 mod move_sorter;
 mod scored_move_list;
+mod nnue;
+mod nnue_weights;
 
+use std::fs::File;
+use std::io::Read;
+use std::io::Write;
+use rand::prelude::SliceRandom;
+use crate::nnue::NNUE;
 use crate::utils::move_str_is_valid;
 use crate::castling_rights::print_castling_rights;
-use crate::bot::{Bot, BotConfig, MAX_SEARCH_EXTENSIONS};
+use crate::bot::{Bot, BotConfig, MAX_DEPTH};
 use crate::perft::*;
-use crate::move_data::MoveData;
+use crate::move_data::{MoveData};
 use crate::pieces::*;
-use crate::log::Log;
 use crate::board::Board;
 use std::io;
-use colored::Colorize;
 use std::time::Instant;
+// use colored::Colorize;
+// use crate::log::Log;
 
 pub const STARTING_FEN:         &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const KIWIPETE_FEN:         &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
@@ -74,7 +80,7 @@ fn main() {
 			// UCI protocol
 
 			"uci" => {
-				println!("id name Maxwell v3.1-2");
+				println!("id name Maxwell v3.1-3");
 				println!("id author eboatwright");
 				println!("option name Hash type spin default 256 min 0 max 4000");
 
@@ -135,7 +141,7 @@ fn main() {
 
 			"go" => {
 				let mut my_time = 0.0;
-				let mut depth_to_search = 255 - MAX_SEARCH_EXTENSIONS;
+				let mut depth_to_search = MAX_DEPTH;
 
 				// Anything below 3 words is treated is treated as "go infinite"
 				if command_split.len() > 2 {
@@ -218,8 +224,12 @@ fn main() {
 			"bitboards" => board.print_bitboards(),
 			"castlingrights" => print_castling_rights(board.board_state.current.castling_rights),
 			"zobrist" => println!("{}", board.zobrist.key.current),
-			"eval" => println!("{}", board.evaluate() * board.perspective()),
 			"fiftymoves" => println!("{}", board.board_state.current.fifty_move_counter),
+
+			"hceval" => println!("{}", board.hc_evaluate() * board.perspective()),
+
+			// "rawnnueeval" => println!("{}", board.raw_nnue_evaluate()),
+			// "nnueeval" => println!("{}", board.nnue_evaluate() * board.perspective()),
 
 			"ttsize" => bot.transposition_table.print_size(),
 			"cleartt" => {
@@ -233,51 +243,6 @@ fn main() {
 					PerftResults::calculate(&mut board, depth);
 				}
 			}
-
-			// "test" => {
-			// 	let mut old_best_time  =  f32::MAX;
-			// 	let mut old_worst_time = -f32::MAX;
-
-			// 	let mut new_best_time  =  f32::MAX;
-			// 	let mut new_worst_time = -f32::MAX;
-
-			// 	let piece = BLACK_ROOK as u8;
-			// 	let capture = WHITE_KNIGHT as u8;
-
-			// 	for _ in 0..5 {
-			// 		let timer = Instant::now();
-			// 		for _ in 0..1_000_000_000 {
-			// 			let score = MVV_LVA[get_piece_type(piece as usize) * 6 + get_piece_type(capture as usize)];
-			// 		}
-			// 		let old_time = timer.elapsed().as_secs_f32();
-
-			// 		let timer = Instant::now();
-			// 		for _ in 0..1_000_000_000 {
-			// 			let score = (5 - get_piece_type(piece as usize)) + (get_piece_type(capture as usize) + 1) * 10;
-			// 		}
-			// 		let new_time = timer.elapsed().as_secs_f32();
-
-
-			// 		if old_time < old_best_time {
-			// 			old_best_time = old_time;
-			// 		}
-
-			// 		if old_time > old_worst_time {
-			// 			old_worst_time = old_time;
-			// 		}
-
-			// 		if new_time < new_best_time {
-			// 			new_best_time = new_time;
-			// 		}
-
-			// 		if new_time > new_worst_time {
-			// 			new_worst_time = new_time;
-			// 		}
-			// 	}
-
-			// 	println!("Old: worst: {}, best: {}", old_worst_time, old_best_time);
-			// 	println!("New: worst: {}, best: {}", new_worst_time, new_best_time);
-			// }
 
 			// _ => log.write(format!("Unknown command: {}", command)),
 			_ => {}
