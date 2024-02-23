@@ -80,7 +80,7 @@ fn main() {
 			// UCI protocol
 
 			"uci" => {
-				println!("id name Maxwell v3.2.0");
+				println!("id name Maxwell v3.1-3");
 				println!("id author eboatwright");
 				println!("option name Hash type spin default 256 min 0 max 4000");
 
