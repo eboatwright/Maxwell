@@ -52,7 +52,6 @@ pub struct Bot {
 	time_to_think: f32,
 	think_timer: Instant,
 	pub search_cancelled: bool,
-	searched_one_move: bool,
 
 	opening_book: OpeningBook,
 	in_opening_book: bool,
@@ -80,7 +79,6 @@ impl Bot {
 			time_to_think: 0.0,
 			think_timer: Instant::now(),
 			search_cancelled: false,
-			searched_one_move: false,
 
 			opening_book: OpeningBook::create(),
 			in_opening_book: config.opening_book,
@@ -164,7 +162,6 @@ impl Bot {
 
 		self.think_timer = Instant::now();
 		for current_depth in 1..=depth {
-			self.searched_one_move = false;
 			self.best_move_this_iteration = NULL_MOVE;
 			self.evaluation_this_iteration = 0;
 			// self.move_sorter.new_pv.clear();
@@ -183,18 +180,18 @@ impl Bot {
 				window *= 4;
 			}
 
-			if !self.search_cancelled
-			|| self.searched_one_move {
+			let search_cancelled_prematurely = self.best_move_this_iteration == NULL_MOVE;
+
+			if !search_cancelled_prematurely {
 				self.best_move = self.best_move_this_iteration;
 				self.evaluation = self.evaluation_this_iteration;
 			}
-
-			let pv = self.find_pv(board, current_depth);
 
 			if evaluation_is_mate(self.evaluation) {
 				let moves_until_mate = ply_from_mate(self.evaluation);
 				if moves_until_mate <= current_depth {
 					let mate_evaluation = (moves_until_mate as f32 * 0.5).ceil() as i32 * (if self.evaluation > 0 { 1 } else { -1 });
+					let pv = self.find_pv(board, current_depth);
 
 					self.print_uci_info(
 						current_depth,
@@ -207,12 +204,15 @@ impl Bot {
 				}
 			}
 
-			self.print_uci_info(
-				current_depth,
-				"cp",
-				self.evaluation,
-				pv,
-			);
+			if !search_cancelled_prematurely {
+				let pv = self.find_pv(board, current_depth);
+				self.print_uci_info(
+					current_depth,
+					"cp",
+					self.evaluation,
+					pv,
+				);
+			}
 
 			if self.search_cancelled {
 				break;
@@ -475,7 +475,6 @@ impl Bot {
 				alpha = evaluation;
 
 				if ply == 0 {
-					self.searched_one_move = true;
 					self.best_move_this_iteration = best_move_this_search;
 					self.evaluation_this_iteration = evaluation;
 				}
