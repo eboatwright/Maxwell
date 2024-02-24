@@ -1,3 +1,5 @@
+// DEPRECATED
+
 use rand::prelude::SliceRandom;
 use rand::thread_rng;
 use crate::move_data::NULL_MOVE;

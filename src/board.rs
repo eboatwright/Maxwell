@@ -474,18 +474,19 @@ impl Board {
 	pub fn get_pseudo_legal_moves_for_color(&mut self, white_pieces: bool, only_captures: bool) -> Vec<MoveData> {
 		let mut result = vec![];
 
-		let pieces = if white_pieces {
-			WHITE_PAWN..=WHITE_KING
-		} else {
-			BLACK_PAWN..=BLACK_KING
-		};
+		let pieces =
+			if white_pieces {
+				WHITE_PAWN..=WHITE_KING
+			} else {
+				BLACK_PAWN..=BLACK_KING
+			};
 
 		for piece in pieces {
 			let mut bitboard = self.piece_bitboards[piece];
 
 			while bitboard != 0 {
 				let piece_index = pop_lsb(&mut bitboard);
-				result.extend(self.get_moves_for_piece(piece_index, only_captures));
+				result.append(&mut self.get_moves_for_piece(piece_index, only_captures));
 			}
 		}
 
@@ -506,9 +507,6 @@ impl Board {
 		let mut result = vec![];
 
 		let piece = self.get_piece(piece_index);
-		// if piece == NO_PIECE {
-		// 	println!("NO_PIECE found! piece_index: {}", piece_index);
-		// }
 		let piece_is_white = is_piece_white(piece);
 		let piece_type = get_piece_type(piece);
 

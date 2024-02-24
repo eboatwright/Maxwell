@@ -14,7 +14,7 @@
  - Write an NNUE implementation! I've learned how Neural Networks work, so I'm really excited to get started on that
  - Multithreading
 
-## Features
+## Features - NOT UP TO DATE WITH DEV BRANCH
 #### Parameters
  - fen=\<FEN STRING>: Sets up the board by a fen string (Doesn't work for UCI games) (default=STARTING_FEN)
  - debug_output=\<BOOLEAN>: Toggle debug output that gets outputed per ply (default=true)

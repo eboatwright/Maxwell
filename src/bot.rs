@@ -6,7 +6,6 @@ use std::time::Instant;
 use crate::move_sorter::MoveSorter;
 use crate::transposition_table::{TranspositionTable, EvalBound};
 use crate::move_data::{MoveData, NULL_MOVE};
-use crate::opening_book::OpeningBook;
 use crate::Board;
 
 pub const MAX_DEPTH: u8 = 128;
@@ -16,8 +15,6 @@ pub const MAX_SEARCH_EXTENSIONS: u8 = 20;
 pub struct BotConfig {
 	pub fen: String,
 	pub debug_output: bool,
-	pub opening_book: bool,
-	pub time_management: bool,
 	pub hash_size: usize,
 }
 
@@ -29,8 +26,6 @@ impl BotConfig {
 		Self { // This is so ugly lol
 			fen: Self::get_arg_value(&args, "fen").unwrap_or(STARTING_FEN.to_string()),
 			debug_output: Self::get_arg_value(&args, "debug_output").unwrap_or(_true.clone()) == _true,
-			opening_book: Self::get_arg_value(&args, "opening_book").unwrap_or(_false.clone()) == _true,
-			time_management: Self::get_arg_value(&args, "time_management").unwrap_or(_true.clone()) == _true,
 			hash_size: (Self::get_arg_value(&args, "hash_size").unwrap_or("256".to_string())).parse::<usize>().unwrap_or(256),
 		}
 	}
@@ -49,12 +44,9 @@ impl BotConfig {
 pub struct Bot {
 	pub config: BotConfig,
 
-	time_to_think: f32,
+	pub time_to_think: Option<f32>,
 	think_timer: Instant,
 	pub search_cancelled: bool,
-
-	opening_book: OpeningBook,
-	in_opening_book: bool,
 
 	move_sorter: MoveSorter,
 	pub transposition_table: TranspositionTable,
@@ -65,10 +57,8 @@ pub struct Bot {
 	evaluation: i32,
 	evaluation_this_iteration: i32,
 
-	sel_depth: u8,
-
-	positions_searched: u128,
-	quiescence_searched: u128,
+	seldepth: u8,
+	nodes: u128,
 }
 
 impl Bot {
@@ -76,12 +66,9 @@ impl Bot {
 		Self {
 			config: config.clone(),
 
-			time_to_think: 0.0,
+			time_to_think: None,
 			think_timer: Instant::now(),
 			search_cancelled: false,
-
-			opening_book: OpeningBook::create(),
-			in_opening_book: config.opening_book,
 
 			move_sorter: MoveSorter::new(),
 			transposition_table: TranspositionTable::empty(config.hash_size),
@@ -92,10 +79,9 @@ impl Bot {
 			evaluation: 0,
 			evaluation_this_iteration: 0,
 
-			sel_depth: 0,
+			seldepth: 0,
 
-			positions_searched: 0,
-			quiescence_searched: 0,
+			nodes: 0,
 		}
 	}
 
@@ -106,53 +92,31 @@ impl Bot {
 	}
 
 	pub fn print_uci_info(&self, current_depth: u8, score_type: &'static str, score: i32, pv: String) {
-		let total_nodes = self.positions_searched + self.quiescence_searched;
 		let time_elapsed = self.think_timer.elapsed();
 
-		println!("info depth {depth} seldepth {seldepth} score {score_type} {score} currmove {currmove} pv {pv}currline {pv}nodes {nodes} time {time} nps {nps}",
+		println!("info depth {depth} seldepth {seldepth} score {score_type} {score} currmove {currmove} pv {pv}nodes {nodes} time {time} nps {nps}",
 			depth = current_depth,
-			seldepth = self.sel_depth,
+			seldepth = self.seldepth,
 			score_type = score_type,
 			score = score,
 			currmove = self.best_move.to_coordinates(),
 			pv = pv,
-			nodes = total_nodes,
+			nodes = self.nodes,
 			time = time_elapsed.as_millis(),
-			nps = total_nodes as f32 / time_elapsed.as_secs_f32(),
+			nps = self.nodes as f32 / time_elapsed.as_secs_f32(),
 		);
 	}
 
-	pub fn start(&mut self, board: &mut Board, moves: String, my_time: f32, depth: u8) {
-		if self.in_opening_book {
-			let opening_move = self.opening_book.get_opening_move(moves);
-			if opening_move == NULL_MOVE {
-				self.in_opening_book = false;
-			} else {
-				self.best_move = opening_move;
-				return;
-			}
-		}
-
-		self.time_to_think =
-			if self.config.time_management
-			&& my_time > 0.0 {
-				let time_percentage = if board.moves.len() / 2 <= 6 {
-					0.025
-				} else {
-					0.07
-				};
-
-				(my_time * time_percentage).clamp(0.05, 30.0)
-			} else {
-				my_time
-			};
-
+	pub fn start(
+		&mut self,
+		board: &mut Board,
+		depth: u8,
+	) {
 		self.search_cancelled = false;
 
 		self.best_move = NULL_MOVE;
 
-		self.positions_searched = 0;
-		self.quiescence_searched = 0;
+		self.nodes = 0;
 		self.transposition_table.hits = 0;
 
 		self.move_sorter.clear();
@@ -165,7 +129,7 @@ impl Bot {
 			self.best_move_this_iteration = NULL_MOVE;
 			self.evaluation_this_iteration = 0;
 			// self.move_sorter.new_pv.clear();
-			self.sel_depth = 0;
+			self.seldepth = 0;
 
 			loop {
 				let (alpha, beta) = (self.evaluation - window, self.evaluation + window);
@@ -240,7 +204,7 @@ impl Bot {
 	}
 
 	fn should_cancel_search(&mut self) -> bool {
-		self.search_cancelled = (self.search_cancelled || self.think_timer.elapsed().as_secs_f32() >= self.time_to_think) && self.time_to_think > 0.0;
+		self.search_cancelled = self.nodes % 10_000 == 0 && self.time_to_think.is_some() && self.think_timer.elapsed().as_secs_f32() >= self.time_to_think.unwrap();
 		self.search_cancelled
 	}
 
@@ -281,8 +245,8 @@ impl Bot {
 		}
 
 		if ply > 0 {
-			self.sel_depth = u8::max(self.sel_depth, ply);
-			self.positions_searched += 1;
+			self.seldepth = u8::max(self.seldepth, ply);
+			self.nodes += 1;
 
 			if board.is_draw() {
 				// Should I use this to discourage making a draw in a winning position?
@@ -505,11 +469,9 @@ impl Bot {
 			return 0;
 		}
 
-		if is_root {
-			self.positions_searched -= 1;
+		if !is_root {
+			self.nodes += 1;
 		}
-
-		self.quiescence_searched += 1;
 
 		let evaluation = board.nnue_evaluate();
 		if evaluation >= beta {

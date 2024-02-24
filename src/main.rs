@@ -14,7 +14,6 @@ mod magic_numbers;
 mod move_data;
 mod transposition_table;
 mod killer_moves;
-mod opening_book;
 mod board;
 mod zobrist;
 mod perft;
@@ -60,7 +59,6 @@ fn main() {
 	let mut bot = Bot::new(bot_config.clone());
 
 	let mut command = String::new();
-	let mut moves = String::new();
 
 	loop {
 		command.clear();
@@ -120,11 +118,7 @@ fn main() {
 					board.undo_last_move();
 				}
 
-				// "moves" is for the opening book
-				moves.clear();
 				for coordinates in command_split.iter().skip(3) {
-					moves += &format!("{} ", coordinates);
-
 					if !move_str_is_valid(coordinates) {
 						println!("Illegal move: {}", coordinates);
 						break;
@@ -136,11 +130,11 @@ fn main() {
 						// log.write(err);
 					}
 				}
-				moves.pop();
 			}
 
 			"go" => {
-				let mut my_time = 0.0;
+				let mut use_full_time = false;
+				let mut my_time = None;
 				let mut depth_to_search = MAX_DEPTH;
 
 				// Anything below 3 words is treated is treated as "go infinite"
@@ -161,8 +155,16 @@ fn main() {
 						// go movetime X
 						"movetime" => {
 							if let Some(time_in_millis) = command_split.get(2) {
-								// These are capped to one millisecond, because 0.0 time is treated as "go infinite"
-								my_time = f32::max(1.0, time_in_millis.parse::<f32>().unwrap_or(0.0)) / 1000.0;
+								my_time = Some(time_in_millis.parse::<f32>().unwrap_or(0.0) / 1000.0);
+								use_full_time = go_type == "fulltime";
+							}
+						}
+
+						// go fulltime X
+						"fulltime" => {
+							if let Some(time_in_millis) = command_split.get(2) {
+								my_time = Some(time_in_millis.parse::<f32>().unwrap_or(0.0) / 1000.0);
+								use_full_time = true;
 							}
 						}
 
@@ -170,7 +172,7 @@ fn main() {
 						"wtime" => {
 							let time_index = if board.white_to_move { 2 } else { 4 };
 							if let Some(time_in_millis) = command_split.get(time_index) {
-								my_time = f32::max(1.0, time_in_millis.parse::<f32>().unwrap_or(0.0)) / 1000.0;
+								my_time = Some(time_in_millis.parse::<f32>().unwrap_or(0.0) / 1000.0);
 							}
 						}
 
@@ -178,7 +180,24 @@ fn main() {
 					}
 				}
 
-				bot.start(&mut board, moves.clone(), my_time, depth_to_search);
+				bot.time_to_think =
+					if let Some(my_time) = my_time {
+						if use_full_time {
+							Some(f32::max(my_time, 0.0))
+						} else {
+							let time_percentage = if board.moves.len() / 2 <= 6 {
+								0.025
+							} else {
+								0.065
+							};
+
+							Some((my_time * time_percentage).clamp(0.05, 30.0))
+						}
+					} else {
+						None
+					};
+
+				bot.start(&mut board, depth_to_search);
 
 				println!("bestmove {}", bot.best_move.to_coordinates());
 				// log.write(format!("bestmove {}", bot.best_move.to_coordinates()));
