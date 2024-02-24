@@ -206,6 +206,7 @@ impl Bot {
 
 			if !search_cancelled_prematurely {
 				let pv = self.find_pv(board, current_depth);
+
 				self.print_uci_info(
 					current_depth,
 					"cp",
@@ -324,7 +325,7 @@ impl Bot {
 		&& !in_check
 		&& !evaluation_is_mate(alpha)
 		&& !evaluation_is_mate(beta) {
-			let static_eval = board.hc_evaluate();
+			let static_eval = board.nnue_evaluate();
 
 			// Reverse Futility Pruning
 			if depth < 8 // TODO: mess around with this
@@ -510,7 +511,7 @@ impl Bot {
 
 		self.quiescence_searched += 1;
 
-		let evaluation = board.hc_evaluate();
+		let evaluation = board.nnue_evaluate();
 		if evaluation >= beta {
 			return beta;
 		}

@@ -80,7 +80,7 @@ fn main() {
 			// UCI protocol
 
 			"uci" => {
-				println!("id name Maxwell v3.1-3");
+				println!("id name Maxwell v3.2");
 				println!("id author eboatwright");
 				println!("option name Hash type spin default 256 min 0 max 4000");
 
@@ -228,8 +228,8 @@ fn main() {
 
 			"hceval" => println!("{}", board.hc_evaluate() * board.perspective()),
 
-			// "rawnnueeval" => println!("{}", board.raw_nnue_evaluate()),
-			// "nnueeval" => println!("{}", board.nnue_evaluate() * board.perspective()),
+			"rawnnueeval" => println!("{}", board.raw_nnue_evaluate()),
+			"nnueeval" => println!("{}", board.nnue_evaluate() * board.perspective()),
 
 			"ttsize" => bot.transposition_table.print_size(),
 			"cleartt" => {
