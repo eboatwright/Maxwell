@@ -9,6 +9,7 @@ pub struct PerftResults {
 	pub depth: u8,
 
 	pub positions: u128,
+	pub nodes: u128,
 	pub captures: u128,
 	pub en_passants: u128,
 	pub castles: u128,
@@ -29,7 +30,6 @@ impl PerftResults {
 		let mut results = PerftResults::new(depth);
 		let timer = Instant::now();
 
-		let depth = results.depth;
 		perft(board, &mut results, depth, 0);
 
 		println!("\n{} seconds\n", timer.elapsed().as_secs_f32());
@@ -38,6 +38,10 @@ impl PerftResults {
 }
 
 fn perft(board: &mut Board, results: &mut PerftResults, depth: u8, ply: u8) {
+	if ply > 0 {
+		results.nodes += 1;
+	}
+
 	if depth == 0 {
 		results.positions += 1;
 		return;

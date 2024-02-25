@@ -9,5 +9,11 @@ colored = "2.0.4"
 rand = "0.8.5"
 rand_pcg = "0.3.1"
 
+[profile.release-optimized]
+inherits = "release"
+codegen-units = 1
+lto = "fat"
+opt-level = 3
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
