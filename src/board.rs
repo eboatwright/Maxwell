@@ -1,3 +1,4 @@
+use crate::nnue_weights::*;
 use crate::nnue::{self, NNUE, NNUE_EVAL_SCALE};
 use crate::value_holder::ValueHolder;
 use crate::utils::{pop_lsb, get_lsb, print_bitboard, coordinate_to_index};
@@ -85,7 +86,7 @@ impl Board {
 
 			board_state: ValueHolder::new(BoardState::new(castling_rights, fifty_move_counter)),
 
-			nnue: NNUE::new(),
+			nnue: NNUE::new(vec![], vec![], vec![], vec![]),
 		};
 
 		let piece_rows = fen[0].split('/').collect::<Vec<&str>>();
@@ -1082,6 +1083,64 @@ impl Board {
 		   self.board_state.current.fifty_move_counter >= 100
 		|| self.insufficient_checkmating_material()
 		|| self.is_repetition()
+	}
+
+	// Only calculates the pieces section of it for now
+	pub fn calculate_fen(&self) -> String {
+		let mut result = "".to_string();
+
+		for rank in 0..8 {
+			let mut empty_spaces = 0;
+			for file in 0..8 {
+				let index = rank * 8 + file;
+
+				let piece = self.get_piece(index);
+				if piece != NO_PIECE {
+					if empty_spaces > 0 {
+						result = format!("{}{}", result, empty_spaces);
+						empty_spaces = 0;
+					}
+
+					result = format!("{}{}", result, piece_to_char(piece));
+				} else {
+					empty_spaces += 1;
+				}
+			}
+
+			if empty_spaces > 0 {
+				result = format!("{}{}", result, empty_spaces);
+			}
+
+			result += "/";
+		}
+
+		result.pop();
+
+		result
+	}
+
+	// This is used in NNUE training
+	pub fn get_winner(&mut self) -> Option<f32> {
+		if self.is_draw() {
+			return Some(0.0);
+		}
+
+		let moves = self.get_pseudo_legal_moves_for_color(self.white_to_move, false);
+		for m in moves {
+			if !self.make_move(m) {
+				continue;
+			}
+
+			self.undo_last_move();
+
+			return None; // There is a legal move available, so it's not checkmate or stalemate
+		}
+
+		if self.king_in_check(self.white_to_move) {
+			return Some(if self.white_to_move { -1.0 } else { 1.0 }); // Checkmate
+		}
+
+		return Some(0.0); // Stalemate
 	}
 
 	// This isn't used anywhere and I haven't tested it, so it might be bugged

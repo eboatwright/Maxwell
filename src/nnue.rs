@@ -1,14 +1,6 @@
 /*
-   768 inputs
--> 196,608 weights
--> 256 nodes (Clipped ReLU activation)
--> 256 weights (weights are selected from 2048 total weights based on the bucket)
--> 1 output (bias also selected based on the bucket)
-
-The input layer is effectively skipped, because the middle layer is incrementally updated,
-and the bucket is calculated based on how many pieces are left on the board
-
-(Buckets are disabled for now)
+Current architecture:
+768 -> 64 -> 1
 */
 
 use crate::nnue_weights::*;
@@ -18,23 +10,44 @@ use crate::Board;
 use rand::Rng;
 
 pub const NNUE_EVAL_SCALE: f32 = 100.0; // TODO: I have no idea what this should be
-pub const BUCKETS: usize = 8;
 
 pub struct NNUE {
-	pub input_layer: Vec<f32>,
+	pub accumulators: Vec<f32>,
+
+	pub hidden_layer_weights: Vec<f32>,
+	pub hidden_layer_biases: Vec<f32>,
+
+	pub output_layer_weights: Vec<f32>,
+	pub output_layer_biases: Vec<f32>,
 }
 
 impl NNUE {
-	pub fn new() -> Self {
+	pub fn new(
+		hidden_layer_weights: Vec<f32>,
+		hidden_layer_biases: Vec<f32>,
+		output_layer_weights: Vec<f32>,
+		output_layer_biases: Vec<f32>,
+	) -> Self {
 		Self {
-			input_layer: INPUT_LAYER_BIASES.to_vec(),
+			accumulators: hidden_layer_biases.clone(),
+
+			hidden_layer_weights,
+			hidden_layer_biases,
+
+			output_layer_weights,
+			output_layer_biases,
 		}
 	}
 
 	pub fn initialize(
 		board: &Board,
 	) -> Self {
-		let mut nnue = NNUE::new();
+		let mut nnue = NNUE::new(
+			HIDDEN_LAYER_WEIGHTS.to_vec(),
+			HIDDEN_LAYER_BIASES.to_vec(),
+			OUTPUT_LAYER_WEIGHTS.to_vec(),
+			OUTPUT_LAYER_BIASES.to_vec(),
+		);
 
 		for i in 0..64 {
 			let piece = board.get_piece(i);
@@ -47,11 +60,11 @@ impl NNUE {
 	}
 
 	pub fn setup_fen(&mut self, fen: &String) {
-		self.input_layer = INPUT_LAYER_BIASES.to_vec();
+		self.accumulators = self.hidden_layer_biases.clone();
 
 		let fen_split = fen.split(' ').collect::<Vec<&str>>();
-
 		let piece_rows = fen_split[0].split('/').collect::<Vec<&str>>();
+
 		let mut i = 0;
 
 		for row in piece_rows {
@@ -61,6 +74,7 @@ impl NNUE {
 				} else {
 					let piece = char_to_piece(piece);
 					self.activate(i as u8, piece as u8);
+
 					i += 1;
 				}
 			}
@@ -72,20 +86,20 @@ impl NNUE {
 	}
 
 	pub fn activate(&mut self, square: u8, piece: u8) {
-		let length = self.input_layer.len();
+		let length = self.accumulators.len();
 		let index = Self::get_index(square, piece);
 
 		for i in 0..length {
-			self.input_layer[i] += INPUT_LAYER_WEIGHTS[index * length + i];
+			self.accumulators[i] += self.hidden_layer_weights[index * length + i];
 		}
 	}
 
 	pub fn deactivate(&mut self, square: u8, piece: u8) {
-		let length = self.input_layer.len();
+		let length = self.accumulators.len();
 		let index = Self::get_index(square, piece);
 
 		for i in 0..length {
-			self.input_layer[i] -= INPUT_LAYER_WEIGHTS[index * length + i];
+			self.accumulators[i] -= self.hidden_layer_weights[index * length + i];
 		}
 	}
 
@@ -183,12 +197,12 @@ impl NNUE {
 		// And there are a minimum of 2 pieces on a Chess board (Both kings)
 		// so our min index is: (2 - 1) / 4 = 0.25 which gets rounded down to 0
 		// let bucket = (total_piece_count - 1) / 4;
-		let mut output = HIDDEN_LAYER_BIASES[0];
+		let mut output = self.output_layer_biases[0];
 
-		// let bucket_offset = bucket * self.input_layer.len();
+		// let bucket_offset = bucket * self.accumulators.len();
 
-		for i in 0..self.input_layer.len() {
-			output += Self::clipped_relu(self.input_layer[i]) * HIDDEN_LAYER_WEIGHTS[i];
+		for i in 0..self.accumulators.len() {
+			output += Self::clipped_relu(self.accumulators[i]) * self.output_layer_weights[i];
 		}
 
 		output

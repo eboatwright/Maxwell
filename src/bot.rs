@@ -14,17 +14,28 @@ pub const MAX_SEARCH_EXTENSIONS: u8 = 20;
 #[derive(Clone, Debug)]
 pub struct BotConfig {
 	pub fen: String,
+	pub info_output: bool,
 	pub debug_output: bool,
 	pub hash_size: usize,
 }
 
 impl BotConfig {
+	pub fn default() -> Self {
+		Self {
+			fen: STARTING_FEN.to_string(),
+			info_output: true,
+			debug_output: true,
+			hash_size: 256,
+		}
+	}
+
 	pub fn from_args(args: Vec<String>) -> Self {
 		let _true = "true".to_string();
 		let _false = "false".to_string();
 
 		Self { // This is so ugly lol
 			fen: Self::get_arg_value(&args, "fen").unwrap_or(STARTING_FEN.to_string()),
+			info_output: true,
 			debug_output: Self::get_arg_value(&args, "debug_output").unwrap_or(_true.clone()) == _true,
 			hash_size: (Self::get_arg_value(&args, "hash_size").unwrap_or("256".to_string())).parse::<usize>().unwrap_or(256),
 		}
@@ -154,21 +165,24 @@ impl Bot {
 			if evaluation_is_mate(self.evaluation) {
 				let moves_until_mate = ply_from_mate(self.evaluation);
 				if moves_until_mate <= current_depth {
-					let mate_evaluation = (moves_until_mate as f32 * 0.5).ceil() as i32 * (if self.evaluation > 0 { 1 } else { -1 });
-					let pv = self.find_pv(board, current_depth);
+					if self.config.info_output {
+						let mate_evaluation = (moves_until_mate as f32 * 0.5).ceil() as i32 * (if self.evaluation > 0 { 1 } else { -1 });
+						let pv = self.find_pv(board, current_depth);
 
-					self.print_uci_info(
-						current_depth,
-						"mate",
-						mate_evaluation,
-						pv,
-					);
+						self.print_uci_info(
+							current_depth,
+							"mate",
+							mate_evaluation,
+							pv,
+						);
+					}
 
 					break;
 				}
 			}
 
-			if !search_cancelled_prematurely {
+			if !search_cancelled_prematurely
+			&& self.config.info_output {
 				let pv = self.find_pv(board, current_depth);
 
 				self.print_uci_info(

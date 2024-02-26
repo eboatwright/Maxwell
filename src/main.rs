@@ -22,6 +22,7 @@ mod move_sorter;
 mod scored_move_list;
 mod nnue;
 mod nnue_weights;
+mod nnue_trainer;
 
 use std::fs::File;
 use std::io::Read;
@@ -39,6 +40,7 @@ use std::io;
 use std::time::Instant;
 // use colored::Colorize;
 // use crate::log::Log;
+use crate::nnue_trainer::nnue_trainer::nnue_train;
 
 pub const STARTING_FEN:         &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const KIWIPETE_FEN:         &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
@@ -261,6 +263,14 @@ fn main() {
 					let depth = depth.parse::<u8>().unwrap_or(0);
 					PerftResults::calculate(&mut board, depth);
 				}
+			}
+
+			"fen" => {
+				println!("{}", board.calculate_fen());
+			}
+
+			"nnuetrain" => {
+				nnue_train();
 			}
 
 			// _ => log.write(format!("Unknown command: {}", command)),
