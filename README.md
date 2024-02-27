@@ -77,6 +77,7 @@
  #### When I'm not sure what to do next, I like to read through other engine's code for ideas. <br> I try not to copy line for line, but in any case here are the engine's I've referenced:
  - [Boychesser](https://github.com/analog-hors/Boychesser/)
  - [Weiawaga](https://github.com/Heiaha/Weiawaga/)
+ - [Mimir](https://github.com/Heiaha/Mimir)
  - [Rustic (Engine and Book)](https://github.com/mvanthoor/rustic)
  - [Lynx](https://github.com/lynx-chess/Lynx/)
  - [Fruit 2.1](https://github.com/Warpten/Fruit-2.1/)

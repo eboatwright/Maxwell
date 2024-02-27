@@ -3,7 +3,7 @@ use crate::piece_square_tables::{PAWN_WORTH, QUEEN_WORTH};
 use crate::pieces::{PAWN, PROMOTABLE, NO_PIECE};
 use crate::utils::{CHECKMATE_EVAL, evaluation_is_mate, ply_from_mate};
 use std::time::Instant;
-use crate::move_sorter::MoveSorter;
+use crate::move_scorer::MoveScorer;
 use crate::transposition_table::{TranspositionTable, EvalBound};
 use crate::move_data::{MoveData, NULL_MOVE};
 use crate::Board;
@@ -59,7 +59,7 @@ pub struct Bot {
 	think_timer: Instant,
 	pub search_cancelled: bool,
 
-	move_sorter: MoveSorter,
+	move_scorer: MoveScorer,
 	pub transposition_table: TranspositionTable,
 
 	pub best_move: MoveData,
@@ -81,7 +81,7 @@ impl Bot {
 			think_timer: Instant::now(),
 			search_cancelled: false,
 
-			move_sorter: MoveSorter::new(),
+			move_scorer: MoveScorer::new(),
 			transposition_table: TranspositionTable::empty(config.hash_size),
 
 			best_move: NULL_MOVE,
@@ -130,7 +130,7 @@ impl Bot {
 		self.nodes = 0;
 		self.transposition_table.hits = 0;
 
-		self.move_sorter.clear();
+		self.move_scorer.clear();
 
 		// TODO: tweak this
 		let mut window = 40;
@@ -139,7 +139,6 @@ impl Bot {
 		for current_depth in 1..=depth {
 			self.best_move_this_iteration = NULL_MOVE;
 			self.evaluation_this_iteration = 0;
-			// self.move_sorter.new_pv.clear();
 			self.seldepth = 0;
 
 			loop {
@@ -288,6 +287,7 @@ impl Bot {
 
 			// Internal Iterative Reductions
 			if depth > 1
+			&& self.config.hash_size > 32
 			&& hash_move.is_none() {
 				depth -= 1;
 			}
@@ -303,7 +303,7 @@ impl Bot {
 		&& !in_check
 		&& !evaluation_is_mate(alpha)
 		&& !evaluation_is_mate(beta) {
-			let static_eval = board.nnue_evaluate();
+			let static_eval = board.hc_evaluate();
 
 			// Reverse Futility Pruning
 			if depth < 8 // TODO: mess around with this
@@ -358,7 +358,7 @@ impl Bot {
 		let mut best_move_this_search = NULL_MOVE;
 		// let mut eval_bound = EvalBound::UpperBound;
 
-		let sorted_moves = self.move_sorter.sort_moves(
+		let mut move_list = self.move_scorer.score_moves(
 			board.white_to_move,
 			board.get_pseudo_legal_moves_for_color(board.white_to_move, false),
 			/*
@@ -377,7 +377,9 @@ impl Bot {
 		let mut found_pv = false;
 
 		let mut legal_moves_found = 0;
-		for (_score, m) in sorted_moves {
+		for i in 0..move_list.len() {
+			let m = move_list.get(i);
+
 			if !board.make_move(m) {
 				continue;
 			}
@@ -439,8 +441,8 @@ impl Bot {
 				self.transposition_table.store(board.zobrist.key.current, depth, ply, beta, m, EvalBound::LowerBound);
 
 				if m.capture == NO_PIECE as u8 {
-					self.move_sorter.add_killer_move(m, ply as usize);
-					self.move_sorter.history[board.white_to_move as usize][m.from as usize][m.to as usize] += (depth * depth) as i32;
+					self.move_scorer.add_killer_move(m, ply as usize);
+					self.move_scorer.history[board.white_to_move as usize][m.from as usize][m.to as usize] += (depth * depth) as i32;
 				}
 
 				return beta;
@@ -487,7 +489,7 @@ impl Bot {
 			self.nodes += 1;
 		}
 
-		let evaluation = board.nnue_evaluate();
+		let evaluation = board.hc_evaluate();
 		if evaluation >= beta {
 			return beta;
 		}
@@ -501,8 +503,10 @@ impl Bot {
 			return evaluation;
 		}
 
-		let sorted_moves = self.move_sorter.sort_moves(board.white_to_move, moves, NULL_MOVE, usize::MAX);
-		for (_score, m) in sorted_moves {
+		let mut scored_move_list = self.move_scorer.score_moves(board.white_to_move, moves, NULL_MOVE, usize::MAX);
+		for i in 0..scored_move_list.len() {
+			let m = scored_move_list.get(i);
+
 			// Delta Pruning
 			if !board.king_in_check(board.white_to_move) {
 				let threshold = QUEEN_WORTH +

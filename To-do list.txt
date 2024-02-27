@@ -20,8 +20,6 @@ try lower pawn evaluation values
 experiment with more than 2 killer moves per ply
 calculate my own magic numbers; currently "borrowing" Sebastian Lague's ^^
 check out pin detection to speed up check detection
-try writing a struct that sorts moves incrementally
-	I tried this a couple times, but haven't got it faster than my current solution
 
 History reductions / pruning
 https://www.chessprogramming.org/Internal_Iterative_Deepening

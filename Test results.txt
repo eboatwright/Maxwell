@@ -203,5 +203,8 @@ Maxwell v3.1 (Re-write v23) vs Maxwell v3.0.8 (Patch 2): 1533 - 155 - 312
 Elo difference: 293.9 +/- 17.6, LOS: 100.0 %
 
 
+New move sorter vs Old move sorter: 834 - 745 - 981
+
+
 Tests TODO:
 	TT enabled vs TT disabled

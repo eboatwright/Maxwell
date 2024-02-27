@@ -1,12 +1,10 @@
-// NOT BEING USED
-
 use crate::MoveData;
 
-pub struct ScoredMoveList {
+pub struct MoveList {
 	pub pairs: Vec<(i32, MoveData)>,
 }
 
-impl ScoredMoveList {
+impl MoveList {
 	pub fn new() -> Self {
 		Self {
 			pairs: vec![],

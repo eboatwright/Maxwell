@@ -1,3 +1,4 @@
+use crate::move_list::MoveList;
 use crate::killer_moves::KillerMoves;
 use crate::move_data::{MoveData, NULL_MOVE};
 use crate::pieces::*;
@@ -14,12 +15,12 @@ pub const MVV_LVA: [i32; 36] = [
 	10, 20, 30, 40, 50, 60, // King
 ];
 
-pub struct MoveSorter {
+pub struct MoveScorer {
 	pub killer_moves: [KillerMoves; MAX_SORT_MOVE_PLY],
 	pub history: [[[i32; 64]; 64]; 2],
 }
 
-impl MoveSorter {
+impl MoveScorer {
 	pub fn new() -> Self {
 		Self {
 			killer_moves: [KillerMoves::new(); MAX_SORT_MOVE_PLY],
@@ -38,12 +39,12 @@ impl MoveSorter {
 		}
 	}
 
-	pub fn sort_moves(&mut self, white_to_move: bool, moves: Vec<MoveData>, hash_move: MoveData, ply: usize) -> Vec<(i32, MoveData)> {
-		if moves.is_empty() {
-			return vec![];
-		}
+	pub fn score_moves(&mut self, white_to_move: bool, moves: Vec<MoveData>, hash_move: MoveData, ply: usize) -> MoveList {
+		let mut move_list = MoveList::new();
 
-		let mut pairs = vec![];
+		if moves.is_empty() {
+			return move_list;
+		}
 
 		for m in moves {
 			let mut score = 0;
@@ -73,10 +74,9 @@ impl MoveSorter {
 				// }
 			}
 
-			pairs.push((score, m));
+			move_list.push(score, m);
 		}
 
-		pairs.sort_by(|a, b| b.0.cmp(&a.0));
-		pairs
+		move_list
 	}
 }
