@@ -9,10 +9,11 @@ figure out some sort of multithreading:
 	https://www.chessprogramming.org/Lazy_SMP
 
 transposition table:
-	buckets
+	buckets:
+		idk how this would work: how do you know which entry to return, or replace from the bucket?
 	aging
 	make it multithreading safe
-	prefetching
+	prefetching?
 
 try removing all the attacked squares bitboards stuff, and just make a function that detects whether one square is attacked?
 try giving a small boost in evaluation for the current side to move

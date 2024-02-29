@@ -9,6 +9,7 @@ use crate::move_data::MoveData;
 use std::mem::size_of;
 
 pub const MEGABYTE: usize = 1024 * 1024;
+pub const ENTRIES_PER_BUCKET: usize = 2;
 pub const ENTRY_SIZE: usize = size_of::<Option<TranspositionData>>();
 
 #[derive(Copy, Clone, PartialEq, Debug)]

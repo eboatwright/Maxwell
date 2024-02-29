@@ -252,7 +252,6 @@ impl Bot {
 		beta: i32,
 		total_extensions: u8,
 	) -> i32 {
-		// TODO: try moving this into the move loop and break instead of return 0?
 		if self.should_cancel_search() {
 			return 0;
 		}
@@ -355,9 +354,6 @@ impl Bot {
 			return self.quiescence_search(board, alpha, beta, true);
 		}
 
-		let mut best_move_this_search = NULL_MOVE;
-		// let mut eval_bound = EvalBound::UpperBound;
-
 		let mut move_list = self.move_scorer.score_moves(
 			board.white_to_move,
 			board.get_pseudo_legal_moves_for_color(board.white_to_move, false),
@@ -374,6 +370,8 @@ impl Bot {
 			ply as usize,
 		);
 
+		let mut best_move_this_search = NULL_MOVE;
+		// let mut eval_bound = EvalBound::UpperBound;
 		let mut found_pv = false;
 
 		let mut legal_moves_found = 0;
@@ -463,6 +461,8 @@ impl Bot {
 
 			legal_moves_found += 1;
 		}
+
+		// TODO: try storing the tt entry here
 
 		if legal_moves_found == 0 {
 			if in_check {
