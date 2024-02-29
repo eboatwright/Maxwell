@@ -1,4 +1,3 @@
-use crate::nnue_weights::*;
 use crate::char_to_piece;
 use std::io::{stdout, Write};
 use std::fs::File;
@@ -56,11 +55,31 @@ impl Network {
 		Self {
 			inputs: Matrix::empty(1, config::INPUT_NODES),
 			hidden_layer: Layer::new(
+				// Matrix {
+				// 	rows: config::INPUT_NODES,
+				// 	cols: config::HIDDEN_NODES,
+				// 	data: HIDDEN_LAYER_WEIGHTS.to_vec(),
+				// },
+				// Matrix {
+				// 	rows: 1,
+				// 	cols: config::HIDDEN_NODES,
+				// 	data: HIDDEN_LAYER_BIASES.to_vec(),
+				// },
 				Matrix::random(config::INPUT_NODES, config::HIDDEN_NODES),
 				Matrix::random(1, config::HIDDEN_NODES),
 				clipped_relu,
 			),
 			output_layer: Layer::new(
+				// Matrix {
+				// 	rows: config::HIDDEN_NODES,
+				// 	cols: config::OUTPUT_NODES,
+				// 	data: OUTPUT_LAYER_WEIGHTS.to_vec(),
+				// },
+				// Matrix {
+				// 	rows: 1,
+				// 	cols: config::OUTPUT_NODES,
+				// 	data: OUTPUT_LAYER_BIASES.to_vec(),
+				// },
 				Matrix::random(config::HIDDEN_NODES, config::OUTPUT_NODES),
 				Matrix::random(1, config::OUTPUT_NODES),
 				sigmoid,
@@ -89,7 +108,7 @@ impl Network {
 		}
 	}
 
-	pub fn forward_pass(&mut self) -> &Matrix {
+	pub fn feed_forward(&mut self) -> &Matrix {
 		self.hidden_layer.forward_pass(&self.inputs);
 		self.output_layer.forward_pass(&self.hidden_layer.outputs);
 
@@ -107,7 +126,7 @@ impl Network {
 
 		for data_point in data_batch.iter() {
 			self.setup(&data_point.fen);
-			let output = self.forward_pass().data[0];
+			let output = self.feed_forward().data[0];
 			let error = data_point.outcome - output;
 
 			total_error += error.abs().powf(2.0);
@@ -141,31 +160,27 @@ impl Network {
 		println!("Batch {}~{} error: {}", data_index, data_index + data_batch.len(), total_error / data_batch.len() as f32);
 	}
 
-	pub fn save_weights(&self) {
+	pub fn save_weights(&self, total_positions: usize) {
 		print!("Saving weights... ");
 		stdout().flush().expect("Failed to flush stdout");
 
 		let mut output_file = File::create("./src/nnue_trainer/output_weights.rs").expect("Failed to create weight output file");
 
-		writeln!(output_file, "pub const HIDDEN_LAYER_WEIGHTS: [f32; {}] = {:?};",
+		write!(output_file, "// Trained on {} positions\n\npub const HIDDEN_LAYER_WEIGHTS: [f32; {}] = {:?};\npub const HIDDEN_LAYER_BIASES: [f32; {}] = {:?};\npub const OUTPUT_LAYER_WEIGHTS: [f32; {}] = {:?};\npub const OUTPUT_LAYER_BIASES: [f32; {}] = {:?};",
+			total_positions,
+
 			self.hidden_layer.weights.data.len(),
-			self.hidden_layer.weights.data
-		).expect("Failed to write HIDDEN_LAYER_WEIGHTS");
+			self.hidden_layer.weights.data,
 
-		writeln!(output_file, "pub const HIDDEN_LAYER_BIASES: [f32; {}] = {:?};",
 			self.hidden_layer.biases.data.len(),
-			self.hidden_layer.biases.data
-		).expect("Failed to write HIDDEN_LAYER_BIASES");
+			self.hidden_layer.biases.data,
 
-		writeln!(output_file, "pub const OUTPUT_LAYER_WEIGHTS: [f32; {}] = {:?};",
 			self.output_layer.weights.data.len(),
-			self.output_layer.weights.data
-		).expect("Failed to write OUTPUT_LAYER_WEIGHTS");
+			self.output_layer.weights.data,
 
-		writeln!(output_file, "pub const OUTPUT_LAYER_BIASES: [f32; {}] = {:?};",
 			self.output_layer.biases.data.len(),
-			self.output_layer.biases.data
-		).expect("Failed to write OUTPUT_LAYER_BIASES");
+			self.output_layer.biases.data,
+		).expect("Failed to save weights");
 
 		println!("Done!\n");
 	}

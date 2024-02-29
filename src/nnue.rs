@@ -41,12 +41,18 @@ impl NNUE {
 
 	pub fn initialize(
 		board: &Board,
+		
+		hidden_layer_weights: Vec<f32>,
+		hidden_layer_biases: Vec<f32>,
+		output_layer_weights: Vec<f32>,
+		output_layer_biases: Vec<f32>,
 	) -> Self {
 		let mut nnue = NNUE::new(
-			HIDDEN_LAYER_WEIGHTS.to_vec(),
-			HIDDEN_LAYER_BIASES.to_vec(),
-			OUTPUT_LAYER_WEIGHTS.to_vec(),
-			OUTPUT_LAYER_BIASES.to_vec(),
+			hidden_layer_weights,
+			hidden_layer_biases,
+
+			output_layer_weights,
+			output_layer_biases,
 		);
 
 		for i in 0..64 {
@@ -191,7 +197,7 @@ impl NNUE {
 		}
 	}
 
-	pub fn evaluate(&self, total_piece_count: usize) -> f32 {
+	pub fn evaluate(&self) -> f32 { // total_piece_count: usize
 		// There are a maximum of 32 pieces on a Chess board,
 		// so our max index is: (32 - 1) / 4 = 7.75 which then gets rounded down because we're dividing integers, so 7 which is what we want
 		// And there are a minimum of 2 pieces on a Chess board (Both kings)

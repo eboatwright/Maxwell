@@ -19,7 +19,7 @@ pub fn nnue_train() {
 	let mut total_games = 0;
 	let mut total_positions = 0;
 
-	network.save_weights();
+	network.save_weights(total_positions);
 
 	loop {
 		println!("Training cycle {}:", training_cycle + 1);
@@ -48,7 +48,7 @@ pub fn nnue_train() {
 
 		println!("\nDone training!\n");
 
-		network.save_weights();
+		network.save_weights(total_positions);
 		training_cycle += 1;
 
 		println!("Total games: {}", total_games);

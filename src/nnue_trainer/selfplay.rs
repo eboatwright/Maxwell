@@ -1,6 +1,5 @@
 use std::process::Stdio;
 use std::process::Command;
-use crate::STARTING_FEN;
 use rand::{thread_rng, Rng};
 use crate::bot::{BotConfig, Bot};
 use crate::board::{Board};
@@ -10,7 +9,6 @@ use super::nnue_trainer::DataPoint;
 use std::{
 	thread,
 	sync::mpsc,
-	time::Duration,
 	io::{stdout, Write},
 };
 
@@ -64,19 +62,20 @@ fn play_game(network: Network) -> Vec<DataPoint> {
 	let opening_fen = String::from_utf8_lossy(&opening_book_output.stdout);
 
 	let mut rng = thread_rng();
-	let mut board = Board::from_fen(&opening_fen);
+	let mut board = Board::from_fen(
+		&opening_fen,
+		
+		network.hidden_layer.weights.data,
+		network.hidden_layer.biases.data,
+		network.output_layer.weights.data,
+		network.output_layer.biases.data,
+	);
 	let mut bot = Bot::new(BotConfig {
 		fen: opening_fen.to_string(),
 		info_output: false,
 		debug_output: false,
 		hash_size: 256,
 	});
-
-	board.nnue.hidden_layer_weights = network.hidden_layer.weights.data.clone();
-	board.nnue.hidden_layer_biases = network.hidden_layer.biases.data.clone();
-
-	board.nnue.output_layer_weights = network.output_layer.weights.data.clone();
-	board.nnue.output_layer_biases = network.output_layer.biases.data.clone();
 
 	loop {
 		let move_to_play =

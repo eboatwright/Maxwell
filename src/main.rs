@@ -24,6 +24,7 @@ mod nnue;
 mod nnue_weights;
 mod nnue_trainer;
 
+use crate::nnue_weights::*;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
@@ -58,7 +59,15 @@ fn main() {
 
 	// let mut log = Log::none();
 
-	let mut board = Board::from_fen(&bot_config.fen);
+	let mut board = Board::from_fen(
+		&bot_config.fen,
+
+		HIDDEN_LAYER_WEIGHTS.to_vec(),
+		HIDDEN_LAYER_BIASES.to_vec(),
+
+		OUTPUT_LAYER_WEIGHTS.to_vec(),
+		OUTPUT_LAYER_BIASES.to_vec(),
+	);
 	let mut bot = Bot::new(bot_config.clone());
 
 	let mut command = String::new();
@@ -109,7 +118,15 @@ fn main() {
 
 			"ucinewgame" => {
 				// log = Log::new();
-				board = Board::from_fen(STARTING_FEN);
+				board = Board::from_fen(
+					STARTING_FEN,
+
+					HIDDEN_LAYER_WEIGHTS.to_vec(),
+					HIDDEN_LAYER_BIASES.to_vec(),
+
+					OUTPUT_LAYER_WEIGHTS.to_vec(),
+					OUTPUT_LAYER_BIASES.to_vec(),
+				);
 				bot = Bot::new(bot_config.clone());
 			}
 

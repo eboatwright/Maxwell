@@ -57,7 +57,13 @@ pub struct Board {
 
 impl Board {
 	// Pieces, side to move, castling rights, en passant square, fifty move draw, fullmove counter
-	pub fn from_fen(fen: &str) -> Self {
+	pub fn from_fen(
+		fen: &str,
+		nnue_hidden_layer_weights: Vec<f32>,
+		nnue_hidden_layer_biases: Vec<f32>,
+		nnue_output_layer_weights: Vec<f32>,
+		nnue_output_layer_biases: Vec<f32>,
+	) -> Self {
 		let fen = fen.split(' ').collect::<Vec<&str>>();
 
 		let mut castling_rights = 0b0000;
@@ -118,7 +124,14 @@ impl Board {
 		board.zobrist = Zobrist::generate(&board);
 		board.calculate_attacked_squares();
 
-		board.nnue = NNUE::initialize(&board);
+		board.nnue = NNUE::initialize(
+			&board,
+
+			nnue_hidden_layer_weights,
+			nnue_hidden_layer_biases,
+			nnue_output_layer_weights,
+			nnue_output_layer_biases,
+		);
 
 		board
 	}
@@ -372,7 +385,7 @@ impl Board {
 			self.board_state.history[self.board_state.index - 1].castling_rights,
 		);
 
-		// self.nnue.make_move(&data);
+		self.nnue.make_move(&data);
 
 		self.moves.push(data);
 		self.white_to_move = !self.white_to_move;
@@ -460,7 +473,7 @@ impl Board {
 		self.board_state.pop();
 		self.zobrist.key.pop();
 
-		// self.nnue.undo_move(&last_move);
+		self.nnue.undo_move(&last_move);
 
 		self.white_to_move = !self.white_to_move;
 
@@ -1002,11 +1015,11 @@ impl Board {
 	}
 
 	pub fn raw_nnue_evaluate(&self) -> f32 {
-		self.nnue.evaluate(self.occupied_bitboard().count_ones() as usize)
+		self.nnue.evaluate() // self.occupied_bitboard().count_ones() as usize
 	}
 
 	pub fn nnue_evaluate(&self) -> i32 {
-		(self.nnue.evaluate(self.occupied_bitboard().count_ones() as usize) * NNUE_EVAL_SCALE) as i32 * self.perspective()
+		(self.nnue.evaluate() * NNUE_EVAL_SCALE) as i32 * self.perspective()
 	}
 
 	pub fn can_short_castle(&mut self, white: bool) -> bool {

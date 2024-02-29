@@ -9,11 +9,7 @@ pub fn clipped_relu(x: f32) -> f32 {
 }
 
 pub fn clipped_relu_derivative(x: f32) -> f32 {
-	if 0.0 < x && x < 1.0 {
-		1.0
-	} else {
-		0.0
-	}
+	x.clamp(0.0, 1.0)
 }
 
 pub fn sigmoid(x: f32) -> f32 {
