@@ -9,7 +9,7 @@ use crate::pieces::{WHITE_ROOK, BLACK_ROOK, NO_PIECE, PROMOTABLE, build_piece, i
 use crate::Board;
 use rand::Rng;
 
-pub const NNUE_EVAL_SCALE: f32 = 100.0; // TODO: I have no idea what this should be
+pub const NNUE_EVAL_SCALE: f32 = 200.0; // TODO: I have no idea what this should be
 
 pub struct NNUE {
 	pub accumulators: Vec<f32>,

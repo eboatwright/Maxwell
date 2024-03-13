@@ -24,9 +24,9 @@ pub fn nnue_train() {
 	loop {
 		println!("Training cycle {}:", training_cycle + 1);
 
-		let mut data_points = play_games(network.clone());
+		let mut data_points = play_games(); // network.clone()
 
-		total_games += config::GAMES_PER_MATCH;
+		total_games += config::GAMES;
 		total_positions += data_points.len();
 
 		println!("Training network...");

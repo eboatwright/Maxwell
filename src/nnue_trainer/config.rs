@@ -1,5 +1,5 @@
-pub const GAMES_PER_MATCH: usize = 2_500;
-pub const EPOCHS: usize = 4; // ?
+pub const GAMES: usize = 20_000;
+pub const EPOCHS: usize = 3; // ?
 pub const MINIBATCH_SIZE: usize = 12_000;
 pub const LEARNING_RATE: f32 = 0.0008;
 

@@ -385,7 +385,7 @@ impl Board {
 			self.board_state.history[self.board_state.index - 1].castling_rights,
 		);
 
-		self.nnue.make_move(&data);
+		// self.nnue.make_move(&data);
 
 		self.moves.push(data);
 		self.white_to_move = !self.white_to_move;
@@ -473,7 +473,7 @@ impl Board {
 		self.board_state.pop();
 		self.zobrist.key.pop();
 
-		self.nnue.undo_move(&last_move);
+		// self.nnue.undo_move(&last_move);
 
 		self.white_to_move = !self.white_to_move;
 

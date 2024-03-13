@@ -4,7 +4,7 @@ use rand::{thread_rng, Rng};
 use crate::bot::{BotConfig, Bot};
 use crate::board::{Board};
 use super::config;
-use super::network::Network;
+// use super::network::Network;
 use super::nnue_trainer::DataPoint;
 use std::{
 	thread,
@@ -12,27 +12,28 @@ use std::{
 	io::{stdout, Write},
 };
 
-pub fn play_games(network: Network) -> Vec<DataPoint> {
+// network: Network
+pub fn play_games() -> Vec<DataPoint> {
 	let mut data_points = vec![];
 	let mut games_completed = 0;
 	let mut concurrent_games = 0;
 
 	let (sender, receiver) = mpsc::channel();
 
-	while games_completed < config::GAMES_PER_MATCH {
+	while games_completed < config::GAMES {
 		while concurrent_games < config::CONCURRENT_GAMES
-		&& games_completed + concurrent_games < config::GAMES_PER_MATCH {
+		&& games_completed + concurrent_games < config::GAMES {
 			concurrent_games += 1;
 
-			let _network = network.clone();
+			// let _network = network.clone();
 			let _sender = sender.clone();
 			thread::spawn(move || {
-				let data_points = play_game(_network);
+				let data_points = play_game(); // _network
 				_sender.send(data_points).expect("Failed to send data points from thread");
 			});
 		}
 
-		print!("Playing self-play games... {}/{}\r", games_completed, config::GAMES_PER_MATCH);
+		print!("Playing self-play games... {}/{}\r", games_completed, config::GAMES);
 		stdout().flush().expect("Failed to flush stdout");
 
 		if let Ok(mut _data_points) = receiver.recv() {
@@ -43,12 +44,13 @@ pub fn play_games(network: Network) -> Vec<DataPoint> {
 		}
 	}
 
-	println!("Completed self-play games. {x}/{x}\n", x = config::GAMES_PER_MATCH);
+	println!("Completed {} self-play games.              \n", config::GAMES);
 
 	data_points
 }
 
-fn play_game(network: Network) -> Vec<DataPoint> {
+// network: Network
+fn play_game() -> Vec<DataPoint> {
 	let mut data_points = vec![];
 
 	let opening_book =
@@ -64,11 +66,16 @@ fn play_game(network: Network) -> Vec<DataPoint> {
 	let mut rng = thread_rng();
 	let mut board = Board::from_fen(
 		&opening_fen,
+
+		vec![],
+		vec![],
+		vec![],
+		vec![],
 		
-		network.hidden_layer.weights.data,
-		network.hidden_layer.biases.data,
-		network.output_layer.weights.data,
-		network.output_layer.biases.data,
+		// network.hidden_layer.weights.data,
+		// network.hidden_layer.biases.data,
+		// network.output_layer.weights.data,
+		// network.output_layer.biases.data,
 	);
 	let mut bot = Bot::new(BotConfig {
 		fen: opening_fen.to_string(),

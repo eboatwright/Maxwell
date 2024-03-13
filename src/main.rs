@@ -24,7 +24,6 @@ mod nnue;
 mod nnue_weights;
 mod nnue_trainer;
 
-use crate::nnue_weights::*;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
@@ -41,7 +40,11 @@ use std::io;
 use std::time::Instant;
 // use colored::Colorize;
 // use crate::log::Log;
-use crate::nnue_trainer::nnue_trainer::nnue_train;
+use crate::nnue_weights::*;
+use crate::nnue_trainer::{
+	nnue_trainer::nnue_train,
+	generate_training_data::generate_training_data,
+};
 
 pub const STARTING_FEN:       &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const KIWIPETE:           &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
@@ -285,6 +288,10 @@ fn main() {
 
 			"fen" => {
 				println!("{}", board.calculate_fen());
+			}
+
+			"generatetrainingdata" => {
+				generate_training_data();
 			}
 
 			"nnuetrain" => {
